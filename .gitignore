@@ -1,0 +1,27 @@
+# Yerel sırlar ve kişisel veriler
+.env
+.env.*
+!.env.example
+secrets/
+private/
+local-data/
+*.key
+*.pem
+
+# Python ortamı ve önbellekler
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Üretilen dosyalar ve bağımlılıklar
+build/
+dist/
+node_modules/
+.pio/
+managed_components/
+sdkconfig.old
+*.log
+
+# Bunlar gizlilik incelemesinin yerine geçmez.

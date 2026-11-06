@@ -1,0 +1,2635 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-11-05",
+  "scope": "İlgili eski donanım belgeleri ve pin kaynaklarının incelemesi; tüm cihazların fiziksel keşfi değildir. Canlı erişim yok.",
+  "evidenceLabels": {
+    "source": "Kaynak kodda tanımlı",
+    "reported": "Kullanıcı bildirimi / belge",
+    "physical": "Tarihsel fiziksel gözlem kaydı",
+    "unknown": "Bilinmiyor",
+    "conflict": "Çelişki / tarihsel fark"
+  },
+  "sources": {
+    "hub": {
+      "path": "HUB_HARDWARE.md",
+      "start": 3,
+      "end": 34,
+      "sha256": "38381644b6c014fa8d4647186f02881277961fa4139805cea945b8cc95d9b57e",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "26 Ekim 2026 kaynak pin planı; cihaz yayını ayrıca doğrulanmalıdır. Hub\nESP32-S3 N16R8. Kullanıcının son düzeltmesine göre iki pin sırası da erişilebilir;\nGPIO4 ve GPIO5 kullanılamıyor. GPIO2 daha önce kullanılamaz kaydedilmişti; kullanıcı27 Ekim’de boşta olduğunu söyleyerek amfi SD için bu pini seçti. Elektriksel sağlamlığı henüz doğrulanmadı. Ses saati bu nedenle GPIO13 olarak seçildi. Önceki GPIO4 kullanılabilir kaydı bu yeni bildirimle geçersizdir. Bu belge fiziksel ölçüm değildir.\n\nKarta özel besleme kısıtı: kullanıcı 26 Ekim 2026 tarihinde Hub kartının\n5V pininden çıkış alınamadığını bildirdi. Bu pin haricî modüller için 5V\nbesleme kaynağı olarak kullanılmaz. Bu bir kullanıcı bildirimidir; burada\nelektriksel ölçüm veya arıza nedeni doğrulanmadı. MAX98357 için daha önce\nönerilen Hub 5V bağlantısı bu karta uygulanmaz; besleme planı ayrıca belirlenir.\n\n## Bağlantı\n\n| Modül | Uç | Hub bağlantısı |\n|---|---|---|\n| ST7789V3, 1,69 inç, 240x280 | VCC ve BLK | 3V3, sürekli açık arka ışık |\n| Ekran | GND | GND |\n| Ekran | CS / DC / RES | GPIO10 / GPIO15 / GPIO7 |\n| Ekran | SDA(MOSI) / SCL(SCLK) | GPIO11 / GPIO12, SPI |\n| GY-521 MPU6050 | VCC / GND / AD0 | 3V3 / GND / GND |\n| GY-521 | SDA / SCL | GPIO16 / GPIO8, I2C controller0; eski firmware41/42 kullanıyordu |\n| GY-521 | XDA / XCL / INT | Bağlantısız; veriler periyodik okunur |\n| IR yansımalı yakınlık sensörü | VCC / GND / OUT | 3V3 / GND / GPIO18; LOW etkin kaynak profili |\n| INMP441 | VDD / GND / L/R | 3V3 / GND / GND (sol kanal) |\n| INMP441 | SCK / WS / SD | GPIO13 / GPIO6 / GPIO9 |\n| MAX98357A (kart varyantı doğrulanmadı) | BCLK / LRC / DIN | GPIO13 / GPIO6 / GPIO17 |\n| MAX98357 | SD | VIN ile aynı3V3 hattı; kullanıcı seçimi, sürekli açık; GPIO2 artık bağlı değil |\n| MAX98357 | VIN / GND | 3V3 (kullanıcı bildirimi, 26 Ekim) / ortak GND; Hub 5V pini kullanılmaz |\n| 8Ω 1,5W hoparlör | İki uç | Amfi SPK+ / SPK−; hoparlör ucu GND'ye bağlanmaz |\n\nIR kartı kullanıcı tarafından PIR yerine bağlandı; son net fotoğraftaki modelFC-51.\nBu kartın IR LED/alıcı çifti yansımayı algılar; VCC/GND/OUT bağlantısı kumanda kodu\ngöndermek için verici kontrol girişi sağlamaz. Kaynak GPIO18, LOW etkin ve pull-up,\n",
+        "sha256": "7206a57f8f5df7cb84d91cfb4128fdd0d1c743d9a27eddc893873dd12629833a",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "limits": {
+      "path": "HUB_HARDWARE.md",
+      "start": 62,
+      "end": 75,
+      "sha256": "38381644b6c014fa8d4647186f02881277961fa4139805cea945b8cc95d9b57e",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "Pin numaraları GPIO numarasıdır. Ekrandaki SDA/SCL, I2C değildir. Breadboard\nvoltaj dönüştürmez veya GPIO sayısını artırmaz. Mikrofon/amfi için bu kaynak adayında sürücü ve süreli tanılama API'si hazırlanmıştır; bağlı veya fiziksel olarak çalışır kabul edilmez. Ortak GND dışında 3V3 ve5V hatları ayrıdır.\n\nKanonik kaynak `firmware-idf/src/hub/HardwareProfile.h`. Hub donanım, ses ve kullanılamayan\npinleri dinamik röle/sensör atamasına kapalıdır. Kamera çevresel I2C GPIO1/2\nolarak kalır; kamera SCCB controller1 kullanır. Hub GPIO41/42 artık bu kaynak\nprofilinde boş; Kamera2 radar GPIO39/40 kullanımı haricî JTAG ile çakışır.\n\nTam güç kesme için GPIO3/46 veya başka GPIO birbirine bağlanmaz. Kullanıcının\nistediği kapalı durumda elektriğin tamamen kesilmesidir; kalıcı iki uçlu anahtar\nUSB beslemesinin +5V hattına, karta gelmeden önce seri bağlanır. GND ve USB veri\nhatları devam eder. USB zaten takılıyken yalnız kartın5V başlığına anahtar\neklemek USB yolunu kesmez. Bu güç anahtarı firmware ile kontrol edilmez.\n\n",
+        "sha256": "37cf3681b4124e5a1fae63ec9cd6833c435f810a30a2b4bfe7e8308fc27dc925",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "audio": {
+      "path": "HUB_HARDWARE.md",
+      "start": 190,
+      "end": 218,
+      "sha256": "38381644b6c014fa8d4647186f02881277961fa4139805cea945b8cc95d9b57e",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "## Güncel ses bağlantısı ve seviye —0.3.39\n\n2 Kasım kullanıcı kontrolü: SD, güç kesilerek VIN’den GND’ye taşınınca sürekli\ncızırtı kesildi; şimdilik SD→GND ile geçici manuel mute var. Aşağıdaki VIN\nprofili kaynakta beklenen eski bağlantıdır, güncel fiziksel bağlantı ölçümü değildir.\nBoşta BCLK/WS/DIN LOW düzeltmesi derlendi fakat yayımlanmadı; sesin düzeldiği\nkanıtlanmadı. Saat durdurma öncesi SD shutdown gereksinimi ve açık sınırlar:\n`ai/data/hub-integration/idle-clocks-candidate.json`.\n\n\n0.3.39 / armut-native-hub-17 OTA sonrası eşleşen ELF ve sağlıklı yeni açılış\ndoğrulandı; kanıt `ai/data/hub-integration/ota-complete-039.json`.\n\nKullanıcı SD→VIN/3V3 bağlantısıyla hoparlörden anlamlı fakat kısık ses duyduğunu\nbildirdi. Bu nedenle kaynakta SD GPIO kontrolü kaldırıldı (`audioSd=-1`); GPIO2\nsürülmez ve eski kullanılamaz/sağlamlığı doğrulanmadı kaydı nedeniyle genel atamaya\nkapalı kalır. Amfi fiziksel olarak sürekli açıktır; `amplifier_active=null` ve\n`amplifier_control_mode=vin_tied` bunun yazılımdan ölçülmediğini belirtir. Ses\nanahtarının kapanması I2S işini durdurur, sabit VIN beslemesini kesmez. Önceki\nGPIO14/2 kontrol denemeleri güncel kablolama sayılmaz; kanıtları kendi dosyalarında.\n\nÖnceki1/16 çıkış yerine varsayılan%25, panelden0–50% arası ayarlanabilir dijital\nseviye kullanılır. Ayar RAM'dedir ve iş başında sabitlenir; çalışan iş sırasında\nseviye değişimi reddedilir. Ölçülmüş Watt veya akustik güç garantisi değildir.\n\nGerçek kayıtta seçili sol slot neredeyse sıfır, sağ slot sürekli veri döndürdü.\nBu kart için kayıt varsayılanı sağ DMA slotudur; `record.channel=left/right` açık\nseçimi korunur. L/R bağlantısının elektriksel durumu bu çıkarımla yeniden ölçülmüş\nsayılmaz. Kaydın sabit seviye kayması tek kutuplu DC engelleyiciyle giderilir;\n",
+        "sha256": "4d01c289bdb17f9cb30eeb133b0d19393aceab6be2f61d3b887e134d93389c19",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "physical": {
+      "path": "HUB_HARDWARE.md",
+      "start": 244,
+      "end": 268,
+      "sha256": "38381644b6c014fa8d4647186f02881277961fa4139805cea945b8cc95d9b57e",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "`POST /api/audio` için `action=loopback` aynı süreli işçide I2S TX/RX'i GPIO17\nüzerinden dahilen karşılaştırır; mikrofon GPIO9'dan veri okunduğu veya amfinin ses\nürettiği anlamına gelmez. Kaynaklar aynı iş/iptal/OTA sınırını kullanır.0.3.36 canlı\nölçümünde2048 örnek eşleşti (`i2s-loopback-036.json`); ardından gerçek mikrofon\nkaydının iki slotu da sıfır kaldı (`physical-mic-after-loopback-036.json`). Bu,\nmodül/haricî sinyal yolu incelemesini gerektirir; arızalı parça teşhisi değildir.\nKullanıcı mavi ayar vidasını ayarladıktan sonra IR ve el hareketiyle ekran\ngeçişinin çalıştığını bildirdi; bu kullanıcı gözlemidir. Başlangıçtaki tiz\nses kullanıcı bildirimi, doğru kumandalı ses çıkışı kanıtı değildir.\n\nMevcut Hub bearer yetkisi korunur. Firmware yazımı başladığında ses işi iptal edilir;\nistemde zaman aşımı belirsiz işi yeniden başlatma gerekçesi değildir. Tanılama aracı\n`tools/hub_audio.py`: önce `enable`, ardından `tone`, `record --file <yeni.wav>` veya\n`play --file <mono16k.wav>`; `status`, `stop --job-id <id>`, `disable` desteklenir.\nAraç her işlemden önce Hub rolünü/ses API'sini okur; kendiliğinden yükleme yapmaz.\n\nHoparlör1,5W olduğundan çıkış sabit1/16 dijital ölçekle sınırlandırılır; bu fiziksel\nWatt ölçümü veya kart kazancı doğrulaması değildir. MAX98357A/B format farkı ve kartın\nSD/GAIN varsayılanı gerçek kart üzerinden kontrol edilecek. Hub5V pini besleme kaynağı\ndeğildir. Kullanıcı amfi VIN ucunun3V3’e bağlı olduğunu bildirdi; bu ölçüm kanıtı\ndeğildir. İlk ses denemesinde ton işi ESP_OK ile bitti; kullanıcı ses duymadığını bildirdi.\n5s mikrofon kaydı tamamen sıfır örnek döndürdü; kullanıcı VDD3V3/GND/SCK13/WS6/SD9/L-R GND\nbağlantılarının doğru olduğunu bildirdi. Kullanıcı iki kartın VCC/VIN–GND uçlarında3,3V ölçtüğünü, amfi SD ucunu3V3’e\nbağladıktan sonra da ses duymadığını bildirdi. 1,5s/1kHz WAV denemesi aynı1/16 çıkış sınırında\nESP_OK ile tamamlandı; duyulma sonucu bekleniyor. Kanıt `ai/data/hub-integration/tone-test.json` ve `microphone-test.json`. Yeni0.3.35 kayıt tanısı sol/sağ ham32-bit slotları ayrı ölçer;\n",
+        "sha256": "0d65beaf30892f3c3b588dc4bb7fb99729a7a7663bfe06a88f9393de14956968",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "hp": {
+      "path": "firmware-idf/src/hub/HardwareProfile.h",
+      "start": 1,
+      "end": 17,
+      "sha256": "fafbb816256afd88b0fc3e766a249c2c1cbc552b302652c086628bc4b66ff385",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "#pragma once\n// User wiring, 27 October 2026. GPIO2/4/5 remain unavailable or unverified. Amplifier SD is tied to VIN (3V3).\nnamespace armut::hub {\ninline constexpr int lcdCs = 10, lcdDc = 15, lcdReset = 7;\ninline constexpr int lcdMosi = 11, lcdClock = 12;\ninline constexpr int lcdWidth = 240, lcdHeight = 280, lcdRowOffset = 20;\ninline constexpr int imuSda = 16, imuScl = 8;\ninline constexpr int pirPin = 18; // Legacy API name; this Hub now has reflective IR.\ninline constexpr bool proximityInput = true;\ninline constexpr int audioBclk=13, audioWs=6, audioDin=9, audioDout=17, audioSd=-1; // No GPIO shutdown control with SD tied to VIN.\ninline constexpr bool audioCaptureRight=true; // Active DMA slot measured on this board.\ninline constexpr bool reservedPin(int pin) {\n  return pin == 2 || pin == 4 || pin == 5 || pin == lcdCs || pin == lcdDc ||\n         pin == lcdReset || pin == lcdMosi || pin == lcdClock ||\n         pin == imuSda || pin == imuScl || pin == pirPin ||\n         pin == audioBclk || pin == audioWs || pin == audioDin || pin == audioDout || pin == audioSd;\n}\n",
+        "sha256": "6e1d0b71a57eaea72775bc1f87bb3e78346f9c99dba6ed60550f6dba4707ad95",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "old-display": {
+      "path": "armut-hub/include/DisplayConfig.h",
+      "start": 1,
+      "end": 4,
+      "sha256": "87bbb25afc116e26c4c729b8177cd9222d8998e28f6f9b36c6344d49f2fac8b1",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "#pragma once\n// User wiring: SDA GPIO1, SCL GPIO2. SH1106 driver visually confirmed.\nconstexpr int DISPLAY_SDA=1,DISPLAY_SCL=2;\nconstexpr int DISPLAY_WIDTH=128,DISPLAY_HEIGHT=64;\n",
+        "sha256": "574788140f1e0eac219c1c690e83430b15cee55c4c116906b0b03cd52090f0f8",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "board": {
+      "path": "armut-node/include/BoardConfig.h",
+      "start": 1,
+      "end": 35,
+      "sha256": "1af7658461041251ebfc7c0426f8214bfc5522e8473bfa8aaff3a856692e81a4",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "#pragma once\nconstexpr int LED_PIN=-1;\nconstexpr bool LED_ACTIVE_LOW=false;\n#ifndef ARMUT_CAMERA_NUMBER\n#define ARMUT_CAMERA_NUMBER 1\n#endif\n#ifndef ARMUT_CAMERA_SERVO_INSTALLED\n#define ARMUT_CAMERA_SERVO_INSTALLED (ARMUT_CAMERA_NUMBER == 1)\n#endif\n#ifndef ARMUT_CAMERA_IMU_INSTALLED\n#define ARMUT_CAMERA_IMU_INSTALLED 1\n#endif\n#if ARMUT_CAMERA_NUMBER == 1 && !defined(ARMUT_WIFI_TX_POWER)\n// This OEM camera-01 recovered stable transfers in the 11 dBm A/B test.\n// Keep the cap device-specific; camera-02 has not been validated with it.\n#define ARMUT_WIFI_TX_POWER 44\n#endif\n#if ARMUT_CAMERA_NUMBER == 2\nconstexpr const char* DEVICE_ID=\"camera-02\";\nconstexpr const char* DEVICE_NAME=\"Ev Kamerası 2\";\nconstexpr const char* DEVICE_HOSTNAME=\"armut-camera-02\";\n#else\nconstexpr const char* DEVICE_ID=\"camera-01\";\nconstexpr const char* DEVICE_NAME=\"Ev Kamerası\";\nconstexpr const char* DEVICE_HOSTNAME=\"armut-camera-01\";\n#endif\nconstexpr const char* HUB_URL=\"http://armut.local\";\n// GOOUUU ESP32-S3-CAM / ESP32S3_EYE camera connector mapping.\nconstexpr int CAM_D0=11,CAM_D1=9,CAM_D2=8,CAM_D3=10;\nconstexpr int CAM_D4=12,CAM_D5=18,CAM_D6=17,CAM_D7=16;\nconstexpr int CAM_XCLK=15,CAM_SDA=4,CAM_SCL=5;\nconstexpr int CAM_VSYNC=6,CAM_HREF=7,CAM_PCLK=13;\nconstexpr int CAM_PWDN=-1,CAM_RESET=-1;\n\n// Separate I2C controller; camera SCCB remains on GPIO 4/5.\n",
+        "sha256": "1e876eeaa3678b4a605caae307ca13f958c174e43f60fdbfbbc4a4c4c9cf79da",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "build": {
+      "path": "firmware-idf/src/CMakeLists.txt",
+      "start": 19,
+      "end": 29,
+      "sha256": "a0928f9cc64a8fc866bfe4f8c88e4c758d3ca5e2d10ed7b5b2134b893afd3c49",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "if(ARMUT_ROLE STREQUAL \"hub\")\n    target_compile_definitions(${COMPONENT_LIB} PUBLIC ARMUT_HUB=1)\nelseif(ARMUT_ROLE STREQUAL \"camera-01\")\n    # Camera 1 currently has only the OV3660. Keep optional drivers in source.\n    target_compile_definitions(${COMPONENT_LIB} PUBLIC ARMUT_CAMERA_NUMBER=1\n        ARMUT_CAMERA_SERVO_INSTALLED=0 ARMUT_CAMERA_IMU_INSTALLED=0\n        ARMUT_CAMERA_XCLK_HZ=15000000 ARMUT_CAMERA_JPEG_BUFFER_BYTES=196608)\nelseif(ARMUT_ROLE STREQUAL \"camera-02\")\n    target_compile_definitions(${COMPONENT_LIB} PUBLIC ARMUT_CAMERA_NUMBER=2)\nelse()\n    message(FATAL_ERROR \"Unknown ARMUT_ROLE; use hub, camera-01 or camera-02\")\n",
+        "sha256": "55d7063e00cd16eb1a84a133ac420ee60cf0d359cce543fe724e3f067fdd3512",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "servo": {
+      "path": "firmware-idf/src/camera/ServoBridge.cpp",
+      "start": 20,
+      "end": 41,
+      "sha256": "e89b95153b52c75e31c000570e6d81325f90477c61e20334c543ac19e9cc34a9",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "uint32_t lastMotionAt = 0;\nbool motionObserved = false;\nuint8_t phase = 0, selectedAxis = 0;\nbool remainingPan = false;\nconstexpr uint32_t GAP_MS = 80, DRIVE_MS = 500;\nconstexpr uint32_t RAMP_STEP_MS = 20, SETTLE_MS = 150;\nconstexpr int PAN_PIN = 14, TILT_PIN = 21;\nbool timerReady = false;\nesp_err_t pwmError = ESP_OK;\nuint32_t panPulse = 0, tiltPulse = 0;\n// Independent motor PWM peripheral; camera XCLK keeps its LEDC resources.\narmut::ServoPwm pwm;\nbool writeAngles() {\n  if (!attached) {\n    pwmError = pwm.begin(PAN_PIN, TILT_PIN);\n    if (pwmError != ESP_OK)\n      return false;\n    timerReady = true;\n    attached = true;\n  }\n  panPulse = panActive ? 1000 + currentPan * 1000 / 180 : 0;\n  tiltPulse = tiltActive ? 1000 + currentTilt * 1000 / 180 : 0;\n",
+        "sha256": "9515a5be884ddf6564b14f4ae3a55e402cb03111b86b2fbd50a33ab99227e83a",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "servo-history": {
+      "path": "CAMERA_SERVO.md",
+      "start": 5,
+      "end": 16,
+      "sha256": "861b601708f0df3ee7d50494226a478d979fada1ea9f5081a60f4f40ff021fb6",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "## İlk camera-01 / Uno R3 / iki SG90 denemesi\n\n14 Ekim 2026. Kaynak checkpoint: 1791927183426547000.\n\nUno alıcısı COM10 üzerinde ATmega328P imzasıyla yüklendi; 3006 bayt\ngeri okuma doğrulandı. Kamera GPIO14 → Uno D2 (sağ-sol), GPIO21 → D3\n(aşağı-yukarı); Uno D9/D10 servo sinyalleri. GND ortak, ayrı adaptörlerin\npozitif hatları ayrı kalır. Servo besleme kapasitesi fiziksel olarak doğrulanmadı.\n\nKamera-01 firmware0.3.9 servo köprüsü: kamera LEDC timer0/channel0 kullanır;\nservo köprüsü timer1/channel2/3, 50Hz ve 1000–2000us darbe kullanır.\nGPIO14/21 başka profil için ayrılmaz. Camera-02 köprüyü başlatmaz.\n",
+        "sha256": "20ba2e7b9a733b62b57b8e690df8c773d5df5e67a854a7158bac37c2971040a9",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "boot": {
+      "path": "CAMERA_SERVO.md",
+      "start": 55,
+      "end": 67,
+      "sha256": "861b601708f0df3ee7d50494226a478d979fada1ea9f5081a60f4f40ff021fb6",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "gerekiyor; o anda PC'de yalnız COM1 vardı. Hareket komutu gönderilmedi.\n\nUSB bağlantısı daha sonra COM8 CH343 olarak kararlı bulundu. ESP32-S3 /\nOV3660 açılışı okundu. PlatformIO default seri yüklemesi başarılı ve flash\nhash doğrulaması geçti. Sonraki açılışta camera-01 firmware0.3.9, boot_id\n7e25e5fa, ELF fb4947fb32223c71b7764eacfec0bfa3f1aa4c09f345764292e95498b41d4bf2\nderlemeyle eşleşti; healthy=true, pending=false, stable_ms38090 ve yeni JPEG\n(8850bayt) doğrulandı. Servo bileşeni enabled=false/scanning=false.\nDoğrulanmış firmware yedeği1791928562478990600. Seri kayıtta HUB_SYNC200\nyanında aralıklı-11 görüldü; bağlantı kusursuzluğu iddia edilmez. Mekanik test\nve motor beslemesi hâlâ doğrulanmadı. Kamera output izni confirm kaldı.\n\n## PWM düzeltmesi / izin penceresi\n",
+        "sha256": "54e580dbe6b6ca7fc71d108f925e78b6e589ba983abd84ea3c08c5523786774f",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "uno": {
+      "path": "firmware-templates/uno-camera-servos/README.md",
+      "start": 9,
+      "end": 29,
+      "sha256": "f4c291e0cabbcf0910624bfb516e0e61019452a6e315a610a0ada1822740afd3",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "aşağı-yukarı GPIO21 olarak tanımlıdır. Mevcut ek bileşenlerin bu pinleri\nkullanmadığı ve kart üzerinde erişilebilir oldukları bağlantı öncesi doğrulanmalıdır.\n\n| Kaynak | Hedef |\n| --- | --- |\n| ESP32 GPIO14 (sağ-sol PWM) | Uno D2 |\n| ESP32 GPIO21 (aşağı-yukarı PWM) | Uno D3 |\n| Uno D9 | Sağ-sol SG90 sinyal |\n| Uno D10 | Aşağı-yukarı SG90 sinyal |\n| ESP32 GND | Uno GND ve servo besleme GND |\n\nUno girişleri INPUT; 5 V pull-up yoktur. Uno'dan ESP32 GPIO'suna 5 V\nsinyal bağlanmaz. İki USB adaptörünün pozitif hatları birleştirilmez.\nServo güç akımının Uno 5 V pini/USB yolundan karşılanabileceği doğrulanmadı.\nMotor beslemesi uygun ayrı güç kolundan alınmalıdır; ESP32 3v3 kullanılmaz.\n\n## Protokol ve davranış\n\nESP32 her eksende 50 Hz, 1000–2000 mikrosaniye yüksek darbe üretmelidir.\n1500 mikrosaniye 90 derecedir. Üç geçerli örnek gelmeden servo\nçıkışı açılmaz. Başlangıçta hareket veya otomatik tarama yoktur.\n",
+        "sha256": "d59a220869d818bbdba1bdff2e76724c6ffa67935912610bae5b281a816ea80c",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "rp": {
+      "path": "firmware-idf/src/common/RadarProfile.h",
+      "start": 1,
+      "end": 13,
+      "sha256": "86a7d5980bfdf0cf42bf49c91b8f021bf3c9680128f29cc8d888723950aa3281",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "#pragma once\nnamespace armut::radar {\n// Selected by the user for camera-02, 25 October 2026. Camera data uses\n// GPIO16/17/18; never reuse the former Hub UART17/18 on a camera board.\n#if !defined(ARMUT_HUB) && !defined(ARMUT_STATION) && defined(ARMUT_CAMERA_NUMBER) && ARMUT_CAMERA_NUMBER == 2\ninline constexpr bool enabled=true;\ninline constexpr int rx=40, tx=39;\n#else\ninline constexpr bool enabled=false;\ninline constexpr int rx=-1, tx=-1;\n#endif\ninline constexpr bool reservedPin(int pin) { return enabled && (pin==rx || pin==tx); }\n} // namespace armut::radar\n",
+        "sha256": "86a7d5980bfdf0cf42bf49c91b8f021bf3c9680128f29cc8d888723950aa3281",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "radar": {
+      "path": "firmware-idf/src/common/Radar.cpp",
+      "start": 109,
+      "end": 125,
+      "sha256": "3b3a91c3246b61b0d4a30f9b52068868c87f00d4680b3d031ea165a34eb40227",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "  return true;\n}\nvoid radarSystemJson(JsonObject system) {\n  if constexpr (!armut::radar::enabled) return;\n  armut::StateLock lock;\n  radarJson(system[\"radar\"].to<JsonObject>());\n  auto components=system[\"components\"].is<JsonArray>() ? system[\"components\"].as<JsonArray>()\n                                                     : system[\"components\"].to<JsonArray>();\n  auto c=components.add<JsonObject>();\n  c[\"id\"]=\"presence-radar\"; c[\"name\"]=\"Varlık sensörü\";\n  c[\"owner_device_id\"]=\"camera-02\"; c[\"builtin\"]=true; c[\"configured\"]=true;\n  c[\"presence_source\"]=\"board_profile\"; c[\"interface\"]=\"UART\"; c[\"baud_rate\"]=256000;\n  c[\"type\"]=\"digital_input\"; c[\"kind\"]=\"ld2410c\"; c[\"model\"]=\"HLK-LD2410C\";\n  c[\"online\"]=system[\"radar\"][\"online\"]; c[\"value\"]=system[\"radar\"][\"presence\"];\n  c[\"gpio\"]=armut::radar::rx; c[\"rx\"]=armut::radar::rx; c[\"tx\"]=armut::radar::tx;\n  c[\"presence\"]=system[\"radar\"][\"presence\"];\n}\n",
+        "sha256": "c0323c5a72d2b88a738f4130025ffd3805943260b99db236c5abd96662a974d0",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "imu": {
+      "path": "firmware-idf/src/common/Imu.cpp",
+      "start": 1,
+      "end": 16,
+      "sha256": "aaf04e6e9305deff6851f139b2593b653c378d484adefbc2752276a883304ea0",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "#include \"Imu.h\"\n#ifdef ARMUT_HUB\n#include \"hub/HardwareProfile.h\"\n#endif\nnamespace {\n#ifdef ARMUT_HUB\nconstexpr int imuSda=armut::hub::imuSda, imuScl=armut::hub::imuScl;\n#else\nconstexpr int imuSda=1, imuScl=2;\n#endif\n}\n#include \"driver/gpio.h\"\n#include \"native/HttpServer.h\"\n#include \"native/I2cBus.h\"\nstatic ImuReading data;\nstatic bool detectedOnce = false;\n",
+        "sha256": "3374823a2861d414ac29b3513749707bc4e3783ea8b6273f9675be4ecad3dd10",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "outputs": {
+      "path": "OUTPUT_NODES.md",
+      "start": 1,
+      "end": 9,
+      "sha256": "b67618e35b92415ac41ddae5f67e886a27dc09125243a21b15a611729b815621",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "# Aç/kapat cihazları\n\nCihazlar menüsü kamera, hareket sensörü ve tek kanallı MOSFET çıkışlarını birlikte listeler. Bir cihaz birden fazla özelliğe sahip olabilir.\n\nYeni düğüm, mevcut kimlik doğrulamalı `/api/node/sync` protokolünü kullanır. `capabilities: [\"switch\"]`, `state: {\"output\": false}`, `configured: true` bildirir. Sürüm 1 ve mevcut ack/command-id davranışı korunur. Hub, komutta `output` alanını ve eski `led` alanını birlikte gönderir; düğüm çıkışı uyguladıktan sonra komut kimliğini ack olarak döndürür. Panelin mevcut komut gövdesi `{ \"led\": true }` uyumluluk için korunur.\n\nDonanım eklenince MOSFET gate GPIO, yük, açılışta kapalı durumu ve yeniden bağlantı davranışı belirlenerek düğüm firmware'i hazırlanacak. Henüz GPIO atanmadı ve MOSFET donanımında test yapılmadı.\n\nTelefon uygulamasının mevcut köprüsü cihaz okumasını destekler; çıkış komutlarının telefon köprüsü/server üzerinden taşınması ayrıca tamamlanmalıdır. Bu aşamada çıkış komut yolu Hub web panelidir.\n",
+        "sha256": "217a5d0861d739202d848c81a61e16a1f7c8b9bfb828a3ba9ef358510a7a447a",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "metadata": {
+      "path": "firmware-idf/src/camera/SystemStatus.cpp",
+      "start": 30,
+      "end": 65,
+      "sha256": "deefb21553d99cd8ce7376c4f293c501efe058f73da11a6baf315dae360b9d9b",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "  o[\"role\"] = FIRMWARE_ROLE;\n  o[\"build\"] = __DATE__ \" \" __TIME__;\n  o[\"framework\"] = \"esp-idf\";\n  o[\"sdk_version\"] = esp_get_idf_version();\n  hardwareJson(o);\n  auto camera=o[\"components\"].as<JsonArray>().add<JsonObject>();\n  camera[\"id\"]=\"camera-sensor\"; camera[\"type\"]=\"camera\"; camera[\"name\"]=\"Kamera\";\n  const auto pid=o[\"camera_stream\"][\"sensor_pid\"].as<unsigned>();\n  camera[\"model\"]=pid==OV3660_PID ? \"OV3660\" : pid==OV2640_PID ? \"OV2640\" : \"Camera sensor\";\n  camera[\"owner_device_id\"]=DEVICE_ID; camera[\"builtin\"]=true; camera[\"configured\"]=true;\n  camera[\"presence_source\"]=pid ? \"driver_identity\" : \"board_profile\";\n  camera[\"online\"]=cameraReady(); camera[\"interface\"]=\"DVP / SCCB\";\n  auto pins=camera[\"pins\"].to<JsonObject>();\n  pins[\"d0\"]=CAM_D0; pins[\"d1\"]=CAM_D1; pins[\"d2\"]=CAM_D2; pins[\"d3\"]=CAM_D3;\n  pins[\"d4\"]=CAM_D4; pins[\"d5\"]=CAM_D5; pins[\"d6\"]=CAM_D6; pins[\"d7\"]=CAM_D7;\n  pins[\"xclk\"]=CAM_XCLK; pins[\"sda\"]=CAM_SDA; pins[\"scl\"]=CAM_SCL;\n  pins[\"vsync\"]=CAM_VSYNC; pins[\"href\"]=CAM_HREF; pins[\"pclk\"]=CAM_PCLK;\n  pins[\"pwdn\"]=CAM_PWDN; pins[\"reset\"]=CAM_RESET;\n  o[\"model\"]=\"ESP32-S3\";\n  servoBridgeJson(o);\n  o[\"ip\"] = armut::localAddress();\n  o[\"hostname\"] = armut::hostname();\n  o[\"uptime_seconds\"] = armut::uptimeMs() / 1000;\n  imuJson(o[\"imu\"].to<JsonObject>());\n  radarSystemJson(o);\n  faceJson(o[\"face\"].to<JsonObject>());\n  if (ARMUT_CAMERA_IMU_INSTALLED && imuReading().identity == 0x68) {\n    auto c = o[\"components\"].as<JsonArray>().add<JsonObject>();\n    c[\"id\"]=\"camera-imu\"; c[\"builtin\"]=true; c[\"configured\"]=true;\n    c[\"owner_device_id\"]=DEVICE_ID; c[\"presence_source\"]=\"driver_identity\"; c[\"interface\"]=\"I2C\";\n    c[\"type\"] = \"imu\";\n    c[\"model\"] = \"MPU6050\";\n    c[\"online\"] = o[\"imu\"][\"online\"];\n    c[\"sda\"] = 1;\n    c[\"scl\"] = 2;\n    c[\"address\"] = imuReading().address;\n",
+        "sha256": "9b15a1dea9650344080d1a1ec9d4bad9bfe53e0ed6e34cb9e1d3a9e2f63149aa",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "policy": {
+      "path": "firmware-idf/src/common/Hardware.cpp",
+      "start": 43,
+      "end": 64,
+      "sha256": "521a0cb9f72ed72211e5660ae5756adc2d33c3572bd2eb0c876183dbcbbc9c6a",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "#endif\n  if (p == reservedPin)\n    return false;\n#if !defined(ARMUT_HUB) && !defined(ARMUT_STATION)\n  if (cameraBoard && ARMUT_CAMERA_SERVO_INSTALLED && ARMUT_CAMERA_NUMBER == 1 && (p == 14 || p == 21))\n    return false;\n#endif\n  if (cameraBoard)\n    return p == 14 || p == 21 || (p >= 38 && p <= 42) || p == 47 || p == 48;\n  return (p >= 4 && p <= 18) || p == 21 || (p >= 38 && p <= 42) || p == 47 ||\n         p == 48;\n}\nbool output(const Part &p) {\n  return p.kind == \"relay\" || p.kind == \"mosfet\" || p.kind == \"led\";\n}\nbool sensor(const Part &p) {\n  return p.kind == \"dht11\" || p.kind == \"dht22\" || p.kind == \"ds18b20\" ||\n         p.kind == \"analog\";\n}\nvoid attach(Part &p) {\n  p.attachAttemptAt = armut::uptimeMs();\n  p.driverReady = false;\n",
+        "sha256": "f42b12fa72a1c6d3f6d0404e154af2197e349809a605ed19ca22333014126dd4",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    },
+    "direct": {
+      "path": "CAMERA_SERVO.md",
+      "start": 346,
+      "end": 354,
+      "sha256": "861b601708f0df3ee7d50494226a478d979fada1ea9f5081a60f4f40ff021fb6",
+      "project": "ESP_ARMUT_V1.1",
+      "snapshot": {
+        "text": "Güncel düzen/tepki düzeltmesi: kullanıcı Uno sinyal köprüsünü kaldırıp\nGPIO14/21'i doğrudan servo sinyallerine bağladı;20derece hareketin\nsorunsuz olduğunu doğruladı. Önceki Uno kayıtları yeni düzen değildir.\n0.3.17: ilk PWM HTTP komut işleyicisinde hemen başlatılır (loop/Hub\nsenkronizasyonunu ve600ms ilk beklemeyi beklemez). Sürüş500ms, eksen\ndeğişimi arası80ms; sıralı tek motor ve UI20derece adımı korunur.\nDerleme/OTA sağlığı doğrulandı: boot a00439f, ELF\nc0b157337445b22c9589fd57615cbf44f8fc9f1f921b508426c9e553f53eb3db,\nhealthy=true/pending=false. Kurtarma1791946049436661600.\n",
+        "sha256": "d5a663569e81196096a492dad90527a412ec1db902980824f37c35738d9720cc",
+        "reviewedAt": "2026-11-06",
+        "encoding": "utf8-lf"
+      }
+    }
+  },
+  "devices": [
+    {
+      "id": "hub",
+      "name": "Hub",
+      "summary": "ESP32-S3 N16R8 · ekran, IMU, IR ve ses",
+      "claims": [
+        {
+          "subject": "Kart",
+          "kind": "reported",
+          "text": "ESP32-S3 N16R8 olarak belgelenmiş; tam üretici, kart adı ve PCB revizyonu bilinmiyor.",
+          "sources": [
+            "hub"
+          ]
+        },
+        {
+          "subject": "ST7789V3 ekran",
+          "kind": "reported",
+          "text": "1,69 inç 240×280; VCC ve BLK→3V3, GND→GND. CS→10, DC→15, RES→7, SDA/MOSI→11, SCL/SCLK→12 (SPI, I2C değil).",
+          "sources": [
+            "hub"
+          ]
+        },
+        {
+          "subject": "ST7789V3 ekran",
+          "kind": "source",
+          "text": "SPI 10/15/7/11/12; satır ofseti 20. BLK sürekli 3V3, yazılım parlaklık kontrolü yok. Fiziksel okunabilirlik bu oturumda doğrulanmadı.",
+          "sources": [
+            "hp",
+            "hub"
+          ]
+        },
+        {
+          "subject": "Ekran geçmişi",
+          "kind": "conflict",
+          "text": "Eski DisplayConfig.h SH1106 128×64, SDA1/SCL2 ve görsel onay yorumu içeriyor. Güncel Hub profili TFT ST7789V3; eski kayıt güncel fiziksel kurulum değildir.",
+          "sources": [
+            "old-display",
+            "hp"
+          ]
+        },
+        {
+          "subject": "GY-521 / MPU6050",
+          "kind": "reported",
+          "text": "VCC→3V3, GND ve AD0→GND; SDA→16, SCL→8; XDA/XCL/INT bağlantısız. Eski 41/42 kablolaması tarihsel.",
+          "sources": [
+            "hub"
+          ]
+        },
+        {
+          "subject": "GY-521 / MPU6050",
+          "kind": "source",
+          "text": "I2C controller0, SDA16/SCL8. Montaj yönü ve güncel fiziksel bağlantı doğrulanmadı.",
+          "sources": [
+            "hp",
+            "imu"
+          ]
+        },
+        {
+          "subject": "FC-51 IR",
+          "kind": "reported",
+          "text": "Fotoğrafa göre FC-51; VCC→3V3, GND→GND, OUT→18. PIR yerine yansımalı yakınlık sensörü.",
+          "sources": [
+            "hub"
+          ]
+        },
+        {
+          "subject": "FC-51 IR",
+          "kind": "source",
+          "text": "GPIO18, proximityInput=true. LOW etkin; API’deki PIR adı tarihsel uyumluluk için.",
+          "sources": [
+            "hp",
+            "hub"
+          ]
+        },
+        {
+          "subject": "FC-51 IR",
+          "kind": "physical",
+          "text": "Tarihsel kullanıcı gözlemi: mavi ayar vidasından sonra IR ve el hareketiyle ekran geçişi çalışmış. Bu oturumda test edilmedi.",
+          "sources": [
+            "physical"
+          ]
+        },
+        {
+          "subject": "INMP441 mikrofon",
+          "kind": "reported",
+          "text": "VDD→3V3, GND→GND, L/R→GND; SCK→13, WS→6, SD→9. Kullanıcı VDD/GND arasında 3,3V ölçtüğünü bildirmiş.",
+          "sources": [
+            "hub",
+            "physical"
+          ]
+        },
+        {
+          "subject": "INMP441 kanal",
+          "kind": "conflict",
+          "text": "L/R→GND sol kanal bildirimi var; güncel kaynak sağ DMA slotunu seçiyor. Sağ slotta veri görülmüş olması kablonun yeniden ölçüldüğü anlamına gelmez. Konuşma anlaşılabilirliği açık.",
+          "sources": [
+            "hp",
+            "audio"
+          ]
+        },
+        {
+          "subject": "MAX98357 yükseltici",
+          "kind": "reported",
+          "text": "MAX98357A adı geçiyor; A/B varyantı doğrulanmamış. VIN→3V3, GND→ortak GND; BCLK→13, LRC→6, DIN→17. Hub 5V başlığından beslenmez.",
+          "sources": [
+            "hub",
+            "physical"
+          ]
+        },
+        {
+          "subject": "MAX98357 SD",
+          "kind": "conflict",
+          "text": "Kaynak ve eski tablo SD→VIN/3V3, audioSd=-1 diyor. 2 Kasım kullanıcı kaydı SD→GND geçici mute ile cızırtının kesildiğini bildiriyor. İki iddia korunur; son bağlantı bu oturumda görülmedi.",
+          "sources": [
+            "hp",
+            "hub",
+            "audio"
+          ]
+        },
+        {
+          "subject": "8Ω 1,5W hoparlör",
+          "kind": "reported",
+          "text": "İki uç amfi SPK+ ve SPK− çıkışına; hoparlör ucu GND’ye bağlanmaz.",
+          "sources": [
+            "hub"
+          ]
+        },
+        {
+          "subject": "Ses gözlemi",
+          "kind": "physical",
+          "text": "Tarihsel kullanıcı gözlemi: SD→VIN ile anlamlı fakat kısık ses, SD→GND ile cızırtı kesilmiş. Güncel ses çalışırlığı onaylanmadı.",
+          "sources": [
+            "audio"
+          ]
+        },
+        {
+          "subject": "Besleme ve GND",
+          "kind": "reported",
+          "text": "Hub 5V başlığından çıkış alınamadığı bildirilmiş; neden ölçülmemiş. 3V3/5V pozitifleri ayrı, GND ortak. Giriş kaynağı, adaptör akımı ve güç bütçesi bilinmiyor.",
+          "sources": [
+            "hub",
+            "limits"
+          ]
+        },
+        {
+          "subject": "Pin kısıtları",
+          "kind": "source",
+          "text": "GPIO2/4/5 ve ekran/IMU/IR/ses pinleri genel atamaya kapalı. GPIO2 için eski kullanılamaz ve sonraki boşta iddiaları var; sağlamlığı doğrulanmamış. 41/42 kaynakta boş, fiziksel uygunluğu kanıtlanmış değil.",
+          "sources": [
+            "hp",
+            "hub",
+            "limits"
+          ]
+        }
+      ],
+      "presentation": {
+        "facts": [
+          {
+            "label": "Kart",
+            "value": "ESP32-S3 N16R8"
+          },
+          {
+            "label": "Bağlılık",
+            "value": "Belge kayıtları"
+          },
+          {
+            "label": "Canlı durum",
+            "value": "Ölçülmedi"
+          }
+        ],
+        "notice": "Amfi SD bağlantısı farklı kaydedilmiş: kaynakta VIN / 3V3, son kullanıcı bildiriminde GND. Güncel fiziksel bağlantı doğrulanmadı.",
+        "components": [
+          {
+            "name": "Ekran",
+            "description": "ST7789V3 · 1,69 inç · 240 × 280",
+            "claimIndexes": [
+              1,
+              2,
+              3
+            ],
+            "rows": [
+              {
+                "label": "Veri · MOSI",
+                "value": "GPIO11"
+              },
+              {
+                "label": "Saat · SCLK",
+                "value": "GPIO12"
+              },
+              {
+                "label": "CS / DC / RES",
+                "value": "GPIO10 / 15 / 7"
+              },
+              {
+                "label": "VCC + BLK / GND",
+                "value": "3V3 / GND"
+              }
+            ],
+            "note": "SPI bağlantısı. Eski SH1106 kaydı geçmişte korunuyor.",
+            "icon": "display",
+            "connections": [
+              {
+                "terminal": "SDA / MOSI",
+                "target": "GPIO11",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SCL / SCLK",
+                "target": "GPIO12",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "CS",
+                "target": "GPIO10",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "DC",
+                "target": "GPIO15",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "RES",
+                "target": "GPIO7",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VCC",
+                "target": "3V3",
+                "kind": "power",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "BLK",
+                "target": "3V3",
+                "kind": "power",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 1,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "documented"
+          },
+          {
+            "name": "Eğim sensörü",
+            "description": "GY-521 / MPU6050 · I2C",
+            "claimIndexes": [
+              4,
+              5
+            ],
+            "rows": [
+              {
+                "label": "SDA / SCL",
+                "value": "GPIO16 / 8"
+              },
+              {
+                "label": "VCC / GND",
+                "value": "3V3 / GND"
+              },
+              {
+                "label": "AD0",
+                "value": "GND"
+              }
+            ],
+            "note": "Montaj yönü doğrulanmadı.",
+            "icon": "imu",
+            "connections": [
+              {
+                "terminal": "SDA",
+                "target": "GPIO16",
+                "kind": "signal",
+                "claimIndex": 4,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SCL",
+                "target": "GPIO8",
+                "kind": "clock",
+                "claimIndex": 4,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VCC",
+                "target": "3V3",
+                "kind": "power",
+                "claimIndex": 4,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 4,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "AD0",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 4,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "documented"
+          },
+          {
+            "name": "Yakınlık sensörü",
+            "description": "FC-51 · yansımalı IR",
+            "claimIndexes": [
+              6,
+              7,
+              8
+            ],
+            "rows": [
+              {
+                "label": "OUT",
+                "value": "GPIO18 · LOW etkin"
+              },
+              {
+                "label": "VCC / GND",
+                "value": "3V3 / GND"
+              }
+            ],
+            "note": "Ekran geçişinin çalıştığı tarihsel kullanıcı gözlemi var.",
+            "icon": "proximity",
+            "connections": [
+              {
+                "terminal": "OUT",
+                "target": "GPIO18",
+                "kind": "signal",
+                "claimIndex": 6,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VCC",
+                "target": "3V3",
+                "kind": "power",
+                "claimIndex": 6,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 6,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "documented"
+          },
+          {
+            "name": "Mikrofon",
+            "description": "INMP441 · I2S",
+            "claimIndexes": [
+              9,
+              10
+            ],
+            "rows": [
+              {
+                "label": "SCK / WS",
+                "value": "GPIO13 / 6"
+              },
+              {
+                "label": "SD · veri",
+                "value": "GPIO9"
+              },
+              {
+                "label": "VDD / GND",
+                "value": "3V3 / GND"
+              },
+              {
+                "label": "L/R · bildirilen",
+                "value": "GND"
+              }
+            ],
+            "note": "L/R bildirimi ile kullanılan DMA kanalı arasında fark var.",
+            "icon": "microphone",
+            "connections": [
+              {
+                "terminal": "SCK",
+                "target": "GPIO13",
+                "kind": "clock",
+                "claimIndex": 9,
+                "targetComponent": -1,
+                "bus": "audio-bclk"
+              },
+              {
+                "terminal": "WS",
+                "target": "GPIO6",
+                "kind": "clock",
+                "claimIndex": 9,
+                "targetComponent": -1,
+                "bus": "audio-lrck"
+              },
+              {
+                "terminal": "SD",
+                "target": "GPIO9",
+                "kind": "signal",
+                "claimIndex": 9,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VDD",
+                "target": "3V3",
+                "kind": "power",
+                "claimIndex": 9,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 9,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "L/R",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 9,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "documented"
+          },
+          {
+            "name": "Ses yükseltici",
+            "description": "MAX98357 · A/B varyantı belirsiz",
+            "claimIndexes": [
+              11,
+              12,
+              14
+            ],
+            "rows": [
+              {
+                "label": "BCLK / LRC",
+                "value": "GPIO13 / 6"
+              },
+              {
+                "label": "DIN · veri",
+                "value": "GPIO17"
+              },
+              {
+                "label": "VIN / GND",
+                "value": "3V3 / ortak GND"
+              },
+              {
+                "label": "SD · son bildirim",
+                "value": "GND · geçici sessiz"
+              }
+            ],
+            "note": "Kaynak profili SD→VIN diyor. Ses çalışırlığı onaylanmadı.",
+            "icon": "amplifier",
+            "connections": [
+              {
+                "terminal": "BCLK",
+                "target": "GPIO13",
+                "kind": "clock",
+                "claimIndex": 11,
+                "targetComponent": -1,
+                "bus": "audio-bclk"
+              },
+              {
+                "terminal": "LRC",
+                "target": "GPIO6",
+                "kind": "clock",
+                "claimIndex": 11,
+                "targetComponent": -1,
+                "bus": "audio-lrck"
+              },
+              {
+                "terminal": "DIN",
+                "target": "GPIO17",
+                "kind": "signal",
+                "claimIndex": 11,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VIN",
+                "target": "3V3",
+                "kind": "power",
+                "claimIndex": 11,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "GND",
+                "kind": "ground",
+                "claimIndex": 11,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SD",
+                "target": "GND / VIN *",
+                "kind": "conflict",
+                "claimIndex": 12,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "documented"
+          },
+          {
+            "name": "Hoparlör",
+            "description": "8Ω · 1,5W",
+            "claimIndexes": [
+              13
+            ],
+            "rows": [
+              {
+                "label": "Uçlar",
+                "value": "Amfi SPK+ / SPK−"
+              }
+            ],
+            "note": "Hoparlör ucu GND’ye bağlanmaz.",
+            "icon": "speaker",
+            "connections": [
+              {
+                "terminal": "SPK+",
+                "target": "SPK+",
+                "kind": "signal",
+                "claimIndex": 13,
+                "targetComponent": 4
+              },
+              {
+                "terminal": "SPK−",
+                "target": "SPK−",
+                "kind": "signal",
+                "claimIndex": 13,
+                "targetComponent": 4
+              }
+            ],
+            "hardwareState": "documented"
+          },
+          {
+            "name": "Kart, güç ve kısıtlar",
+            "description": "ESP32-S3 N16R8",
+            "claimIndexes": [
+              0,
+              15,
+              16
+            ],
+            "rows": [
+              {
+                "label": "Üretici / revizyon",
+                "value": "Bilinmiyor"
+              },
+              {
+                "label": "Hub 5V başlığı",
+                "value": "Çıkış alınamadığı bildirilmiş"
+              },
+              {
+                "label": "Atamaya kapalı",
+                "value": "GPIO2 / 4 / 5 + modül pinleri"
+              }
+            ],
+            "note": "Adaptör kapasitesi ve güç bütçesi bilinmiyor.",
+            "icon": "board",
+            "hardwareState": "documented"
+          }
+        ]
+      },
+      "icon": "board",
+      "hardware": {
+        "profileId": "esp32-s3",
+        "boardVerification": {
+          "status": "unverified"
+        },
+        "reservations": [
+          {
+            "pin": "GPIO2",
+            "reason": "Kaynak profilinde kullanılamaz veya doğrulanmamış; genel atamaya kapalı.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO4",
+            "reason": "Kaynak profilinde kullanılamaz veya doğrulanmamış; genel atamaya kapalı.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO5",
+            "reason": "Kaynak profilinde kullanılamaz veya doğrulanmamış; genel atamaya kapalı.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO6",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO7",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO8",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO9",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO10",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO11",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO12",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO13",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO15",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO16",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO17",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          },
+          {
+            "pin": "GPIO18",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "hp"
+            ]
+          }
+        ],
+        "notes": [
+          {
+            "text": "GPIO41/42 kaynak profilinde atanmamış; fiziksel boşluk ve kullanılabilirlik onayı yok.",
+            "sourceIds": [
+              "limits"
+            ]
+          },
+          {
+            "text": "Kart N16R8 olarak bildirilmiş; tam üretici/revizyon, header erişimi ve güç bütçesi bilinmiyor.",
+            "sourceIds": [
+              "hub"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "camera-01",
+      "name": "Kamera 1",
+      "summary": "ESP32-S3 · tam kart modeli belirsiz",
+      "claims": [
+        {
+          "subject": "Kart",
+          "kind": "source",
+          "text": "BoardConfig.h GOOUUU ESP32-S3-CAM / ESP32S3_EYE uyumlu konnektör haritasını adlandırıyor. Yorum tam kart kimliği değildir; üretici/revizyon ve gerçek bellek kapasitesi kesinleşmedi.",
+          "sources": [
+            "board"
+          ]
+        },
+        {
+          "subject": "Kamera DVP / SCCB",
+          "kind": "source",
+          "text": "D0→11, D1→9, D2→8, D3→10, D4→12, D5→18, D6→17, D7→16; XCLK→15; SCCB SDA→4/SCL→5; VSYNC→6, HREF→7, PCLK→13. PWDN/RESET=-1: GPIO atanmamış; fiziksel bağlantısızlık kanıtı değil.",
+          "sources": [
+            "board"
+          ]
+        },
+        {
+          "subject": "Besleme ve GND",
+          "kind": "unknown",
+          "text": "Kart giriş gerilimi/kaynağı, adaptör kapasitesi, dahili kamera güç hatları ve fiziksel GND güzergâhı bu kaynaklarda kesinleşmedi. Pin haritası güç şeması değildir.",
+          "sources": [
+            "board"
+          ]
+        },
+        {
+          "subject": "Pin kısıtları",
+          "kind": "source",
+          "text": "Kamera veri/clock/SCCB pinleri yeniden kullanılmaz. Çevresel I2C SDA1/SCL2 controller0; SCCB controller1. Yazılım genel atama listesi fiziksel boşluk garantisi değil.",
+          "sources": [
+            "board",
+            "limits",
+            "policy"
+          ]
+        },
+        {
+          "subject": "OV3660",
+          "kind": "source",
+          "text": "Güncel camera-01 rolü yalnız OV3660; servo ve IMU derleme bayrakları açıkça 0. Header varsayılanları bu rol için geçersiz kılınır.",
+          "sources": [
+            "build",
+            "board"
+          ]
+        },
+        {
+          "subject": "OV3660",
+          "kind": "physical",
+          "text": "Tarihsel seri açılış ESP32-S3 / OV3660 ve yeni JPEG kaydı var. Güncel fiziksel sağlık testi değildir.",
+          "sources": [
+            "boot"
+          ]
+        },
+        {
+          "subject": "2 × SG90 geçmişi",
+          "kind": "conflict",
+          "text": "Önce Uno, sonra GPIO14 pan / GPIO21 tilt doğrudan sinyal bağlantısı ve 20° hareketin çalışması kullanıcı tarafından bildirilmiş. Güncel derlemede servo kapalı; bugün bağlı veya sökülmüş olduğu çıkarılamaz.",
+          "sources": [
+            "servo-history",
+            "direct",
+            "build",
+            "servo"
+          ]
+        },
+        {
+          "subject": "Servo güç/GND geçmişi",
+          "kind": "reported",
+          "text": "ESP/servo beslemesi GND ortak; ayrı adaptör pozitifleri birleştirilmez. Servo ESP32 3V3’den beslenmez. Güncel harici besleme/akım kapasitesi doğrulanmamış.",
+          "sources": [
+            "uno",
+            "servo-history"
+          ]
+        }
+      ],
+      "presentation": {
+        "facts": [
+          {
+            "label": "Kart",
+            "value": "ESP32-S3"
+          },
+          {
+            "label": "Kamera",
+            "value": "OV3660 kaydı"
+          },
+          {
+            "label": "Servo / IMU",
+            "value": "Güncel profilde kapalı"
+          }
+        ],
+        "notice": "Eski servo bağlantıları tarihsel kayıttır. Güncel derleme servo ve IMU’yu kapatıyor; modüllerin bugün bağlı olup olmadığı bilinmiyor.",
+        "components": [
+          {
+            "name": "Kamera",
+            "description": "OV3660 · DVP / SCCB",
+            "claimIndexes": [
+              1,
+              4,
+              5
+            ],
+            "rows": [
+              {
+                "label": "D0–D3",
+                "value": "GPIO11 / 9 / 8 / 10"
+              },
+              {
+                "label": "D4–D7",
+                "value": "GPIO12 / 18 / 17 / 16"
+              },
+              {
+                "label": "XCLK",
+                "value": "GPIO15"
+              },
+              {
+                "label": "SDA / SCL",
+                "value": "GPIO4 / 5"
+              },
+              {
+                "label": "VSYNC / HREF / PCLK",
+                "value": "GPIO6 / 7 / 13"
+              }
+            ],
+            "note": "Sensör için tarihsel açılış kaydı var; güncel fiziksel test yok.",
+            "icon": "camera",
+            "connections": [
+              {
+                "terminal": "D0",
+                "target": "GPIO11",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D1",
+                "target": "GPIO9",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D2",
+                "target": "GPIO8",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D3",
+                "target": "GPIO10",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D4",
+                "target": "GPIO12",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D5",
+                "target": "GPIO18",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D6",
+                "target": "GPIO17",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D7",
+                "target": "GPIO16",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "XCLK",
+                "target": "GPIO15",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SDA",
+                "target": "GPIO4",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SCL",
+                "target": "GPIO5",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VSYNC",
+                "target": "GPIO6",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "HREF",
+                "target": "GPIO7",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "PCLK",
+                "target": "GPIO13",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "configured"
+          },
+          {
+            "name": "Servo geçmişi",
+            "description": "2 × SG90 · güncel profilde kapalı",
+            "claimIndexes": [
+              6,
+              7
+            ],
+            "rows": [
+              {
+                "label": "Pan / Tilt · eski",
+                "value": "GPIO14 / 21"
+              },
+              {
+                "label": "Besleme",
+                "value": "Güncel kaynak bilinmiyor"
+              },
+              {
+                "label": "GND · eski düzen",
+                "value": "Ortak GND"
+              }
+            ],
+            "note": "Uno köprüsünden doğrudan GPIO bağlantısına geçildiği bildirilmiş.",
+            "icon": "servo",
+            "connections": [
+              {
+                "terminal": "Pan · tarihsel",
+                "target": "GPIO14",
+                "kind": "signal",
+                "claimIndex": 6,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "Tilt · tarihsel",
+                "target": "GPIO21",
+                "kind": "signal",
+                "claimIndex": 6,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "Güç",
+                "target": "Bilinmiyor",
+                "kind": "unknown",
+                "claimIndex": 7,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND · tarihsel",
+                "target": "Ortak GND",
+                "kind": "ground",
+                "claimIndex": 7,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "historical"
+          },
+          {
+            "name": "Kart ve besleme",
+            "description": "Tam kart modeli belirsiz",
+            "claimIndexes": [
+              0,
+              2,
+              3
+            ],
+            "rows": [
+              {
+                "label": "Pin haritası adı",
+                "value": "GOOUUU / ESP32S3_EYE"
+              },
+              {
+                "label": "Üretici / revizyon",
+                "value": "Doğrulanmadı"
+              },
+              {
+                "label": "Giriş beslemesi",
+                "value": "Bilinmiyor"
+              }
+            ],
+            "note": "Pin haritası adı kart kimliği kanıtı değildir.",
+            "icon": "board",
+            "hardwareState": "configured"
+          }
+        ]
+      },
+      "icon": "camera",
+      "hardware": {
+        "profileId": "esp32-s3",
+        "boardVerification": {
+          "status": "unverified"
+        },
+        "reservations": [
+          {
+            "pin": "GPIO1",
+            "reason": "Kaynakta çevresel I2C için tanımlı; bu rolde IMU kapalı olsa da fiziksel boşluk onaylanmış değil.",
+            "sourceIds": [
+              "board",
+              "build"
+            ]
+          },
+          {
+            "pin": "GPIO2",
+            "reason": "Kaynakta çevresel I2C için tanımlı; bu rolde IMU kapalı olsa da fiziksel boşluk onaylanmış değil.",
+            "sourceIds": [
+              "board",
+              "build"
+            ]
+          },
+          {
+            "pin": "GPIO4",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO5",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO6",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO7",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO8",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO9",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO10",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO11",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO12",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO13",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO15",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO16",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO17",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO18",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          }
+        ],
+        "notes": [
+          {
+            "text": "Pin kapsamı yonga düzeyindedir; GOOUUU / ESP32S3_EYE yorumundan gerçek kart üretici/revizyonu veya header sırası çıkarılmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "text": "Kamera güç/GND güzergâhı ve kartın bellek varyantı doğrulanmadı.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "text": "Servo GPIO14/21 tarihsel. Güncel camera-01 derlemesinde servo/IMU kapalı; söküldüğü veya pinlerin boş olduğu kanıtlanmış değil.",
+            "sourceIds": [
+              "build",
+              "direct"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "camera-02",
+      "name": "Kamera 2",
+      "summary": "ESP32-S3 · tam kart modeli belirsiz",
+      "claims": [
+        {
+          "subject": "Kart",
+          "kind": "source",
+          "text": "BoardConfig.h GOOUUU ESP32-S3-CAM / ESP32S3_EYE uyumlu konnektör haritasını adlandırıyor. Yorum tam kart kimliği değildir; üretici/revizyon ve gerçek bellek kapasitesi kesinleşmedi.",
+          "sources": [
+            "board"
+          ]
+        },
+        {
+          "subject": "Kamera DVP / SCCB",
+          "kind": "source",
+          "text": "D0→11, D1→9, D2→8, D3→10, D4→12, D5→18, D6→17, D7→16; XCLK→15; SCCB SDA→4/SCL→5; VSYNC→6, HREF→7, PCLK→13. PWDN/RESET=-1: GPIO atanmamış; fiziksel bağlantısızlık kanıtı değil.",
+          "sources": [
+            "board"
+          ]
+        },
+        {
+          "subject": "Besleme ve GND",
+          "kind": "unknown",
+          "text": "Kart giriş gerilimi/kaynağı, adaptör kapasitesi, dahili kamera güç hatları ve fiziksel GND güzergâhı bu kaynaklarda kesinleşmedi. Pin haritası güç şeması değildir.",
+          "sources": [
+            "board"
+          ]
+        },
+        {
+          "subject": "Pin kısıtları",
+          "kind": "source",
+          "text": "Kamera veri/clock/SCCB pinleri yeniden kullanılmaz. Çevresel I2C SDA1/SCL2 controller0; SCCB controller1. Yazılım genel atama listesi fiziksel boşluk garantisi değil.",
+          "sources": [
+            "board",
+            "limits",
+            "policy"
+          ]
+        },
+        {
+          "subject": "Kamera sensörü",
+          "kind": "unknown",
+          "text": "Kaynak OV3660/OV2640 PID ayrımı yapabiliyor; camera-02 gerçek sensör modeli bu belgelerle kesinleşmedi.",
+          "sources": [
+            "metadata"
+          ]
+        },
+        {
+          "subject": "MPU6050",
+          "kind": "source",
+          "text": "IMU desteği varsayılan açık, SDA1/SCL2. Metadata’ya kimlik 0x68 okunursa eklenir. Fiziksel kart modeli ve VCC/GND/AD0 kabloları doğrulanmadı.",
+          "sources": [
+            "board",
+            "imu",
+            "metadata"
+          ]
+        },
+        {
+          "subject": "HLK-LD2410C radar",
+          "kind": "source",
+          "text": "Yalnız camera-02 profilinde etkin. ESP RX40 ← radar TX; ESP TX39 → radar RX; UART 256000 baud. OUT ataması yok. Model adı koddan; fiziksel varyant doğrulanmadı.",
+          "sources": [
+            "rp",
+            "radar"
+          ]
+        },
+        {
+          "subject": "Radar besleme/GND",
+          "kind": "unknown",
+          "text": "Gerçek VCC kaynağı, gerilim, GND kablosu ve fiziksel çalışırlık bu kaynaklarda doğrulanmamış; tahmin eklenmedi.",
+          "sources": [
+            "rp",
+            "radar"
+          ]
+        },
+        {
+          "subject": "Radar pin kısıtı",
+          "kind": "source",
+          "text": "GPIO39/40 ayrılmış; harici JTAG ile çakışır. Eski Hub UART17/18 kameraya uygulanmaz; 16/17/18 kamera verisidir.",
+          "sources": [
+            "rp",
+            "limits"
+          ]
+        }
+      ],
+      "presentation": {
+        "facts": [
+          {
+            "label": "Kart",
+            "value": "ESP32-S3"
+          },
+          {
+            "label": "Sensör modeli",
+            "value": "Kesinleşmedi"
+          },
+          {
+            "label": "Canlı durum",
+            "value": "Ölçülmedi"
+          }
+        ],
+        "notice": "Radar ve IMU kaynak profilinde tanımlı. Fiziksel modüller, besleme ve güncel bağlantı doğrulanmış değil.",
+        "components": [
+          {
+            "name": "Kamera",
+            "description": "DVP / SCCB · sensör modeli belirsiz",
+            "claimIndexes": [
+              1,
+              4
+            ],
+            "rows": [
+              {
+                "label": "D0–D3",
+                "value": "GPIO11 / 9 / 8 / 10"
+              },
+              {
+                "label": "D4–D7",
+                "value": "GPIO12 / 18 / 17 / 16"
+              },
+              {
+                "label": "XCLK",
+                "value": "GPIO15"
+              },
+              {
+                "label": "SDA / SCL",
+                "value": "GPIO4 / 5"
+              },
+              {
+                "label": "VSYNC / HREF / PCLK",
+                "value": "GPIO6 / 7 / 13"
+              }
+            ],
+            "note": "OV3660 / OV2640 seçenekleri gerçek sensör kimliği sayılmaz.",
+            "icon": "camera",
+            "connections": [
+              {
+                "terminal": "D0",
+                "target": "GPIO11",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D1",
+                "target": "GPIO9",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D2",
+                "target": "GPIO8",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D3",
+                "target": "GPIO10",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D4",
+                "target": "GPIO12",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D5",
+                "target": "GPIO18",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D6",
+                "target": "GPIO17",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "D7",
+                "target": "GPIO16",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "XCLK",
+                "target": "GPIO15",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SDA",
+                "target": "GPIO4",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SCL",
+                "target": "GPIO5",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VSYNC",
+                "target": "GPIO6",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "HREF",
+                "target": "GPIO7",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "PCLK",
+                "target": "GPIO13",
+                "kind": "clock",
+                "claimIndex": 1,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "configured"
+          },
+          {
+            "name": "Varlık radarı",
+            "description": "HLK-LD2410C · kaynak profili",
+            "claimIndexes": [
+              6,
+              7,
+              8
+            ],
+            "rows": [
+              {
+                "label": "ESP RX ← radar TX",
+                "value": "GPIO40"
+              },
+              {
+                "label": "ESP TX → radar RX",
+                "value": "GPIO39"
+              },
+              {
+                "label": "UART",
+                "value": "256000 baud"
+              },
+              {
+                "label": "Besleme / GND",
+                "value": "Doğrulanmadı"
+              }
+            ],
+            "note": "GPIO39/40 harici JTAG ile çakışır.",
+            "icon": "radar",
+            "connections": [
+              {
+                "terminal": "TX → ESP RX",
+                "target": "GPIO40",
+                "kind": "signal",
+                "claimIndex": 6,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "RX ← ESP TX",
+                "target": "GPIO39",
+                "kind": "signal",
+                "claimIndex": 6,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VCC",
+                "target": "Doğrulanmadı",
+                "kind": "unknown",
+                "claimIndex": 7,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "Doğrulanmadı",
+                "kind": "unknown",
+                "claimIndex": 7,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "configured"
+          },
+          {
+            "name": "Eğim sensörü",
+            "description": "MPU6050 · kaynak desteği",
+            "claimIndexes": [
+              5
+            ],
+            "rows": [
+              {
+                "label": "SDA / SCL",
+                "value": "GPIO1 / 2"
+              },
+              {
+                "label": "VCC / GND / AD0",
+                "value": "Doğrulanmadı"
+              }
+            ],
+            "note": "Kimlik 0x68 okunursa bileşen olarak bildirilir.",
+            "icon": "imu",
+            "connections": [
+              {
+                "terminal": "SDA",
+                "target": "GPIO1",
+                "kind": "signal",
+                "claimIndex": 5,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "SCL",
+                "target": "GPIO2",
+                "kind": "clock",
+                "claimIndex": 5,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "VCC",
+                "target": "Doğrulanmadı",
+                "kind": "unknown",
+                "claimIndex": 5,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "Doğrulanmadı",
+                "kind": "unknown",
+                "claimIndex": 5,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "AD0",
+                "target": "Doğrulanmadı",
+                "kind": "unknown",
+                "claimIndex": 5,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "configured"
+          },
+          {
+            "name": "Kart ve besleme",
+            "description": "Tam kart modeli belirsiz",
+            "claimIndexes": [
+              0,
+              2,
+              3
+            ],
+            "rows": [
+              {
+                "label": "Pin haritası adı",
+                "value": "GOOUUU / ESP32S3_EYE"
+              },
+              {
+                "label": "Üretici / revizyon",
+                "value": "Doğrulanmadı"
+              },
+              {
+                "label": "Giriş beslemesi",
+                "value": "Bilinmiyor"
+              }
+            ],
+            "note": "Pin haritası adı kart kimliği kanıtı değildir.",
+            "icon": "board",
+            "hardwareState": "configured"
+          }
+        ]
+      },
+      "icon": "camera",
+      "hardware": {
+        "profileId": "esp32-s3",
+        "boardVerification": {
+          "status": "unverified"
+        },
+        "reservations": [
+          {
+            "pin": "GPIO4",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO5",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO6",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO7",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO8",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO9",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO10",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO11",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO12",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO13",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO15",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO16",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO17",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO18",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO1",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "imu",
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO2",
+            "reason": "Kaynak firmware profilinde atanmış. Envanterden modül silmek bu kaynak atamasını kaldırmaz.",
+            "sourceIds": [
+              "imu",
+              "board"
+            ]
+          },
+          {
+            "pin": "GPIO39",
+            "reason": "Radar UART profili; harici JTAG ile çakışır. Envanterden silmek firmware atamasını kaldırmaz.",
+            "sourceIds": [
+              "rp",
+              "radar"
+            ]
+          },
+          {
+            "pin": "GPIO40",
+            "reason": "Radar UART profili; harici JTAG ile çakışır. Envanterden silmek firmware atamasını kaldırmaz.",
+            "sourceIds": [
+              "rp",
+              "radar"
+            ]
+          }
+        ],
+        "notes": [
+          {
+            "text": "Pin kapsamı yonga düzeyindedir; GOOUUU / ESP32S3_EYE yorumundan gerçek kart üretici/revizyonu veya header sırası çıkarılmaz.",
+            "sourceIds": [
+              "board"
+            ]
+          },
+          {
+            "text": "Kamera güç/GND güzergâhı ve kartın bellek varyantı doğrulanmadı.",
+            "sourceIds": [
+              "board"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "uno-history",
+      "name": "Uno R3 · tarihsel",
+      "summary": "Eski servo köprüsü · güncel bağlılık bilinmiyor",
+      "claims": [
+        {
+          "subject": "Kart",
+          "kind": "reported",
+          "text": "Uno R3 olarak kayıtlı; tarihsel yüklemede ATmega328P imzası. Üretici/revizyon bilinmiyor.",
+          "sources": [
+            "servo-history"
+          ]
+        },
+        {
+          "subject": "Eski bağlantılar",
+          "kind": "reported",
+          "text": "Kamera14→Uno D2, kamera21→D3; Uno D9→pan SG90, D10→tilt SG90; ESP/Uno/servo GND ortak.",
+          "sources": [
+            "servo-history",
+            "uno"
+          ]
+        },
+        {
+          "subject": "Güncel bağlılık",
+          "kind": "conflict",
+          "text": "Kullanıcı Uno köprüsünü kaldırdığını bildirmiş. Eski şema aktif kurulum olarak sunulmaz; bugün USB ile bağlı olup olmadığı bilinmiyor.",
+          "sources": [
+            "direct",
+            "uno"
+          ]
+        },
+        {
+          "subject": "Elektrik kısıtları",
+          "kind": "reported",
+          "text": "Uno’dan ESP GPIO’ya 5V bağlanmaz; girişlerde 5V pull-up yok. Servo gücünün Uno 5V/USB’den karşılanması doğrulanmamış; uygun ayrı güç kolu gerekli.",
+          "sources": [
+            "uno"
+          ]
+        }
+      ],
+      "presentation": {
+        "facts": [
+          {
+            "label": "Kart kaydı",
+            "value": "Uno R3 / ATmega328P"
+          },
+          {
+            "label": "Kullanım",
+            "value": "Eski servo köprüsü"
+          },
+          {
+            "label": "Güncel bağlılık",
+            "value": "Bilinmiyor"
+          }
+        ],
+        "notice": "Uno köprüsünün kaldırıldığı bildirilmiş. Aşağıdaki bağlantılar aktif kurulum değil, eski düzenin kaydıdır.",
+        "components": [
+          {
+            "name": "Eski servo köprüsü",
+            "description": "2 × SG90 için tarihsel sinyal yolu",
+            "claimIndexes": [
+              1,
+              3
+            ],
+            "rows": [
+              {
+                "label": "Kamera14 / Kamera21",
+                "value": "Uno D2 / D3"
+              },
+              {
+                "label": "Pan / Tilt çıkışı",
+                "value": "Uno D9 / D10"
+              },
+              {
+                "label": "GND",
+                "value": "ESP + Uno + servo ortak"
+              },
+              {
+                "label": "Servo beslemesi",
+                "value": "Kapasitesi doğrulanmadı"
+              }
+            ],
+            "note": "Uno’dan ESP32’ye 5V sinyal bağlanmaz.",
+            "icon": "servo",
+            "connections": [
+              {
+                "terminal": "Uno D2",
+                "target": "Kamera GPIO14",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1,
+                "controllerEndpoint": "terminal"
+              },
+              {
+                "terminal": "Uno D3",
+                "target": "Kamera GPIO21",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1,
+                "controllerEndpoint": "terminal"
+              },
+              {
+                "terminal": "Pan SG90",
+                "target": "Uno D9",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "Tilt SG90",
+                "target": "Uno D10",
+                "kind": "signal",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "GND",
+                "target": "Ortak GND",
+                "kind": "ground",
+                "claimIndex": 1,
+                "targetComponent": -1
+              },
+              {
+                "terminal": "Servo gücü",
+                "target": "Doğrulanmadı",
+                "kind": "unknown",
+                "claimIndex": 3,
+                "targetComponent": -1
+              }
+            ],
+            "hardwareState": "historical"
+          },
+          {
+            "name": "Kart kaydı",
+            "description": "Uno R3 · ATmega328P imzası",
+            "claimIndexes": [
+              0,
+              2
+            ],
+            "rows": [
+              {
+                "label": "Üretici / revizyon",
+                "value": "Bilinmiyor"
+              },
+              {
+                "label": "Güncel USB bağlantısı",
+                "value": "Bilinmiyor"
+              }
+            ],
+            "note": "Köprü kaldırılmış; kartın mevcut bağlılığı doğrulanmamış.",
+            "icon": "board",
+            "hardwareState": "historical"
+          }
+        ]
+      },
+      "icon": "board",
+      "hardware": {
+        "profileId": "uno-r3",
+        "boardVerification": {
+          "status": "unverified"
+        },
+        "reservations": [],
+        "notes": [
+          {
+            "text": "Uno servo köprüsü tarihsel olarak kaldırılmıştır; aktif sistem veya 3,3V uyumlu çıkış olarak yorumlanmaz.",
+            "sourceIds": [
+              "uno",
+              "direct"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "exclusions": [
+    {
+      "text": "MOSFET düğümü yalnız plan: GPIO/yük belirlenmemiş, donanım testi yok. Bağlı cihazlara eklenmedi.",
+      "sources": [
+        "outputs"
+      ]
+    },
+    {
+      "text": "DHT11/DHT22/DS18B20/röle/analog sürücü seçenekleri takılı modül kanıtı değildir. NVS ve canlı keşif okunmadı; başka cihazlar olabilir.",
+      "sources": [
+        "policy"
+      ]
+    }
+  ],
+  "hardwareReferences": {
+    "espressif-gpio": {
+      "title": "Espressif — ESP32-S3 GPIO Summary",
+      "url": "https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/gpio.html",
+      "reviewedAt": "2026-11-06",
+      "scope": "Yonga özellikleri; takılı kartın revizyonu veya header erişimi doğrulanmış değildir."
+    },
+    "arduino-uno": {
+      "title": "Arduino — UNO R3 teknik özellikleri ve pinout",
+      "url": "https://docs.arduino.cc/hardware/uno-rev3/",
+      "reviewedAt": "2026-11-06",
+      "scope": "UNO R3 referansı; tarihsel kartın üreticisi ve mevcut bağlantısı bilinmiyor."
+    },
+    "espressif-caps": {
+      "title": "Espressif — ESP32-S3 yonga GPIO yetenekleri",
+      "url": "https://github.com/espressif/esp-idf/blob/v5.5.1/components/soc/esp32s3/include/soc/soc_caps.h",
+      "reviewedAt": "2026-11-06",
+      "scope": "Yonga düzeyinde geçerli GPIO ve çıkış maskesi; fiziksel kart/header erişimini göstermez."
+    },
+    "espressif-jtag": {
+      "title": "Espressif — harici JTAG pinleri",
+      "url": "https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-guides/jtag-debugging/configure-other-jtag.html",
+      "reviewedAt": "2026-11-06",
+      "scope": "Harici JTAG işlevi; kullanıldığı veya devre dışı olduğu bu kartta doğrulanmadı."
+    },
+    "espressif-design": {
+      "title": "Espressif — ESP32-S3 donanım tasarım kontrolü",
+      "url": "https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html",
+      "reviewedAt": "2026-11-06",
+      "scope": "Yonga varsayılan UART0; kartın gerçek seri bağlantısı ayrıca doğrulanmalıdır."
+    }
+  },
+  "pinProfiles": {
+    "esp32-s3": {
+      "name": "ESP32-S3 · yonga GPIO kapsamı",
+      "pins": [
+        "GPIO0",
+        "GPIO1",
+        "GPIO2",
+        "GPIO3",
+        "GPIO4",
+        "GPIO5",
+        "GPIO6",
+        "GPIO7",
+        "GPIO8",
+        "GPIO9",
+        "GPIO10",
+        "GPIO11",
+        "GPIO12",
+        "GPIO13",
+        "GPIO14",
+        "GPIO15",
+        "GPIO16",
+        "GPIO17",
+        "GPIO18",
+        "GPIO19",
+        "GPIO20",
+        "GPIO21",
+        "GPIO26",
+        "GPIO27",
+        "GPIO28",
+        "GPIO29",
+        "GPIO30",
+        "GPIO31",
+        "GPIO32",
+        "GPIO33",
+        "GPIO34",
+        "GPIO35",
+        "GPIO36",
+        "GPIO37",
+        "GPIO38",
+        "GPIO39",
+        "GPIO40",
+        "GPIO41",
+        "GPIO42",
+        "GPIO43",
+        "GPIO44",
+        "GPIO45",
+        "GPIO46",
+        "GPIO47",
+        "GPIO48"
+      ],
+      "aliases": {},
+      "referenceIds": [
+        "espressif-gpio",
+        "espressif-caps"
+      ],
+      "rules": [
+        {
+          "pins": [
+            "GPIO0",
+            "GPIO3",
+            "GPIO45",
+            "GPIO46"
+          ],
+          "level": "caution",
+          "reason": "Açılış (strapping) pini; reset anındaki seviye ve devre yükü değerlendirilmelidir.",
+          "referenceIds": [
+            "espressif-gpio"
+          ]
+        },
+        {
+          "pins": [
+            "GPIO26",
+            "GPIO27",
+            "GPIO28",
+            "GPIO29",
+            "GPIO30",
+            "GPIO31",
+            "GPIO32"
+          ],
+          "level": "reserved",
+          "reason": "Flash / PSRAM arayüzü; genel amaçla yeniden atamayın.",
+          "referenceIds": [
+            "espressif-gpio"
+          ]
+        },
+        {
+          "pins": [
+            "GPIO33",
+            "GPIO34",
+            "GPIO35",
+            "GPIO36",
+            "GPIO37"
+          ],
+          "level": "caution",
+          "reason": "Octal flash / PSRAM ile kullanılır. Bellek varyantı ve kart şeması doğrulanmadan atamayın.",
+          "referenceIds": [
+            "espressif-gpio"
+          ]
+        },
+        {
+          "pins": [
+            "GPIO19",
+            "GPIO20"
+          ],
+          "level": "caution",
+          "reason": "Varsayılan USB-JTAG hatları; yeniden atama USB bağlantısını bozabilir.",
+          "referenceIds": [
+            "espressif-gpio"
+          ]
+        },
+        {
+          "pins": [
+            "GPIO39",
+            "GPIO40",
+            "GPIO41",
+            "GPIO42"
+          ],
+          "level": "caution",
+          "reason": "Harici JTAG işlevi; debug arayüzünün kullanımı doğrulanmadan atamayın.",
+          "referenceIds": [
+            "espressif-jtag"
+          ]
+        },
+        {
+          "pins": [
+            "GPIO43",
+            "GPIO44"
+          ],
+          "level": "caution",
+          "reason": "Varsayılan UART0 TX/RX. Seri konsol, yükleme veya kart üzerindeki dönüştürücü bağlantısıyla çakışabilir.",
+          "referenceIds": [
+            "espressif-design"
+          ]
+        }
+      ],
+      "capabilities": {
+        "GPIO0": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO"
+        ],
+        "GPIO1": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH0"
+        ],
+        "GPIO2": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH1"
+        ],
+        "GPIO3": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH2"
+        ],
+        "GPIO4": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH3"
+        ],
+        "GPIO5": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH4"
+        ],
+        "GPIO6": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH5"
+        ],
+        "GPIO7": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH6"
+        ],
+        "GPIO8": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH7"
+        ],
+        "GPIO9": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH8"
+        ],
+        "GPIO10": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC1_CH9"
+        ],
+        "GPIO11": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH0"
+        ],
+        "GPIO12": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH1"
+        ],
+        "GPIO13": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH2"
+        ],
+        "GPIO14": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH3"
+        ],
+        "GPIO15": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH4"
+        ],
+        "GPIO16": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH5"
+        ],
+        "GPIO17": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH6"
+        ],
+        "GPIO18": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH7"
+        ],
+        "GPIO19": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH8"
+        ],
+        "GPIO20": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO",
+          "ADC2_CH9"
+        ],
+        "GPIO21": [
+          "Dijital giriş / çıkış (yonga)",
+          "RTC GPIO"
+        ],
+        "GPIO26": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO27": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO28": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO29": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO30": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO31": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO32": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO33": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO34": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO35": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO36": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO37": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO38": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO39": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO40": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO41": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO42": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO43": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO44": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO45": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO46": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO47": [
+          "Dijital giriş / çıkış (yonga)"
+        ],
+        "GPIO48": [
+          "Dijital giriş / çıkış (yonga)"
+        ]
+      }
+    },
+    "uno-r3": {
+      "name": "UNO R3 · referans pin kapsamı",
+      "pins": [
+        "D0",
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D9",
+        "D10",
+        "D11",
+        "D12",
+        "D13",
+        "A0",
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "aliases": {
+        "D14": "A0",
+        "D15": "A1",
+        "D16": "A2",
+        "D17": "A3",
+        "D18": "A4",
+        "D19": "A5"
+      },
+      "referenceIds": [
+        "arduino-uno"
+      ],
+      "rules": [
+        {
+          "pins": [
+            "D0",
+            "D1"
+          ],
+          "level": "caution",
+          "reason": "UART RX/TX; seri haberleşme ve USB-seri kullanımıyla değerlendirin.",
+          "referenceIds": [
+            "arduino-uno"
+          ]
+        },
+        {
+          "pins": [
+            "D10",
+            "D11",
+            "D12",
+            "D13"
+          ],
+          "level": "caution",
+          "reason": "SPI işlevleri; D13 dahili LED ile paylaşılır.",
+          "referenceIds": [
+            "arduino-uno"
+          ]
+        },
+        {
+          "pins": [
+            "A4",
+            "A5"
+          ],
+          "level": "caution",
+          "reason": "SDA/SCL (D18/D19) ile aynı elektriksel pinler; ayrı boş pin değildir.",
+          "referenceIds": [
+            "arduino-uno"
+          ]
+        }
+      ],
+      "capabilities": {
+        "D0": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D1": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D2": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D3": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D4": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D5": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D6": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D7": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D8": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D9": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D10": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D11": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D12": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "D13": [
+          "Dijital giriş / çıkış (referans kart)"
+        ],
+        "A0": [
+          "Dijital giriş / çıkış (referans kart)",
+          "Analog giriş"
+        ],
+        "A1": [
+          "Dijital giriş / çıkış (referans kart)",
+          "Analog giriş"
+        ],
+        "A2": [
+          "Dijital giriş / çıkış (referans kart)",
+          "Analog giriş"
+        ],
+        "A3": [
+          "Dijital giriş / çıkış (referans kart)",
+          "Analog giriş"
+        ],
+        "A4": [
+          "Dijital giriş / çıkış (referans kart)",
+          "Analog giriş"
+        ],
+        "A5": [
+          "Dijital giriş / çıkış (referans kart)",
+          "Analog giriş"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><meta name="theme-color" content="#171b1a">
+<title>ARMUT · Ev paneli</title><link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css?v=cloud20261106-1"><script type="module" src="app.mjs?v=cloud20261106-1"></script>
+</head>
+<body>
+<a class="skip" href="#content">İçeriğe geç</a>
+<aside class="sidebar">
+<a class="brand" href="#home" aria-label="ARMUT ana sayfa"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M17 8c-5-1-7 3-8 7-1 4-5 6-5 11 0 10 24 10 24 0 0-5-4-7-5-11-1-4-2-7-6-7Z"/><path d="M17 8c-1-4 1-6 4-7"/></svg><span>ARMUT<small>Ev paneli</small></span></a>
+<nav class="main-nav" aria-label="Ana menü">
+<a href="#home" data-view="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3Z M9 20v-7h6v7"/></svg>Genel bakış</a>
+<a href="#devices" data-view="devices"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z M9 1v3m6-3v3M9 20v3m6-3v3M1 9h3m-3 6h3m16-6h3m-3 6h3"/></svg>Cihazlar</a>
+</nav>
+<div class="sidebar-bottom"><span>ARMUT V2</span><p>Birlikte, adım adım.</p></div>
+</aside>
+<div class="workspace">
+<header class="topbar"><button id="nav-back" class="nav-back" type="button" aria-label="Geri" title="Geri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7M7 12h14"/></svg></button><nav id="breadcrumbs" aria-label="Gezinme yolu"><h1 id="page-title" aria-current="page">Genel bakış</h1></nav></header>
+<main id="content" tabindex="-1">
+<div class="page-heading"><div><p id="page-description">Evinizin donanımı, tek bir yerde.</p></div><p id="status" role="status" aria-live="polite">Envanter okunuyor…</p><div id="device-filter" hidden></div></div>
+<button id="retry" type="button" hidden>Yeniden dene</button>
+<section id="overview" hidden>
+<div class="welcome"><div><h2>ARMUT’a hoş geldiniz.</h2><p>Önce evimizi tanıyoruz. Cihazlarınızı inceleyin, bağlantıları ve bildiklerimizin kaynağını görün.</p></div><svg class="home-art" viewBox="0 0 180 150" aria-hidden="true"><path d="m24 69 66-49 66 49M40 59v70h100V59M74 129V91h32v38M55 73h14v14H55m56-14h14v14h-14"/><path d="M90 9v-5m65 21 4-4M21 21l4 4"/></svg></div>
+<div class="section-heading"><h2>Evinizin bağlantıları</h2><a href="#devices">Tümünü gör</a></div><div id="home-topology"></div>
+</section>
+<section id="inventory" hidden aria-label="Cihaz envanteri"><div id="devices" class="device-grid"></div><p id="device-empty" class="device-empty" role="status" hidden>Bu filtreye uygun cihaz yok. Başka bir filtre seçin.</p><section id="detail" aria-labelledby="page-title" tabindex="-1" hidden></section></section>
+<noscript>Envanteri görüntülemek için JavaScript’i etkinleştirin. Kayıtları inventory.json dosyasından da okuyabilirsiniz.</noscript>
+</main>
+<footer>ARMUT V2 <span>·</span> Donanım envanteri <span>·</span> <a href="./inventory.json">Veri kaynağı</a></footer>
+</div></body></html>
