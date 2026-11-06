@@ -35,5 +35,11 @@ Kullanıcı Codex Cloud’da geliştirmeye devam etmek için aktarımı istedi. 
 
 Kaynak referansları proje-göreli kimliklerle ve yalnız kullanılan satırların LF-normalize SHA-256 kontrollü snapshot metniyle taşınabilirdir. source.sha256 özgün dosyanın geçmiş inceleme hashidir; snapshot.sha256 yalnız özet metninin hashidir. Bu kayıtlar özgün dosyanın bugün hâlâ aynı olduğunu veya donanımın çalıştığını ispatlamaz. Cloud’da eski dosyaların varlığına ihtiyaç yoktur. Yerelde source-check.mjs --root ile özgün dosyalar ayrıca karşılaştırılabilir.
 
+6 Kasım 2026 — aktarım tamamlandı:
+- Gizli GitHub deposu: https://github.com/ylmzcqn/ARMUT_V2_TEMIZ, dal: main. Bağımsız klonda tüm testler ve source-check.mjs geçti.
+- Ayrı Codex Cloud ortamı: ARMUT_V2_TEMIZ. Yalnız bu depoya bağlı, erişim Yalnızca ben; yayımlandı ve çalıştırılabilir durumu doğrulandı. Ortam kimliği: 56d8d2ac-c6d4-4ae5-a885-0207c46ff92f~asenvcfg_08c9dcf655d08191896702a82513e5d7.
+- Cloud kurulum raporu: Node.js 24/Python 3 ile 40 test, kaynak bütünlüğü ve HTTP envanter yükleme başarılı. Yeniden kullanılabilir başlangıç talimatları ortama kaydedildi. Yeni geliştirme görevinin yayımlanmış snapshot üzerinden başlatılması henüz ayrıca denenmedi.
+- Eski proje/ortam değiştirilmedi. Bu işlem geliştirme ortamı aktarımıdır; site hosting yayını veya fiziksel donanım doğrulaması değildir. Yeni Cloud sohbetinde bu ortamı seçip AGENTS.md ve PROJECT.md üzerinden devam et.
+
 ## Açık işler ve sınırlar
-Yazılım/sunuma ilişkin donanım haritası ve testler hazırdır. Takılı kartların tam üretici/model/revizyonları, fiziksel header erişimi, bellek varyantları, besleme/GND ve kullanılacak pinin gerçek durumunu yeni kanıtla tamamlamak gerekir. Canlı veri sağlayıcı bağlı değildir; animasyon temsili demodur. Cloud’a aktarım hazırlığı sürmektedir; depo/ortam kimliği ancak oluşturulduğu doğrulanınca yazılacaktır.
+Yazılım/sunuma ilişkin donanım haritası ve testler hazırdır. Takılı kartların tam üretici/model/revizyonları, fiziksel header erişimi, bellek varyantları, besleme/GND ve kullanılacak pinin gerçek durumunu yeni kanıtla tamamlamak gerekir. Canlı veri sağlayıcı bağlı değildir; animasyon temsili demodur.
