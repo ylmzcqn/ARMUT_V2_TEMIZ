@@ -1,4 +1,4 @@
-import {validateHardwareInventory} from './hardware-schema.mjs?v=cloud20261106-1';
+import {validateHardwareInventory} from './hardware-schema.mjs?v=cloud20261108-3';
 const kinds = new Set(['source', 'reported', 'physical', 'unknown', 'conflict']);
 const str = value => typeof value === 'string' && value.trim().length > 0;
 const object = value => value && typeof value === 'object' && !Array.isArray(value);

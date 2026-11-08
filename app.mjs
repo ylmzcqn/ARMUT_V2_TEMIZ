@@ -1,23 +1,35 @@
-import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261106-1';
-import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261106-1';
-import {devicePresence} from './live-evidence.mjs?v=cloud20261106-1';
-import {moduleActivity} from './module-history.mjs?v=cloud20261106-1';
-import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261106-1';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261106-1';
-import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261106-1';
-import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261106-1';
-import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261106-1';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261106-1';
-import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261106-1';
+import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261108-3';
+import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261108-3';
+import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261108-3';
+import {devicePresence} from './live-evidence.mjs?v=cloud20261108-3';
+import {moduleActivity} from './module-history.mjs?v=cloud20261108-3';
+import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261108-3';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261108-3';
+import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261108-3';
+import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261108-3';
+import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261108-3';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261108-3';
+import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261108-3';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
 let data;
+let homePanel;
+extendNavigation();
 let sourceSnapshot, fileHandle;
 let dirty = false;
 let saveMessage = '';
 const undoStack = [];
 let deviceFilter='all';
+let deviceQuery='';
+$('device-search').addEventListener('input',event=>{
+ deviceQuery=event.target.value;renderDeviceCards();updateListStatus(true);
+ $('device-search-clear').disabled=!deviceQuery;
+});
+$('device-search-clear').addEventListener('click',()=>{
+ deviceQuery='';$('device-search').value='';$('device-search-clear').disabled=true;
+ renderDeviceCards();updateListStatus(true);$('device-search').focus();
+});
 const filterDialog=createChoiceDialog({title:'Cihazları filtrele',onSelect:value=>{deviceFilter=value;renderDeviceCards();renderDeviceFilter();},returnFocus:()=>$('device-filter').querySelector('button'),renderIcon:choice=>artwork(choice.icon)});
 document.body.append(filterDialog.element);
 function element(tag, text, className) {
@@ -253,6 +265,14 @@ function deleteModule(device,partIndex,trigger) {
 function renderSelection(focus = false) {
   if(filterDialog.element.open)filterDialog.element.close();
   if (dialog.open) dialog.close();
+  if(homePanel?.show(location.hash)){
+    for(const id of ['overview','inventory','retry','device-filter','device-search-tools','device-empty'])$(id).hidden=true;
+    document.querySelector('.page-heading').hidden=true;
+    $('nav-back').disabled=(!location.hash||location.hash==='#home')&&navigationPosition===0;
+    if(focus){$('content').focus({preventScroll:true});window.scrollTo(0,0);}
+    return;
+  }
+  $('inventory').hidden=!data.devices.length;
   const {device,home,empty,listing}=inventoryRoute(data,location.hash);
   $('retry').hidden=!empty;$('retry').textContent=empty?'Envanteri yeniden yükle':'Yeniden dene';
   $('overview').hidden = !home || !data.devices.length;
@@ -261,7 +281,8 @@ function renderSelection(focus = false) {
   if(home&&data.devices.length)$('home-topology').append(devicesOverview(data.devices,id=>{location.hash=encodeURIComponent(id);}));
   $('detail').hidden = listing;
   $('device-filter').hidden=!listing||home||empty;
-  $('device-empty').hidden=home||!listing || !data.devices.length || filterDevices(data.devices,deviceFilter).length>0;
+  $('device-search-tools').hidden=!listing||home||empty;
+  $('device-empty').hidden=home||!listing || !data.devices.length || filterDevices(data.devices,deviceFilter,deviceQuery).length>0;
   renderDeviceFilter(listing&&!home);
   $('nav-back').disabled=home && navigationPosition===0;
   $('page-title').textContent = home ? 'Genel bakış' : listing ? 'Cihazlar' : device?.name || 'Cihaz bulunamadı';
@@ -296,7 +317,7 @@ function renderSelection(focus = false) {
       const status=element('div',undefined,'device-compact-status presence-unknown');
       const label=element('p',undefined,'presence-label');
       const icon=actionIcon('M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h0');
-      label.append(icon,element('span','Durum bilinmiyor'));status.append(label,element('p','Süre bilinmiyor · canlı bağlantı yok','presence-duration'));info.append(status);
+      const liveLabel=element('span','Durum bilinmiyor');liveLabel.dataset.runtimeDevice=device.id;label.append(icon,liveLabel);status.append(label,element('p','Süre bilinmiyor · canlı bağlantı yok','presence-duration'));info.append(status);
       const counts=element('div',undefined,'device-record-counts');
       const jump=element('button',`${components.filter(part=>part.icon!=='board').length} sensör kayıtlı`,'sensor-jump');jump.type='button';
       jump.prepend(actionIcon('M5 5h14v14H5z M9 9h6v6H9z M9 2v3m6-3v3M9 19v3m6-3v3'));
@@ -328,20 +349,21 @@ function renderDeviceFilter(listing=true) {
 }
 function updateListStatus(listing) {
   if(!data.devices.length){$('status').textContent='Envanter boş. inventory.json içinde henüz cihaz kaydı yok.';return;}
-  const visible=filterDevices(data.devices,deviceFilter).length;
-  const count=listing&&deviceFilter!=='all'?`${visible} / ${data.devices.length}`:String(data.devices.length);
+  const visible=filterDevices(data.devices,deviceFilter,deviceQuery).length;
+  const count=listing&&(deviceFilter!=='all'||deviceQuery.trim())?`${visible} / ${data.devices.length}`:String(data.devices.length);
   $('status').textContent=`${count} cihaz kaydı`;
 }
 function renderDeviceCards() {
   $('devices').replaceChildren();
-  const filtered=filterDevices(data.devices,deviceFilter);
+  const filtered=filterDevices(data.devices,deviceFilter,deviceQuery);
   for(const device of filtered){
     const link=element('a',undefined,'device-card');link.href=`#${encodeURIComponent(device.id)}`;
     const copy=element('div',undefined,'device-card-copy');
     if(device.id==='uno-history')copy.append(element('span','Tarihsel kayıt','card-tag'));
     copy.append(element('h3',device.name),element('p',device.summary));
     const presence=devicePresence(device),status=element('span',undefined,`device-card-status is-${presence.state}`);
-    status.append(actionIcon(presence.state==='online'?'M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h0':presence.state==='historical'?'M4 12a8 8 0 1 0 2-5M4 3v5h5M12 8v5l3 2':'M3 3l18 18M2 8a16 16 0 0 1 4-2m4-2a16 16 0 0 1 12 4M5 12a11 11 0 0 1 4-2m6 0a11 11 0 0 1 4 2M8 16a6 6 0 0 1 8 0M12 20h0'),element('span',presence.label));
+    const liveText=element('span',presence.label);if(device.id!=='uno-history')liveText.dataset.runtimeDevice=device.id;
+    status.append(actionIcon(presence.state==='online'?'M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h0':presence.state==='historical'?'M4 12a8 8 0 1 0 2-5M4 3v5h5M12 8v5l3 2':'M3 3l18 18M2 8a16 16 0 0 1 4-2m4-2a16 16 0 0 1 12 4M5 12a11 11 0 0 1 4-2m6 0a11 11 0 0 1 4 2M8 16a6 6 0 0 1 8 0M12 20h0'),liveText);
     const meta=element('div',undefined,'device-card-meta');
     const parts=device.presentation?.components||[];
     const total=parts.reduce((sum,part)=>sum+(part.connections?.length||0),0);
@@ -357,11 +379,13 @@ function populateInventory() {
   $('inventory').hidden=!data.devices.length;
 }
 async function start() {
+  $('device-search-tools').hidden=true;
   $('retry').hidden = true; $('inventory').hidden = true; $('overview').hidden = true; $('device-filter').hidden=true;
   $('status').textContent = 'Envanter okunuyor…';
   try {
     data = await loadInventory();
     sourceSnapshot=serializeInventory(data);
+    homePanel?.dispose();homePanel=createHomePanel({inventory:data});
     populateInventory();
     renderSelection();
   } catch (error) {

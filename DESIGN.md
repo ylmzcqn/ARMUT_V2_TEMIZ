@@ -28,3 +28,5 @@ Modül seçici artık bağlantı alanının başlığıdır; Donanım bağlantı
 Cihaz filtresi açıklama satırının sağında; modül seçicisiyle aynı mobil alt panel. Cihaz kartları yatay: SVG sol, ad/özet sağ. Liste altında genel kaynak açıklama bölümü yok; cihaza özel kanıtlar ayrıntılarda durur.
 
 Kullanıcı yönü güncellemesi: kişisel elektronik atölyesi hissi. Modül/kartlarda küçük devre ayrıntıları, kablolarda kısa temsili sinyal geçişi; sürekli döngü yok. Yeşil/grafit temel ve sarı ses hattı korunur. Hareket canlı telemetri anlamına gelmez, azaltılmış hareket tercihiyle kapanır.
+
+8 Kasım 2026: ürün sade ev otomasyonu paneline genişledi. Genel bakış, Odalar, Kameralar, Otomasyonlar, Sahneler, Geçmiş ve Ayarlar aynı mevcut Cihazlar estetiğindedir. `hp-` ortak yüzey/form/grid sınıfları mevcut CSS değişkenlerini kullanır; bağımsız tema yoktur. Yeni işlevlerde gerçek veri yoksa bilinmiyor/bağlantı bekliyor gösterilir, test modu açıkça ayrılır. Bu genişleme önceki “kontrol gösterilmez” kapsamını aşar; gerçek donanım başarısı yalnız cihaz onayıyla gösterilir. Mobil ana menü yatay kaydırılır, içerik kartları dar ekranda tek sütundur.

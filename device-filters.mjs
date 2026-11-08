@@ -11,8 +11,16 @@ export function deviceGroup(device){
  if(device.id==='hub')return 'hub';
  return 'other';
 }
-export function filterDevices(devices,filter='all'){
- return filter==='all'?devices:devices.filter(device=>deviceGroup(device)===filter);
+function searchText(value){
+ return String(value??'').toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i');
+}
+export function filterDevices(devices,filter='all',query=''){
+ const words=searchText(query).trim().split(/\s+/).filter(Boolean);
+ return devices.filter(device=>{
+  if(filter!=='all'&&deviceGroup(device)!==filter)return false;
+  const text=searchText([device.id,device.name,device.summary,...(device.presentation?.components||[]).map(part=>part.name)].join(' '));
+  return words.every(word=>text.includes(word));
+ });
 }
 export function filterChoices(devices,current='all'){
  return deviceFilters.map(choice=>({...choice,count:filterDevices(devices,choice.value).length}))

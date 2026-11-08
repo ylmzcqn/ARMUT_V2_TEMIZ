@@ -73,3 +73,8 @@ Node.js 22 veya üzeri ve yerel önizleme için Python 3 yeterlidir; npm kurulum
 `source.sha256` özgün dosyanın inceleme hashidir. `snapshot.sha256` ise yalnız taşınan LF-normalize satır özetinindir. Snapshot, güncel fiziksel donanım veya bugün değişmemiş özgün dosya garantisi değildir. Kaynak parçaları kanıt metnidir; bağımlılık/çalıştırılacak firmware değildir.
 
 Cloud görevi önce AGENTS.md ve PROJECT.md okumalı, `node --test *.test.mjs` ve `node source-check.mjs` çalıştırmalıdır. Cihaz erişimi/firmware/OTA ve dış site yayını yapılmaz. Testler kaynak değişiklikleriyle birlikte Git’e alınır; yerel yedek ve sırlar alınmaz.
+
+## Ev otomasyonu paneli — 8 Kasım 2026
+Genel bakış, Odalar, Kameralar, Otomasyonlar, Sahneler, Geçmiş ve Ayarlar eklendi. Mevcut Cihazlar/donanım haritası korunur; tüm sayfalar aynı grafik/yeşil tasarım dilini kullanır. İlk kullanımda Odalar'dan oda, Ayarlar'dan işlev ekleyin. Kamera bağlantısı Kameralar kartından ayarlanır. Test modu Ayarlar'dadır; gerçek cihazları değiştirmez.
+
+Ev ayarları bu tarayıcıda saklanır; Ayarlar'dan yedek indir/yükle kullanılabilir. Kurallar panel açıkken yürür; kapalı tarayıcıda sürekli çalışma sağlanmaz. Gerçek veriler için ayrı yerel adaptör gerekir. Özel HTTPS yayın doğrudan HTTP yerel cihazlara erişimi garanti etmez. Kamera/komut adaptör sözleşmeleri, profiller ve doğrulama sınırları: [Ev paneli](docs/HOME-PANEL.md).

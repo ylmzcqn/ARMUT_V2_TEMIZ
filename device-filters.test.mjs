@@ -16,3 +16,12 @@ test('boş sonuç, boş envanter ve tanınmayan kart filtrelenir',()=>{
  assert.equal(filterDevices([{id:'new',icon:'board'}],'other').length,1);
  assert.ok(filterChoices([],'camera').some(c=>c.value==='camera'&&c.count===0));
 });
+test('arama Türkçe harfleri ve modül adlarını eşler, tür filtresini korur',()=>{
+ const records=[{id:'cam',name:'IŞIK Kamerası',icon:'camera',summary:'Salon',presentation:{components:[{name:'Sıcaklık Sensörü'}]}},{id:'hub',name:'Merkez',summary:'Kontrol'}];
+ assert.deepEqual(filterDevices(records,'all','isik').map(d=>d.id),['cam']);
+ assert.deepEqual(filterDevices(records,'camera',' SICAKLIK ').map(d=>d.id),['cam']);
+ assert.deepEqual(filterDevices(records,'hub','sicaklik'),[]);
+ assert.deepEqual(filterDevices(records,'all','kontrol').map(d=>d.id),['hub']);
+ assert.deepEqual(filterDevices(records,'all','bulunamayan'),[]);
+ assert.equal(filterDevices(records,'all','   ').length,2);
+});
