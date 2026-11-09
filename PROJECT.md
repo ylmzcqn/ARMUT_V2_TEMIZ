@@ -130,3 +130,8 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 - Yerel kaynak incelemesi `/api/system` GET ve `/api/firmware` POST yollarının varlığını bildirdi. İlk yön firmware değiştirmeden salt okunur GET adaptörüdür; mevcut `camera-02/presence-radar` kaydı korunur. Ayrıntılı hazırlık ve kaynak satırları docs/ESP32-INTEGRATION.md içindedir.
 - Tam JSON zarfı, yetkilendirme, boot/sürüm ve radar ölçüm yaşı hesabı henüz aktarılmadı; tahminle adaptör üretilmedi. Sonraki bağımlılık, adres/sır içermeyen kaynak sözleşmesi aktarımıdır. Ölçüm yaşı yoksa HTTP başarısı veriyi taze yapmaz; otomasyon tetiklenmez.
 - Bu talimat yalnız kaynak incelemesi/hazırlıktır: ev ağına istek, OTA yükleme, servis değişikliği veya yayın yapılmadı. Kaynaktaki OTA desteği kurulu cihazın OTA hazırlığı değildir.
+
+10 Kasım 2026 — Kamera 2 salt okunur ayrıştırıcı:
+- Yerel ajan tam `/api/system` alan/tür ve radar tazelik sözleşmesini aktardı. `legacy-camera-status.mjs` ağsız state/normalleştirme API’si uygulandı; beklenen kimlik, tek doğru bileşen/cihaz, boot değişimi, yalnız geçerli boolean, ölçüm yaşı + istek süresi + monoton bekleme <2000 ms. Eksik/çelişen veri, istek hatası ve eski örnek bilinmiyor olur.
+- Yedi sentetik sözleşme testi geçti; tüm Node paketi ve kaynak bütünlüğü ayrıca doğrulandı. Gerçek adres/token kullanılmadı; envanter, firmware, servis veya özel yayın değiştirilmedi.
+- Bu sadece ayrıştırıcı/test hazırlığıdır. Yerel GET taşıyıcısı ve panele bağlama açık iştir; genel 30 saniye runtime tazeliği yerine radarın 2000 ms sınırı korunmadan otomasyona bağlanmaz. Canlı test/OTA için bu aşamada yetki yoktur.

@@ -13,19 +13,30 @@
 
 ### Adaptörün sınırı ve eşleme hazırlığı
 
-1. Mevcut `camera-02` ve `presence-radar` kimliklerini kullan; yeni cihaz/modül veya ikinci varlık kaydı oluşturma. Varlık değeri ev modelindeki aynı işlevle eşlenmeli, envanter dosyasına yazılmamalı.
-2. GET yanıtının tam zarfı, kimlik/rol/sürüm/boot alanları, erişim kontrolü ve ölçüm yaşı sözleşmesi yerel kaynakta doğrulanmadan alan adları tahmin edilmez. `radar.online` ile bileşenin `online` bilgisi çelişirse güncel varlık üretme. Başarısız/eksik sensör verisi `false` değildir.
-3. HTTP yanıt zamanı sensörün ölçüm zamanı sayılmaz. Radarın son geçerli UART paketine göre yaşı sağlanmıyorsa sensör tazeliği `unknown` kalır ve bu veri otomasyon tetiklemez. Cihaz bağlantısı ile sensör sağlığı ayrı gösterilir.
-4. Mevcut `home-runtime` provider sözleşmesinin `{devices,entities}` okuma yoluna uyarlanır; eski GET verisi yeni firmware’in anahtarlı `/api/device/report` protokolünü destekliyormuş gibi sunulmaz. Adaptör yazma/komut/OTA sağlamaz. Tek yetkili kaynak seçilir; push/pull aynı cihazı paralel güncellemez.
-5. Uygulama aşamasında GET için tek eşzamanlı sorgu, sınırlı gövde/zaman aşımı, redirect reddi, iptal ve eski oturum yanıtını atma gerekir. Ağ ve kimlik bilgileri yalnız yerelde saklanır; cloud koduna, Git’e veya rapora taşınmaz.
+1. Mevcut `camera-02` ve `presence-radar` kimliklerini kullan; yeni cihaz/modül veya ikinci varlık kaydı oluşturma. Envanter ile canlı ölçüm ayrı tutulur.
+2. `GET /api/system` Bearer cihaz API tokenı ister; JSON/no-store, yetkisiz istekte 401 `{}`, bellek yetersizliğinde 503. Handler CORS izni eklemez. İleride yalnız yerel güvenilir köprü kullanılır; token tarayıcı paketine, envantere, Git’e veya loga konmaz. Kaynak: `Camera.cpp:734-750,856-873,967-969`.
+3. Üst zarfta beklenen yerel `hostname` ve `role` doğrulanır. `firmware`, `build`, `boot_health.boot_id` (hex), `elf_sha256`, `healthy`, `pending_verification` izlenir. Boot değişimi önceki varlık gözlemini siler. Kimlik beklentisi yerelde verilir; cloud koduna gerçek adres/hostname aktarılmaz.
+4. `components[]` içinde tek `id=presence-radar`, `owner_device_id=camera-02` ve `radar.installed_on=camera-02` gerekir. Asıl değer/tazelik kaynağı `radar` nesnesidir; bileşenin online veya boolean aynalama alanları çelişirse sonuç bilinmiyor olur.
+5. `radar.enabled`, `driver_ready`, `online` kesin true; `presence` boolean; sonlu `0 <= sample_age_ms < 2000` olmalıdır. `false` geçerli yokluktur. Eksik/null/hatalı/eski örnek veya HTTP/istek hatası bilinmiyor olur; eski varlık korunmaz. `last_byte_age_ms` kullanılmaz. Hiç örnek yokken firmware age=0 döndürebilir; online=false olduğundan kabul edilmez. Kaynak: `Radar.cpp:58-105`.
+6. Muhafazakâr yaş = cihaz `sample_age_ms` + GET istek süresi + alımdan beri monoton geçen süre. 2000 ms ve üzeri canlı sayılmaz. Duvar saati kullanılmaz. İstek süresi ölçümünü ileride yerel taşıyıcı sağlar; ayrıştırıcı ağ erişimi yapmaz.
 
-Bu hazırlığı tamamlayan sonraki kaynak aktarımı, gerçek IP/hostname/anahtar içermeyen **alan adları, türler, enum değerleri ve tazelik hesabını yapan kod parçası** olmalıdır: `/api/system` üst zarfı, radar JSON üreticisinin tamamı, erişim denetimi, boot/sürüm üretimi. Canlı cihaza istek gerektirmez. Bunlarla adaptörün saf normalleştirme testleri; yanlış kimlik/rol, bozuk/çelişen veri, ölçüm yaşı yokluğu, stale veri ve restart davranışını kapsayacak şekilde hazırlanabilir.
+### Uygulanan saf ayrıştırıcı
+
+`legacy-camera-status.mjs` → `createCameraPresenceState({expectedHostname, expectedRole, now?})`:
+
+- `accept({status, body, requestDurationMs})`: ayrıştırılmış sahte/yerel JSON yanıtını değerlendirir. Token, URL veya ağ erişimi almaz. JSON boyut sınırı ve JSON ayrıştırma hatası taşıyıcı katmanın sorumluluğudur.
+- `snapshot()`: `deviceId`, `componentId`, `value` (boolean/null), `fresh`, `ageMs`, sabit neden kodu ve seçili firmware/boot metaverisini verir. Gözlem beklerken yaş artar. Saat gerilerse gözlem iptal edilir.
+- `invalidate('network'|'timeout'|'aborted')`: istek hatasında eski gözlemi derhal iptal eder. Dış hata metnini çıktıya taşımaz.
+
+Yedi Node testi tamamen sentetik yanıtlarla kimlik/rol, bozuk/eksik/çelişen veri, 2000 ms sınırı, geçerli false, örneksizlik, gecikme, saat gerilemesi, boot değişimi ve HTTP/istek hatasını kapsar. Girdi değiştirilmez; envanter veya cihaz kaydı yazılmaz.
+
+Bu API **henüz home-runtime provider veya sunucuya bağlı değildir**. Sonraki yerel köprü aşamasında tek salt okunur GET kaynağı seçilmeli; push/pull aynı cihazı paralel güncellememelidir. Mevcut home-runtime'ın genel 30 saniye tazelik eşiği radar için kullanılmamalı: köprü ve panel 2000 ms sınırını uçtan uca korumalı, geçersiz snapshot’ın eski boolean değeri runtime'da bırakmasına izin vermemelidir. Bu bağlama yapılmadan otomasyon kaynağı olarak kullanılmaz. Taşıyıcı tek sorgu, bounded JSON/timeout, redirect reddi, iptal ve eski oturum yanıtını atma sağlamalıdır. Yazma, kontrol veya OTA içermez.
 
 ### Yerel kabul ve OTA
 
 Mevcut uç çalışıyorsa okuma için firmware değişikliği ve USB gerekmez. Kaynakta OTA bulunması cihazda OTA’nın çalıştığını veya bu cloud ortamından erişilebildiğini kanıtlamaz. Ağ erişimi ve canlı doğrulama bu aşamada yapılmaz. Daha sonra ayrıca yetkilendirilmiş yerel doğrulamada doğru cihaz, kurulu sürüm ve gerçek bölüm düzeni eşlenir. Firmware değişikliği gerçekten gerekirse geri dönüş imkânı doğrulanır ve ayrı açık yükleme yetkisi alınır; belirsiz yükleme tekrarlanmaz.
 
-Durum: yalnız kaynak incelemesi ve entegrasyon hazırlığı. Adaptör henüz uygulanmadı; cihaz erişimi, OTA, servis değişikliği ve yayın yapılmadı.
+Durum: kaynak sözleşmesi ve saf ayrıştırıcı/testler hazır. Ağ taşıyıcısı ve panel bağlantısı henüz uygulanmadı; cihaz erişimi, OTA, servis değişikliği ve yayın yapılmadı.
 
 ## Dahil etme
 
