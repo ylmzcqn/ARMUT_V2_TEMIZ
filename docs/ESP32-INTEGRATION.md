@@ -193,3 +193,21 @@ Durdurma sırası: HTTP handler dışından `armut_camera_http_stop(camera_http,
 Sadece kamera olan cihaz da `armut_link` ile kayıt/heartbeat gönderebilir: `.role="camera", .channels=NULL, .channel_count=0, .read=NULL`. Fiziksel switch callback'i gerekmeksizin `entities:[]` raporlanır.
 
 Host testleri Bearer karşılaştırmasını, üç profilin sensör parametrelerini, sensör hata sonucunu, JPEG kopyası/framebuffer iadesini, büyük/JPEG dışı kare reddini ve gönderim hatasında async tamamlama/stream yuvasının serbest kalmasını denetler. Bu testler ESP SDK ve kamera için stub kullanır; gerçek IDF ABI, HTTP socket zamanlaması, sürücü eşzamanlılığı, sensör ve fiziksel FPS doğrulaması değildir. Bu ortamda `idf.py` bulunmadığından gerçek ESP-IDF 5.5 derlemesi yapılmadı.
+
+## Yerel V1 ajana kaynak devri — 10 Kasım 2026
+
+Özel kaynak deposu: `https://github.com/ylmzcqn/ARMUT_V2_TEMIZ`, ayrılmış dal `camera02-cloud-publisher-20261110`. Bu dal kaynak devridir; main veya çalışan panel yayını değiştirilmez. Yayıncı uygulama commit’i: `f77acbe9de2fb5da9aad6be62ac0f98dabde22ef`.
+
+Yerel V1’e yalnız şu bileşenler alınır:
+- `firmware/armut_presence_push/armut_presence_push.c`
+- `firmware/armut_presence_push/include/armut_presence_push.h`
+- `firmware/armut_presence_push/CMakeLists.txt`
+- Ortak callback tipi için `firmware/armut_link/include/armut_link.h`; mevcut component CMake bağımlılığı `armut_link` olduğundan bu component’in kaynak/CMake dosyaları da gerekir. İkinci armut_link task’ı başlatılmaz.
+
+IDF 5.5 koşulları: `esp_http_client`, `esp_timer`, `esp_system`, `mbedtls`, `json`, `armut_link`; CA bundle etkin, mevcut Wi-Fi ve güvenilir cihaz saati hazır. `read(context,"presence",&value,&age)` mevcut radar snapshot’ından 0/1 ve gerçek UART ölçüm yaşını döndürür; enabled/driver_ready/online veya kimlik/profil uygun değilse hata döndürür. Callback hızlı/thread-safe olmalı, pin/driver/ağ başlatmamalı. Hiç örnek yokken age=0 geçerli yokluk değildir. Gönderici kanal/cihazı sabittir: `camera-02/presence-radar`.
+
+Testler: `sh firmware/tests/run-host-tests.sh` (Linux cc + libcjson) üç host programını çalıştırır; gerçek IDF derlemesi değildir. `firmware/tests/push_test.c` yayıncıyı, `firmware/tests/stubs` yalnız host SDK sınırlarını içerir. Bunlar üretim component include yoluna eklenmez. V1’de gerçek CMake/SDK/heap/stack/kamera eşzamanlılık kabulü yerelde yapılmalı.
+
+Cloud prod hedefi aynı sahibi-özel Site: `appgprj_6aef44c1c4bc8191897d459edbbea5ff`, `https://armut-v2-panel.jadeelm.chatgpt.site`. Kod `cloud-presence-worker.mjs`, D1 adaptörü `presence-ingest.mjs`, schema `migrations/presence/0001_presence.sql`; prepared paket `node build-cloud.mjs` ile oluşturulur. Bu geliştirme VM’sinde üretim servisi çalıştırılmayacak; hedef yayımlanmış Sites Worker + D1’dir. Şu anda prod statik, `DB` bağlaması/şema uygulanmamış ve yayıncı yetkisi provision edilmemiştir. Sites’ın bu buildless projede desteklediği D1 declaration/migration biçimi doğrulanmadan alan veya tablo yaratma yolu uydurulmaz. Yeni ücretli hesap/servis seçilmedi.
+
+Cihaz için iki ayrı gizli değer gerekir: `PRESENCE_PUBLISH_TOKEN` ile eşleşen dar yayıncı anahtarı ve Sites platformunun özel servis erişim değeri. Değerler bu kaynak devrinde yoktur; güvenli provisioning ile aktarılmalı, sohbet/commit/loga konmamalıdır. Cloud alıcı ve erişim doğrulanmadan gerçek firmware yüklemesine geçmeyin. Kullanıcının yükleme onayı var; rutin tekrar onay yerine doğru hedef/kurulu sürüm/partition/geri dönüş ve tek OTA/sonuç doğrulaması korunur. Belirsiz yazmayı tekrarlamayın. PC’ye kalıcı V2 sunucusu veya yardımcı servis kurulmaz.
