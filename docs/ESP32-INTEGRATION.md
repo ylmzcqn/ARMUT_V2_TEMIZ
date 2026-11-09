@@ -2,6 +2,31 @@
 
 `firmware/armut_link`, ESP-IDF 5.5 için yeniden kullanılabilir C bileşenidir. Wi-Fi/Ethernet, GPIO, kart başlangıcı, sensör sürücüleri veya OTA kurmaz. Çalışan ağa ve uygulamanın doğruladığı sürücülere bağlanır. Pin, besleme ve kart revizyonu bu bileşenle doğrulanmış olmaz.
 
+## Mevcut Kamera 2 firmware’iyle USB’siz geçiş — 10 Kasım 2026
+
+İlk tercih yeni firmware yüklemek değil, mevcut Kamera 2’nin `GET /api/system` çıktısını ev ağındaki yerel denetleyicide salt okunur adaptörle okumaktır. Aşağıdaki uç ve dosyalar yerel kaynak incelemesinden aktarılmış kanıttır; bu cloud oturumu özgün dosyaların tamamını veya kurulu cihazı incelemedi.
+
+- `firmware-idf/src/camera/Camera.cpp:967-975`: `GET /api/system`, `POST /api/firmware` kayıtları.
+- `firmware-idf/src/camera/SystemStatus.cpp:54,76`: sistem çıktısına radar ve OTA bilgisinin eklenmesi.
+- `firmware-idf/src/common/Radar.cpp:111-124`: `radar` ve `components` içinde `presence-radar`. Mevcut V2 kaynak parçası bileşende `owner_device_id=camera-02`, `kind=ld2410c`, `model=HLK-LD2410C`, `online`, `value` ve `presence` alanlarını gösterir.
+- `upload_ota.py:40,78-96`: hedef ön kontrolü, tek POST, hostname/SHA256 başlıkları ve belirsiz yazma makbuzu; cihaz işleyicisi `FirmwareUpload.cpp`, Kamera 2 bölüm tablosu `firmware-idf/partitions.camera-02.csv`.
+
+### Adaptörün sınırı ve eşleme hazırlığı
+
+1. Mevcut `camera-02` ve `presence-radar` kimliklerini kullan; yeni cihaz/modül veya ikinci varlık kaydı oluşturma. Varlık değeri ev modelindeki aynı işlevle eşlenmeli, envanter dosyasına yazılmamalı.
+2. GET yanıtının tam zarfı, kimlik/rol/sürüm/boot alanları, erişim kontrolü ve ölçüm yaşı sözleşmesi yerel kaynakta doğrulanmadan alan adları tahmin edilmez. `radar.online` ile bileşenin `online` bilgisi çelişirse güncel varlık üretme. Başarısız/eksik sensör verisi `false` değildir.
+3. HTTP yanıt zamanı sensörün ölçüm zamanı sayılmaz. Radarın son geçerli UART paketine göre yaşı sağlanmıyorsa sensör tazeliği `unknown` kalır ve bu veri otomasyon tetiklemez. Cihaz bağlantısı ile sensör sağlığı ayrı gösterilir.
+4. Mevcut `home-runtime` provider sözleşmesinin `{devices,entities}` okuma yoluna uyarlanır; eski GET verisi yeni firmware’in anahtarlı `/api/device/report` protokolünü destekliyormuş gibi sunulmaz. Adaptör yazma/komut/OTA sağlamaz. Tek yetkili kaynak seçilir; push/pull aynı cihazı paralel güncellemez.
+5. Uygulama aşamasında GET için tek eşzamanlı sorgu, sınırlı gövde/zaman aşımı, redirect reddi, iptal ve eski oturum yanıtını atma gerekir. Ağ ve kimlik bilgileri yalnız yerelde saklanır; cloud koduna, Git’e veya rapora taşınmaz.
+
+Bu hazırlığı tamamlayan sonraki kaynak aktarımı, gerçek IP/hostname/anahtar içermeyen **alan adları, türler, enum değerleri ve tazelik hesabını yapan kod parçası** olmalıdır: `/api/system` üst zarfı, radar JSON üreticisinin tamamı, erişim denetimi, boot/sürüm üretimi. Canlı cihaza istek gerektirmez. Bunlarla adaptörün saf normalleştirme testleri; yanlış kimlik/rol, bozuk/çelişen veri, ölçüm yaşı yokluğu, stale veri ve restart davranışını kapsayacak şekilde hazırlanabilir.
+
+### Yerel kabul ve OTA
+
+Mevcut uç çalışıyorsa okuma için firmware değişikliği ve USB gerekmez. Kaynakta OTA bulunması cihazda OTA’nın çalıştığını veya bu cloud ortamından erişilebildiğini kanıtlamaz. Ağ erişimi ve canlı doğrulama bu aşamada yapılmaz. Daha sonra ayrıca yetkilendirilmiş yerel doğrulamada doğru cihaz, kurulu sürüm ve gerçek bölüm düzeni eşlenir. Firmware değişikliği gerçekten gerekirse geri dönüş imkânı doğrulanır ve ayrı açık yükleme yetkisi alınır; belirsiz yükleme tekrarlanmaz.
+
+Durum: yalnız kaynak incelemesi ve entegrasyon hazırlığı. Adaptör henüz uygulanmadı; cihaz erişimi, OTA, servis değişikliği ve yayın yapılmadı.
+
 ## Dahil etme
 
 ESP-IDF projesinin ana `CMakeLists.txt` dosyasında `project(...)` öncesinde bileşen yolunu ekleyin:
