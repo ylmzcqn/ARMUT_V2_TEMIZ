@@ -120,3 +120,8 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 9 Kasım 2026 — yayın/kurtarma kaydı:
 - Yerel kaynak commit: ed2ea97. Çıkarılmış ZIP'te denetleyicinin gerçek HTTP sağlık ucu ayrıca geçti; paket /workspace/armut-local-panel.zip (99 dosya, sır/çalışma verisi içermez).
 - Aynı sahibi-özel Sites yayını başarılı: https://armut-v2-panel.jadeelm.chatgpt.site ; kaynak 8511f554b13436aa05b9886274f4c01532db4e41 ; sürüm appgprj_6aef44c1c4bc8191897d459edbbea5ff~appgver_388a2db5939481919cf0f1f40af557a3 ; deployment appgdep_6af20e44883c8191ac9f264dc0c1f889. Yayın statiktir; yerel Node denetleyici bu adreste çalışmaz.
+
+9 Kasım 2026 — camera-02 entegrasyon yönü:
+- Kullanıcı varlık sensörlü cihazın camera-02 olduğunu doğruladı ve bilgisayarındaki çalışan ARMUT_V1 projesinin sensör/kamera/OTA kodunun esas alınmasını istedi. Hedef USB'ye yeniden bağlamadan mevcut HTTP uçlarıyla veya gerekirse mevcut OTA yoluyla entegrasyondur; OTA'nın kullanılabilirliği henüz gözlenmedi.
+- Bu bulut çalışma alanında ARMUT_V1 kaynak klasörü ve ev bilgisayarına/ağına bağlı erişim yok. inventory.json yalnız eski kaynak parçalarını içerir; çalışan firmware veya güncel yerel kaynak yerine geçmez. Önce güncel yerel kaynak, çalışan cihaz kimliği ve mevcut durum/OTA sözleşmesi okunmalı; mevcut HTTP durum uçları yeterliyse firmware değiştirmeden adaptör tercih edilmeli.
+- Yeni yazılan bağımsız radar sürücüsü taslağı ürünle birleştirilmedi; /workspace/scratch/presence-draft altında bekletildi. Bu adımda cihaz erişimi, firmware yükleme, OTA veya yayın yapılmadı. Devam bağımlılığı: gerçek bilgisayardaki ARMUT_V1'e yerel çalışma alanı veya yetkili bağlantıyla erişim.
