@@ -2,6 +2,18 @@
 
 Durum: 8 Kasım 2026, mimari önerisi ve uygulama kabul ölçütleri. Bu belge çalışan entegrasyon değildir. Cihazlara bağlantı, firmware yüklemesi, servis kurulumu veya otomasyon etkinleştirmesi yapılmadı.
 
+## Güncel karar: Hub merkezli akış
+
+Kullanıcı Hub merkezli V2’yi onayladı: Camera 1/2 mevcut yerel durum sözleşmeleriyle Hub’da toplanır; tek cloud yayıncısı Hub’dır. Panel/backend cloud’da, PC/telefon istemcidir. İlk kabul yalnız `camera-02/presence-radar`; gerçek radar akışı kabul edilince Kamera 1 ve Hub sağlığı aynı kaynak/yayıncı ayrımıyla eklenir. Video ayrı pakettir. Aşağıdaki doğrudan Kamera 2 yayın tasarımı tarihsel/yedek adaydır; mevcut Worker onu otomatik kabul etmez ve OTA yapılmaz.
+
+Cloud alıcısı mevcut lease/CAS/D1 yolunu korur. `hello` ve `report` gövdesinde `publisherId=hub`, `deviceId=camera-02`, `componentId=presence-radar`; `bootId` Hub yayıncı oturumudur. Raporda ayrıca gerçek kameranın `sourceBootId` değeri vardır. Browser snapshot’ındaki `bootId` kameraya, `publisherBootId` Hub’a aittir. Dar yayıncı yetkisi artık Hub’a provision edilecektir; yeni anahtar üretilmedi veya mesajla taşınmadı.
+
+`hub-presence.mjs` mevcut V1 ayrıştırıcısını kullanır. `sourceSampleAgeMs` (kameranın UART örneği), `hubResidenceMs` (Hub önbelleğinde geçen güncel süre), `sourceTransitMs` (ilk ağ geçişinin doğrulanmış ihtiyatlı payı) toplamı `sampleAgeMs` olmalıdır. Eksik ağ payı sıfır varsayılmaz. Toplam≥2000 veya kimlik/bozuk veri/null kaynak bilinmiyor olur. Alıcı da parçaları yeniden toplar; Hub→cloud lease/transit payını ve browser’da geçen süreyi ayrıca ekler. Kamera reboot’unda sourceBootId değişir; Hub reboot’u ile karıştırılmaz.
+
+Yerel kaynak kanıtı: camera/Hub.cpp:121-140 mevcut tam systemJson’u `/api/node/sync` ile yollar; hub/Registry.cpp:26-40 system ve system_age_ms verir. Normal sync 2000 ms, hata 4000/8000 ms’dir. Radarın <2000 ms eşiği bundan uzun yapılmaz. Mevcut sync’ten alınan veri ancak tüm yaş/ağ payı doğrulanabiliyorsa kullanılabilir; system_age_ms tek başına geçiş gecikmesini kanıtlamaz. Sürekli taze radar için alternatif: **Hub’ın sabit Kamera 2 hedefine, mevcut Bearer yetkisiyle 1 sn aralıklı, tek eşzamanlı ve sınırlı süreli GET /api/system yapması**; tam istek süresi ilk geçiş payı olarak korunur. Yerel toplama mevcut kameranın API/firmware’ini değiştirmez. Yeni örnek alındığında cloud’a son güncel snapshot yayınlanır; FIFO eski örnek kuyruğu kurulmaz. Cloud göndericisi yalnız snapshot kopyalamalı, sensör/kamera işini veya yerel HTTP toplamasını kilitlememelidir. Kesintili güncellik gerçek yerel kabulde ölçülür; GET/CPU/heap etkisi fiziksel test edilmedi.
+
+D1 schema SQL’i `drizzle/0001_presence.sql` yoluna, prepared pakette de `drizzle/` altına taşındı. Kaynakta daha önceki migrations/presence dosyası uygulanmış migration değildi; SQL içeriği değişmedi. Bu dizinin Sites build scriptinde aranması, journal/build metadata veya dolu d1 declaration biçiminin doğrulandığı anlamına gelmez. Doğrulanmış veritabanlı starter/build metadata ve binding declaration olmadan production deploy edilmez. Runtime DDL veya tahmini manifest eklenmedi. Aktif Site/audience aynı kaldı; gerçek kabul ve OTA ayrı/açık.
+
 ## Güncel hedef ve yayın kapasitesi — 10 Kasım 2026
 
 Kabul: kod ve panel/backend bulutta kalır; Windows PC kapalıyken PC/telefon aynı özel panelden Kamera 2’nin gerçek var/yok/bilinmiyor durumunu okur. Kullanıcının PC’sine proje, Node sunucusu veya yardımcı servis kurmak çözüm değildir. Önce tek radar akışı; görüntü sonraki paket. Aşağıdaki 8 Kasım önerileri tarihsel kayıttır; bu güncel hedef onları önceler.

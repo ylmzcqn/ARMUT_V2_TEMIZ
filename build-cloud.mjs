@@ -16,6 +16,6 @@ const bundle=`const {createPresenceIngest,createD1PresenceStore,validPublisher}=
 mkdirSync(join(out,'dist/server'),{recursive:true});mkdirSync(join(out,'.openai'),{recursive:true});
 writeFileSync(join(out,'dist/server/index.js'),bundle);
 const manifest=JSON.parse(readFileSync(join(root,'.openai/hosting.json'),'utf8'));delete manifest.static;
-mkdirSync(join(out,'migrations/presence'),{recursive:true});writeFileSync(join(out,'migrations/presence/0001_presence.sql'),readFileSync(join(root,'migrations/presence/0001_presence.sql')));
+mkdirSync(join(out,'drizzle'),{recursive:true});writeFileSync(join(out,'drizzle/0001_presence.sql'),readFileSync(join(root,'drizzle/0001_presence.sql')));
 writeFileSync(join(out,'.openai/hosting.json'),JSON.stringify(manifest,null,2)+'\n');
 console.log(JSON.stringify({artifact:out,assets:Object.keys(assets).length,bytes:Buffer.byteLength(bundle),published:false,publisherStorage:'D1-binding-and-migration-not-applied',publisherSecrets:'not-embedded-configure-via-Sites'}));

@@ -19,13 +19,16 @@ export function createD1PresenceStore(binding){
 }
 export function createPresenceIngest({store,now=()=>Date.now()}={}){
  function clock(){const t=now();if(!Number.isSafeInteger(t)||t<0)reject('clock-unavailable',503);return t;}
- function identity(body){if(!body||typeof body!=='object'||body.version!==1||body.deviceId!=='camera-02'||body.componentId!=='presence-radar'||typeof body.bootId!=='string'||!hex.test(body.bootId))reject('identity');}
+ function identity(body){if(!body||typeof body!=='object'||body.version!==1||body.publisherId!=='hub'||body.deviceId!=='camera-02'||body.componentId!=='presence-radar'||typeof body.bootId!=='string'||!hex.test(body.bootId))reject('identity');}
  async function freshLease(previous,state){const token=nonce();await store.save(previous,{...state,nonceHash:await hash(token)});return {version:1,nonce:token,leaseMs:5000,reportIntervalMs:1000};}
  return Object.freeze({
   async hello(body){identity(body);const previous=await store.load();return freshLease(previous,{bootId:body.bootId,issuedAt:clock(),sequence:0,value:null,observedAt:null});},
   async report(body){
    identity(body);if(typeof body.nonce!=='string'||!/^[a-f0-9]{64}$/i.test(body.nonce))reject('lease');
    if(!Number.isSafeInteger(body.sequence)||body.sequence<=0||!Number.isSafeInteger(body.sinceLeaseMs)||body.sinceLeaseMs<0||!(body.value===null||typeof body.value==='boolean')||(body.value===null?body.sampleAgeMs!==null:!Number.isFinite(body.sampleAgeMs)||body.sampleAgeMs<0||body.sampleAgeMs>=2000))reject('sample');
+   const parts=[body.sourceSampleAgeMs,body.hubResidenceMs,body.sourceTransitMs];
+   if(body.value===null){if(parts.some(p=>p!==null)||!(body.sourceBootId===null||typeof body.sourceBootId==='string'&&/^[a-f0-9]{1,64}$/i.test(body.sourceBootId)))reject('source');}
+   else if(typeof body.sourceBootId!=='string'||!/^[a-f0-9]{1,64}$/i.test(body.sourceBootId)||parts.some(p=>!Number.isSafeInteger(p)||p<0)||parts.reduce((a,b)=>a+b,0)!==body.sampleAgeMs)reject('source-age');
    const previous=await store.load(),s=previous?.state;if(!s)reject('lease-missing',409);
    if(s.bootId!==body.bootId)reject('boot-mismatch',409);
    if(body.sequence!==s.sequence+1)reject('sequence',409);
@@ -34,8 +37,8 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
    if(!Number.isFinite(elapsed)||elapsed<0||elapsed>=5000||body.sinceLeaseMs>elapsed)reject('lease-expired',409);
    const age=body.value===null?null:elapsed-body.sinceLeaseMs+body.sampleAgeMs+10;
    if(age!==null&&age>=2000)reject('sample-stale',409);
-   return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,value:body.value,observedAt:age===null?null:time-age});
+   return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age});
   },
-  async snapshot(){const record=await store.load(),s=record?.state,time=clock(),age=!Number.isFinite(s?.observedAt)?null:time-s.observedAt;const fresh=Number.isFinite(age)&&age>=0&&age<2000&&typeof s.value==='boolean';return {deviceId:'camera-02',componentId:'presence-radar',bootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:true};}
+  async snapshot(){const record=await store.load(),s=record?.state,time=clock(),age=!Number.isFinite(s?.observedAt)?null:time-s.observedAt;const fresh=typeof s?.sourceBootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.sourceBootId)&&Number.isFinite(age)&&age>=0&&age<2000&&typeof s.value==='boolean';return {publisherId:'hub',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:true};}
  });
 }

@@ -12,6 +12,9 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 ## Güncel durum
 
+10 Kasım 2026 — son yön: Hub tek cloud yayıncısı, kamera-02/presence-radar ayrı kaynak. Hub/kamera boot’ları ayrıldı; üç yaş parçası ve toplamı alıcıda doğrulanıyor, <2000ms sınırı korunuyor. Saf Hub normalleştirici + mock Hub→Worker→panel testleri uygulandı. Önce gerçek radar kabulü, sonra Kamera 1/Hub sağlık ve ayrı video. Kamera 2 doğrudan C yayıncı yedek adaydır; henüz Hub contract’ı göndermez, OTA yapılmaz. Schema standart drizzle/ yoluna taşındı; tam Sites D1 declaration/üretilmiş migration metadata doğrulaması hâlâ açık.
+
+
 10 Kasım 2026 — güncel öncelik: PC’den bağımsız Kamera 2 → dışarı HTTPS → sahibi-özel cloud panel. Yayıncı firmware bileşeni, tek kullanımlık lease/CAS doğrulaması, D1 kalıcı son durum ve Worker paketi hazırlandı. 150 Node testi ve 3 C host testi geçti. **Canlı devrede değil:** hosted DB/migration/servis provisioning’i, gerçek V1 snapshot callback’i, IDF derlemesi ve fiziksel kabul açık; yeni yayın veya OTA yapılmadı. Ayrıntı aşağıdaki son kayıt ve docs/ARCHITECTURE.md içindedir.
 
 
@@ -182,3 +185,8 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 - Sites SKILL/storage/troubleshooting yeniden okundu: Worker ESM, mantıksal D1 DB ve yayın sırasında migration platform tarafından desteklenir. Önceki genel platform kapasitesi engeli ifadesi yerine doğru açık iş: bu buildless kaynak için tam manifest/migration declaration biçimini doğrulamak. Bu oturumda okunan storage metni alan şekli/örneği vermiyor; plugin yardımcı scriptleri filesystem/resource yolundan bulunamadı. Yerel 1.1.4 örneğiyle fark netleştirilmeli, alan uydurulmamalı.
 - Native get_site sahibi-özel durumu (tek owner, grup yok) doğruladı. Native read_database_overview sonucu bindings=[]/tables=[]; env revision0 boştu. Mevcut açık yetkiyle yalnız PRESENCE_PUBLISH_TOKEN yeni rastgele değer olarak is_secret=true tanımlandı; env revision1 başarıyla döndü. Değer mesaj/log/Git'e yazılmadı; yayın yapılmadığından henüz uygulanmış runtime yetkisi değildir. Önceden çalışan cihaz key'i döndürülmedi veya rotate edilmedi.
 - Prepared Worker ve migrations/presence/0001_presence.sql var; schema dosyası kaynakla byte-identical. Prepared manifest project_id'yi koruyor/static içermiyor fakat d1 henüz tanımlı değil. Bu yüzden paket yayıma hazır/D1 provision edilmiş sayılmıyor. Eksik somut işlem, güncel Sites 1.1.4'te desteklenen tam d1 DB + migration declaration örneğini elde edip source manifestine koymak, ardından onaylı save/deploy ve native DB/API kontrollerini tamamlamak. OTA hâlâ yapılmayacak; sırların yerel güvenli provisioning'i bundan sonra gelir.
+
+10 Kasım 2026 — Hub geçişi yazılım doğrulaması:
+- 154 Node testi geçti. Üç C host testi de geçti; bunlar doğrudan yayıncı yedek bileşenini kapsar, gerçek Hub firmware entegrasyonu değildir. Hazırlanan Worker ve build/sözdizimi doğrulandı. Hub normalleştirme, toplam yaş/eksik pay, yanlış yayıncı/kaynak, kaynak reboot ayrımı ve SQLite/D1’den aynı özel panel runtime’ına sentetik radar akışı kapsandı.
+- Yerel kaynak 2 sn sync ve 4/8 sn retry bilgisiyle <2 sn radar tazeliğinin çakışması kayda alındı. Öncelik mevcut tam systemJson/registry; ağ payı bilinmiyorsa unknown. Gerekirse sabit hedefli yetkili kısa GET alternatifinin gerçek etkisi yerelde değerlendirilecek; cloud’dan LAN denemesi yapılmadı.
+- SQL unchanged olarak drizzle/0001_presence.sql konumuna taşındı. Prepared artefakt yeni SQL yolunu içerir; uygulanmış migration/DB binding/journal iddiası yok. Aktif manifest ve production/audience değiştirilmedi, yeni sır üretilmedi, OTA yapılmadı.

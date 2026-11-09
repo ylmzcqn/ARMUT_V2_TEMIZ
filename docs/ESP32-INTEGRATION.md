@@ -2,7 +2,15 @@
 
 `firmware/armut_link`, ESP-IDF 5.5 için yeniden kullanılabilir C bileşenidir. Wi-Fi/Ethernet, GPIO, kart başlangıcı, sensör sürücüleri veya OTA kurmaz. Çalışan ağa ve uygulamanın doğruladığı sürücülere bağlanır. Pin, besleme ve kart revizyonu bu bileşenle doğrulanmış olmaz.
 
-## Güncel cloud yayın bileşeni
+## Güncel Hub sözleşmesi
+
+Hub merkezli akış onaylandı. Aşağıdaki doğrudan Kamera 2 bileşenini aktif yayıncı olarak yüklemeyin. Güncel Worker, Hub kimliği ile kamera kaynak kimliğini ayrı doğrular. Eski doğrudan C yayıncı henüz yeni Hub envelope’u göndermez; yedek aday olarak korunmuştur. Gerçek Hub task entegrasyonu yerel V1 tarafında yapılacaktır.
+
+Hello mevcut alanlara `publisherId:"hub"` ekler. `bootId` Hub yayıncı oturumudur. Report ayrıca `sourceBootId` (Kamera 2 boot_health.boot_id), `sourceSampleAgeMs`, `hubResidenceMs`, `sourceTransitMs` taşır; bunların toplamı `sampleAgeMs` ile birebir eşleşmelidir. Kaynak geçersizse value/sampleAgeMs ve üç yaş alanı null; sourceBootId biliniyorsa korunabilir, bilinmiyorsa null. Token yalnız Hub’da provision edilir. Nonce/sequence/sinceLeaseMs mekanizması değişmedi. Receiver sabit source camera-02/presence-radar dışında cihazı henüz kabul etmez; ilk gerçek kabul sonrası diğer sağlık kaynakları eklenir.
+
+`normalizeHubPresence({system,systemAgeMs,sourceTransitMs},{expectedHostname,expectedRole})` saf referans normalleştiricisidir; yerel Hub uygulaması gerçek güncel registry yaşını ve ölçülmüş/bounded ağ payını sağlamalıdır. Eski snapshot yeniden okununca yaş sıfırlanmaz. 2000ms sync döngüsü nedeniyle kesintili görünüm beklenebilir; eşiği gevşetmek yerine gerekirse Hub’dan kontrollü kısa GET yapılır. Ayrıntılar mevcut [mimari](ARCHITECTURE.md#güncel-karar-hub-merkezli-akış) içindedir.
+
+## Kamera 2 doğrudan cloud yayın bileşeni — yedek aday
 
 Kullanıcı PC’den bağımsız dışarı HTTPS yayınını seçti. `firmware/armut_presence_push`, aynı IDF projesine `EXTRA_COMPONENT_DIRS` ve uygulamanın `REQUIRES` listesine eklenir. `armut_link` yalnız ortak read callback türü için bağımlılıktır; eski armut_link rapor task’ını ayrıca başlatmayın. V1’in kendi yerel Hub sync işlevini değiştirmek gerekmez. Sertifika bundle için `CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y` gerekir; mevcut Wi-Fi ve güvenilir saat/SNTP hazır olduktan sonra başlatılır.
 
@@ -208,6 +216,6 @@ IDF 5.5 koşulları: `esp_http_client`, `esp_timer`, `esp_system`, `mbedtls`, `j
 
 Testler: `sh firmware/tests/run-host-tests.sh` (Linux cc + libcjson) üç host programını çalıştırır; gerçek IDF derlemesi değildir. `firmware/tests/push_test.c` yayıncıyı, `firmware/tests/stubs` yalnız host SDK sınırlarını içerir. Bunlar üretim component include yoluna eklenmez. V1’de gerçek CMake/SDK/heap/stack/kamera eşzamanlılık kabulü yerelde yapılmalı.
 
-Cloud prod hedefi aynı sahibi-özel Site: `appgprj_6aef44c1c4bc8191897d459edbbea5ff`, `https://armut-v2-panel.jadeelm.chatgpt.site`. Kod `cloud-presence-worker.mjs`, D1 adaptörü `presence-ingest.mjs`, schema `migrations/presence/0001_presence.sql`; prepared paket `node build-cloud.mjs` ile oluşturulur. Bu geliştirme VM’sinde üretim servisi çalıştırılmayacak; hedef yayımlanmış Sites Worker + D1’dir. Şu anda prod statik, `DB` bağlaması/şema uygulanmamış ve yayıncı yetkisi provision edilmemiştir. Sites’ın bu buildless projede desteklediği D1 declaration/migration biçimi doğrulanmadan alan veya tablo yaratma yolu uydurulmaz. Yeni ücretli hesap/servis seçilmedi.
+Cloud prod hedefi aynı sahibi-özel Site: `appgprj_6aef44c1c4bc8191897d459edbbea5ff`, `https://armut-v2-panel.jadeelm.chatgpt.site`. Kod `cloud-presence-worker.mjs`, D1 adaptörü `presence-ingest.mjs`, schema `drizzle/0001_presence.sql`; prepared paket `node build-cloud.mjs` ile oluşturulur. Bu geliştirme VM’sinde üretim servisi çalıştırılmayacak; hedef yayımlanmış Sites Worker + D1’dir. Şu anda prod statik, `DB` bağlaması/şema uygulanmamış ve yayıncı yetkisi provision edilmemiştir. Sites’ın bu buildless projede desteklediği D1 declaration/migration biçimi doğrulanmadan alan veya tablo yaratma yolu uydurulmaz. Yeni ücretli hesap/servis seçilmedi.
 
 Cihaz için iki ayrı gizli değer gerekir: `PRESENCE_PUBLISH_TOKEN` ile eşleşen dar yayıncı anahtarı ve Sites platformunun özel servis erişim değeri. Değerler bu kaynak devrinde yoktur; güvenli provisioning ile aktarılmalı, sohbet/commit/loga konmamalıdır. Cloud alıcı ve erişim doğrulanmadan gerçek firmware yüklemesine geçmeyin. Kullanıcının yükleme onayı var; rutin tekrar onay yerine doğru hedef/kurulu sürüm/partition/geri dönüş ve tek OTA/sonuç doğrulaması korunur. Belirsiz yazmayı tekrarlamayın. PC’ye kalıcı V2 sunucusu veya yardımcı servis kurulmaz.
