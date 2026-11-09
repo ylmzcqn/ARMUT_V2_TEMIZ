@@ -1,20 +1,23 @@
-import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261109-6';
-import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261109-6';
-import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261109-6';
-import {devicePresence} from './live-evidence.mjs?v=cloud20261109-6';
-import {moduleActivity} from './module-history.mjs?v=cloud20261109-6';
-import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261109-6';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261109-6';
-import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261109-6';
-import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261109-6';
-import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261109-6';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261109-6';
-import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261109-6';
+import {newId} from './browser-crypto.mjs?v=cloud20261109-7';
+import {createPanelRuntime} from './remote-home.mjs?v=cloud20261109-7';
+import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261109-7';
+import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261109-7';
+import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261109-7';
+import {devicePresence} from './live-evidence.mjs?v=cloud20261109-7';
+import {moduleActivity} from './module-history.mjs?v=cloud20261109-7';
+import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261109-7';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261109-7';
+import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261109-7';
+import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261109-7';
+import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261109-7';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261109-7';
+import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261109-7';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
 let data;
 let homePanel;
+let catalogSubscription;
 extendNavigation();
 let sourceSnapshot, fileHandle;
 let dirty = false;
@@ -87,7 +90,7 @@ function componentDetails(part, device, trigger, pinsOpen=false) {
   const partIndex=device.presentation.components.indexOf(part);
   const returnToPart=()=>openComponent(device.id,partIndex,trigger,true);
   const claims = part.claimIndexes.map(index => device.claims[index]);
-  const evidenceId=`module-evidence-${crypto.randomUUID()}`;
+  const evidenceId=`module-evidence-${newId()}`;
   const card = element('section', undefined, 'module-card');
   const summary=element('div',undefined,'module-summary');
   const copy=element('div',undefined,'module-summary-copy');
@@ -272,8 +275,9 @@ function renderSelection(focus = false) {
     if(focus){$('content').focus({preventScroll:true});window.scrollTo(0,0);}
     return;
   }
-  $('inventory').hidden=!data.devices.length;
-  const {device,home,empty,listing}=inventoryRoute(data,location.hash);
+  $('inventory').hidden=!listedDevices().length;
+  const {device,home,listing}=inventoryRoute(data,location.hash);
+  const empty=!listedDevices().length;if(listing&&!home)renderDeviceCards();
   $('retry').hidden=!empty;$('retry').textContent=empty?'Envanteri yeniden yükle':'Yeniden dene';
   $('overview').hidden = !home || !data.devices.length;
   $('devices').hidden = !listing||home;
@@ -282,7 +286,7 @@ function renderSelection(focus = false) {
   $('detail').hidden = listing;
   $('device-filter').hidden=!listing||home||empty;
   $('device-search-tools').hidden=!listing||home||empty;
-  $('device-empty').hidden=home||!listing || !data.devices.length || filterDevices(data.devices,deviceFilter,deviceQuery).length>0;
+  $('device-empty').hidden=home||!listing || !data.devices.length || filterDevices(listedDevices(),deviceFilter,deviceQuery).length>0;
   renderDeviceFilter(listing&&!home);
   $('nav-back').disabled=home && navigationPosition===0;
   $('page-title').textContent = home ? 'Genel bakış' : listing ? 'Cihazlar' : device?.name || 'Cihaz bulunamadı';
@@ -340,24 +344,25 @@ function renderSelection(focus = false) {
   }
   if (focus) { $('content').focus({preventScroll:true}); window.scrollTo(0,0); }
 }
+function listedDevices(){const saved=homePanel?.runtime.home();return [...data.devices,...(saved?.devices||[]).filter(d=>!data.devices.some(original=>original.id===d.id)).map(d=>({...d,icon:d.role==='camera'?'camera':'board',summary:d.role==='camera'?'Yerel kameraya kayıtlı':'Yerel denetleyiciye kayıtlı ESP32',connectedRecord:true,presentation:{components:(saved.entities||[]).filter(e=>e.deviceId===d.id).map(e=>({icon:e.kind==='switch'?'board':'sensor'}))}}))];}
 function renderDeviceFilter(listing=true) {
   const host=$('device-filter');host.replaceChildren();
   if(!listing){updateListStatus(false);return;}
   const current=deviceFilters.find(item=>item.value===deviceFilter)||deviceFilters[0];
   const button=element('button',undefined,'device-filter-trigger');button.type='button';button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-label',`Cihazları filtrele: ${current.name}`);button.append(element('span',current.name));
-  button.addEventListener('click',()=>{filterDialog.setChoices(filterChoices(data.devices,deviceFilter),deviceFilter);filterDialog.open();});host.append(button);updateListStatus(true);
+  button.addEventListener('click',()=>{filterDialog.setChoices(filterChoices(listedDevices(),deviceFilter),deviceFilter);filterDialog.open();});host.append(button);updateListStatus(true);
 }
 function updateListStatus(listing) {
-  if(!data.devices.length){$('status').textContent='Envanter boş. inventory.json içinde henüz cihaz kaydı yok.';return;}
-  const visible=filterDevices(data.devices,deviceFilter,deviceQuery).length;
-  const count=listing&&(deviceFilter!=='all'||deviceQuery.trim())?`${visible} / ${data.devices.length}`:String(data.devices.length);
+  if(!listedDevices().length){$('status').textContent='Envanter boş. inventory.json içinde henüz cihaz kaydı yok.';return;}
+  const visible=filterDevices(listedDevices(),deviceFilter,deviceQuery).length;
+  const count=listing&&(deviceFilter!=='all'||deviceQuery.trim())?`${visible} / ${listedDevices().length}`:String(listedDevices().length);
   $('status').textContent=`${count} cihaz kaydı`;
 }
 function renderDeviceCards() {
   $('devices').replaceChildren();
-  const filtered=filterDevices(data.devices,deviceFilter,deviceQuery);
+  const filtered=filterDevices(listedDevices(),deviceFilter,deviceQuery);
   for(const device of filtered){
-    const link=element('a',undefined,'device-card');link.href=`#${encodeURIComponent(device.id)}`;
+    const link=element('a',undefined,'device-card');link.href=device.connectedRecord?`#device/${encodeURIComponent(device.id)}`:`#${encodeURIComponent(device.id)}`;
     const copy=element('div',undefined,'device-card-copy');
     if(device.id==='uno-history')copy.append(element('span','Tarihsel kayıt','card-tag'));
     copy.append(element('h3',device.name),element('p',device.summary));
@@ -367,16 +372,16 @@ function renderDeviceCards() {
     const meta=element('div',undefined,'device-card-meta');
     const parts=device.presentation?.components||[];
     const total=parts.reduce((sum,part)=>sum+(part.connections?.length||0),0);
-    meta.append(element('span',`${parts.filter(part=>part.icon!=='board').length} sensör kayıtlı`),element('span',`${total} bağlantı`));
+    if(device.connectedRecord)meta.append(element('span',`${parts.length} işlev`));else meta.append(element('span',`${parts.filter(part=>part.icon!=='board').length} sensör kayıtlı`),element('span',`${total} bağlantı`));
     copy.append(status,meta);
     const arrow=element('span','→','device-card-arrow');arrow.setAttribute('aria-hidden','true');
     link.append(artwork(device.icon,'device-artwork'),copy,arrow);$('devices').append(link);
   }
-  $('device-empty').hidden=filtered.length>0 || !data.devices.length;
+  $('device-empty').hidden=filtered.length>0 || !listedDevices().length;
 }
 function populateInventory() {
   renderDeviceCards();updateListStatus(true);
-  $('inventory').hidden=!data.devices.length;
+  $('inventory').hidden=!listedDevices().length;
 }
 async function start() {
   $('device-search-tools').hidden=true;
@@ -385,7 +390,8 @@ async function start() {
   try {
     data = await loadInventory();
     sourceSnapshot=serializeInventory(data);
-    homePanel?.dispose();homePanel=createHomePanel({inventory:data});
+    const runtime=await createPanelRuntime({inventory:data});
+    catalogSubscription?.();homePanel?.dispose();homePanel=createHomePanel({inventory:data,runtime});let catalogKey='';catalogSubscription=runtime.subscribe(()=>{const current=JSON.stringify({devices:runtime.home().devices,entities:runtime.home().entities});if(current!==catalogKey){catalogKey=current;if(location.hash==='#devices'){renderDeviceCards();renderDeviceFilter(true);}}});
     populateInventory();
     renderSelection();
   } catch (error) {
@@ -397,7 +403,7 @@ document.querySelector('.skip').addEventListener('click', event => {
   event.preventDefault();
   $('content').focus();
 });
-const navigationSession=crypto.randomUUID();
+const navigationSession=newId();
 let navigationPosition=0;
 function navigationState(){history.replaceState({...history.state,armutNavigation:{session:navigationSession,position:navigationPosition}},'');}
 navigationState();

@@ -1,4 +1,5 @@
-import {validateHardwareInventory} from './hardware-schema.mjs?v=cloud20261109-6';
+import {sha256Hex} from './browser-crypto.mjs?v=cloud20261109-7';
+import {validateHardwareInventory} from './hardware-schema.mjs?v=cloud20261109-7';
 const kinds = new Set(['source', 'reported', 'physical', 'unknown', 'conflict']);
 const str = value => typeof value === 'string' && value.trim().length > 0;
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -87,9 +88,7 @@ export function inventoryRoute(data,hash){
 export async function verifySourceSnapshots(data){
  for(const source of Object.values(data.sources)){
   if(!source.snapshot)continue;
-  if(!globalThis.crypto?.subtle)throw new Error('Kaynak özeti bütünlük kontrolü için güvenli tarayıcı ortamı gerekir.');
-  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(source.snapshot.text));
-  const hash=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+  const hash=await sha256Hex(source.snapshot.text);
   if(hash!==source.snapshot.sha256)throw new Error('Kaynak özeti bütünlük kontrolünü geçemedi: '+source.path);
  }
 }

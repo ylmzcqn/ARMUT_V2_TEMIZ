@@ -7,8 +7,8 @@ export const deviceFilters=[
 ];
 export function deviceGroup(device){
  if(device.id==='uno-history')return 'historical';
- if(device.icon==='camera')return 'camera';
- if(device.id==='hub')return 'hub';
+ if(device.icon==='camera'||device.role==='camera')return 'camera';
+ if(device.id==='hub'||device.role==='hub')return 'hub';
  return 'other';
 }
 function searchText(value){

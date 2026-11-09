@@ -1,8 +1,9 @@
+import {newId} from './browser-crypto.mjs?v=cloud20261109-7';
 // Modül seçimi ve cihaz filtresi aynı erişilebilir, mobil alt paneli kullanır.
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
 export function createChoiceDialog({title,onSelect,returnFocus,renderIcon}) {
  const dialog=node('dialog',null,'module-chooser-dialog');
- const headingId=`choice-${crypto.randomUUID()}`;dialog.setAttribute('aria-labelledby',headingId);
+ const headingId=`choice-${newId()}`;dialog.setAttribute('aria-labelledby',headingId);
  const header=node('div',null,'module-chooser-header'),heading=node('h2',title);heading.id=headingId;
  const close=node('button','Kapat');close.type='button';close.autofocus=true;close.addEventListener('click',()=>dialog.close());
  header.append(heading,close);const list=node('div',null,'module-choice-list');dialog.append(header,list);

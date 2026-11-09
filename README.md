@@ -1,3 +1,11 @@
+# ARMUT Ev Paneli
+
+Minimal kişisel ev otomasyonu paneli ve isteğe bağlı yerel denetleyici. **Gerçek cihaz kurulumu için [BASLA.md](BASLA.md)** dosyasını kullanın. Node.js 22+ ile `node server.mjs`; ek npm paketi gerekmez. Windows için `BASLAT.cmd`, ev ağı erişimi için `ESP32-LAN-BASLAT.cmd` vardır.
+
+Yerel denetleyici ayarları kalıcı saklar, ESP32 kayıt/telemetri/komut onayını ve kamera proxy'sini yönetir; otomasyonlar tarayıcı kapalıyken de çalışır. Bilgisayar ve denetleyici açık kalmalıdır. Özel Cloud adresi statik önizlemedir; yerel sunucu değildir. ESP-IDF bağlantı ve kamera bileşenleri `firmware/` altındadır. Gerçek donanım/IDF derlemesi ayrıca doğrulanmalıdır.
+
+Aşağıdaki donanım haritası, kaynak ve statik kullanım notları korunmuştur.
+
 # ARMUT V2 donanım envanteri
 
 Bağımlılıksız cihaz listesi, ayrıntı ekranı ve envanter bağlantı düzenleyicisi. Tek kayıt kaynağı `inventory.json`; örnek cihaz içermez. Eski proje uygulama bağımlılığı değildir: kaynak yolları kanıt referansıdır, uygulama bu dosyaları okumaz.

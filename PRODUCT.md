@@ -1,23 +1,14 @@
 # ARMUT V2
 
-## Platform
-web
+## Güncel ürün
+Home Assistant benzeri, kişisel kullanım için sade ve responsive ev otomasyonu paneli. Mevcut Cihazlar sayfasının grafik/yeşil estetiği tüm sayfaların referansıdır. Donanım haritası yardımcı bölümdür; ana ürün gerçek cihaz durumu, kameralar, kontroller, odalar, sahneler ve otomasyonlardır. Asistan, APK, servo ve internetten ev erişimi kapsam dışıdır.
 
-## Stack
-Kullanıcı onayı: bağımlılıksız statik HTML/CSS/JavaScript, tek inventory.json. Backend ve framework yok.
+## Çalışma biçimleri
+- Statik önizleme: bağımlılıksız HTML/CSS/ES modülleri, tarayıcı kaydı, açık test alanı. Kurallar panel açıkken çalışır.
+- Yerel denetleyici: bağımlılıksız Node.js22+ servisi; aynı panel, kalıcı dosya kaydı, merkezi otomasyon, kimliği doğrulanmış ESP32 raporu/ACK ve kamera proxy'si. Tarayıcı istemcidir, ikinci otomasyon motoru çalıştırmaz.
 
-## Amaç ve sınırlar
-Kullanıcının cihazlarını, bileşenlerini, pin/besleme bağlantılarını ve bilgi kaynaklarını liste ve ayrıntı görünümünde sunmak. Kaynak tanımı, kullanıcı bildirimi ve tarihsel fiziksel gözlem ayrılır. Bilinmeyenler ve çelişkiler korunur. Gerçek kayıtlara örnek veri katılmaz. Canlı cihaz erişimi, yükleme ve servis işlemi yok.
+## Veri ve sınırlar
+inventory.json tek donanım/kanıt kaynağı kalır; canlı durum ve ev ayarları ayrı tutulur. local-data klasörü kullanıcı anahtarları ve kalıcı ev verisidir, Git/yayın/kurulum paketine konmaz. Cihaz ekleme kaydı, firmware entegrasyonu ve gerçek çalışırlık farklıdır. Node/HTTP ve C host testleri fiziksel başarı değildir. ESP-IDF5.5 gerçek derlemesi, elektriksel davranış ve25FPS ayrıca ölçülür.
 
-## Kabul
-Cihaz seçilince ayrıntılar aynı JSON kaynağından açılır. Okunamayan dosya, bozuk veri ve boş envanter anlaşılır gösterilir. Küçük teknik kararlar uygulayıcıya bırakılmıştır.
-
-## Ana panel
-Kullanıcı isteği: Home Assistant benzeri fakat sade bir koyu panel. Genel bakış ve Cihazlar bölümleri; mevcut envanter ayrıntıları korunur. Kullanıcının incelemesi için yalnız bu bilgisayardan erişilen yerel HTTP sunumu onaylıdır; cihaz bağlantısı veya dış yayın kapsamda değildir.
-
-## Kullanıcı envanter düzenlemesi
-Kablo uç adları ve hedef modül panelden düzenlenebilir. Donanıma uygulanmaz; kaynak kanıtından ayrılır. Tek envanter JSON’u dışa/içe aktarılır, destekleyen tarayıcıda kullanıcı seçtiği dosyaya kaydeder. Ek backend yok.
-
-Kullanıcı kapsam genişletmesi: seçili modüle kullanıcı pin bağlantısı ekleme ve modülü kayıtları/bağlantılarıyla silme. Bağlantı düzenlemede kaynak kanıtı korunur; açık modül silme işleminde o modülün iddiaları kaldırılır. Geri alma ve mevcut JSON kaydetme yolu kullanılır.
-
-8 Kasım 2026 kullanıcı onayı: kişisel Home Assistant benzeri sade web ev paneli; tüm konuşulan sayfaları soru sormadan uygulama ve mevcut özel yayına alma. Yeni yön ve sınırlar docs/HOME-PANEL.md içindedir. Asistan, APK ve servo kontrolü kapsam dışı; kamera görüntüleme temel işlevdir. Mevcut envanter tek donanım kaynağı, tarayıcı ev yapılandırması ayrı kayıttır.
+## Başlangıç
+BASLA.md tek başlangıç rehberidir. docs/LOCAL-CONTROLLER.md sunucu sözleşmesini; docs/ESP32-INTEGRATION.md gerçek firmware entegrasyonunu açıklar. Üretim servisi otomatik kurulmaz veya cihazlara yükleme yapılmaz.

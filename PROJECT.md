@@ -4,13 +4,22 @@
 
 ARMUT'u temiz bir başlangıçla, daha sade ve kararlı adımlarla geliştirmek. Geliştirme kullanımını azaltırken doğruluk, güvenlik ve gerekli doğrulama korunur.
 
-Panelin ana amacı, kullanıcı ve geliştirme asistanı için güvenilir, şeffaf ve okunabilir donanım haritasıdır: hangi cihaz/modülün nereye bağlı olduğunu, hangi GPIO’nun ne için kullanıldığını ve yeni donanım eklenirken hangi kısıtların dikkate alınacağını göstermek. Manuel pin düzenleme, sorun ve özel değişikliklerde kullanıcı müdahalesi için yardımcı araçtır.
+Ürünün güncel amacı minimal kişisel ev otomasyonu panelidir; donanım haritası bunun yardımcı bölümüdür. Donanım bölümünün amacı: hangi cihaz/modülün nereye bağlı olduğunu, hangi GPIO’nun ne için kullanıldığını ve yeni donanım eklenirken hangi kısıtların dikkate alınacağını göstermek. Manuel pin düzenleme, sorun ve özel değişikliklerde kullanıcı müdahalesi için yardımcı araçtır.
 
 Bir pinin envanterde kullanılmaması, fiziksel olarak boş veya yeni iş için kullanılabilir olduğunun kanıtı değildir. Kullanım/ayrılma, kart kısıtları ve doğrulama kaynağı ayrı gösterilmelidir. Kart modeli/revizyonu bilinmiyorsa kullanılabilir pin listesi kesinmiş gibi sunulmaz. Kaynak, kullanıcı bildirimi, fiziksel gözlem, tarihsel kayıt ve belirsizlik ayrımı görsel sadeleştirme sırasında kaybolmamalıdır.
 
 Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek enerji, çevrimiçi durum veya çalışır sensör kanıtı değildir. Kullanıcı ve asistan aynı envanter/doğrulama kaynağına başvurmalı; kod geliştirme kararı doğrulanmamış boş pin varsayımına dayanmamalıdır.
 
 ## Güncel durum
+
+9 Kasım 2026 — yerel denetleyici ve ESP32 hazırlık paketi uygulandı ve yazılım testleri tamamlandı:
+- Node.js 22 bağımlılıksız denetleyici: atomik kalıcı ev verisi, tek süreç kilidi, giriş/CSRF, panel kapalıyken aynı otomasyon çekirdeği. Statik Cloud yayını önizleme olarak kalır. Evde üretim servisi kurulmadı.
+- Tekil cihaz kaydı ve iptal, anahtarlı raporlar, boot/sequence tekrar koruması, kararlı kanal kimliği, tek teslim komut + fiziksel ACK, timeout sonucunda bilinmiyor; kör tekrar yok. Yeniden açılışta eski canlı değer/komut tekrar oynatılmaz.
+- Çok istemcili sunucu paneli, kayıt/kurulum ekranı, dinamik cihaz ayrıntısı, sensör birimi/eşik otomasyonu; fiziksel işlev kaldırma tercihi kalıcı, açık geri getirme var. Kamera bağı kaldırılabilir. LAN HTTP üzerinde secure-context gerektirmeyen güvenli kimlik/özet desteği eklendi.
+- ESP-IDF 5.5 için tekrar kullanılabilir armut_link ve JPEG/MJPEG/profil HTTP kamera bileşenleri; servo ve pin varsayımı yok. Görüntü proxy'si cihaz anahtarını tarayıcıya açmaz. Başlatıcılar ve BASLA.md kurulum rehberi eklendi.
+- Doğrulama: 121 Node testi geçti; gerçek yerel HTTP ile cihaz kayıt/telemetri/komut/ACK, tarayıcısız otomasyon ve iki istemci çakışması test edildi. Her iki C bileşeni host stub testlerinde -Wall/-Wextra/-Werror ile geçti. DOM akışları ve LAN crypto kısıtlı başlangıç geçti. Gerçek görsel tarayıcı kontrolü mevcut CUA sandbox hatası yüzünden tamamlanamadı.
+- Sınır: ESP-IDF araç zinciri ve gerçek cihaz yok; IDF derlemesi/yüklemesi, GPIO, kamera görüntüsü ve 25 FPS fiziksel olarak doğrulanmadı. Tek seferlik gerçek firmware/pin/sensör callback ve cihaz anahtarı kurulumu gereklidir.
+
 
 6 Kasım 2026 — güvenilir donanım haritası paketi uygulandı ve doğrulandı:
 - Tek inventory.json: kaynaklı ESP32-S3/UNO referans pin kapsamı, yonga kısıtları, firmware rezervasyonları, modül kapsamı (kaynak/belge/tarihsel) ve ortak ses saatleri eklendi. Önceki claims ve tüm bağlantı değerleri korundu.
@@ -23,7 +32,7 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 
 ## Arayüz ve çalışma sözleşmesi
-- Bağımlılıksız HTML/CSS/ES modülleri; tek inventory.json. Backend veya framework eklenmez.
+- Bağımlılıksız HTML/CSS/ES modülleri; tek inventory.json. Tarayıcı arayüzü framework gerektirmez; yerel denetleyici bağımlılıksız Node.js ile aynı otomasyon çekirdeğini kullanır.
 - Genel bakışta temsili Hub merkezli animasyonlu cihaz şeması, Cihazlar sayfasında arama/filtre ve cihaz kartları. Cihaz ayrıntısında pin haritası ve modül topolojisi; merkez cihaz kart/besleme modalını açar.
 - Sensör düzenleme yalnız ortak modalda. Pinler kapalı Pin bağlantıları bölümünde; bağlantı sayısı başlıkta, Pin ekle içeride. Silme onaylıdır, geri al vardır. Düzenleme önce bellekte; kalıcılık kullanıcı seçtiği JSON dosyasınadır.
 - Kaynak/bildirim/tarihsel gözlem/çelişki ayrımı korunur. Kamera 1 servo/IMU derleme profili kapalı; Uno köprüsü tarihsel. Hub amfi SD VIN/3V3 ile GND kayıtları çelişkilidir. Bunları varsayımla çözme.

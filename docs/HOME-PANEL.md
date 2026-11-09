@@ -1,6 +1,12 @@
 # ARMUT ev paneli
 
-8 Kasım 2026. Bağımlılıksız, responsive web arayüzü; mevcut Cihazlar tasarımının renk, yüzey, köşe, yazı ve menü dili korunur. Asistan, mobil APK, servo sürüşü, gerçek cihaz yüklemesi ve ev dışı bağlantı kurulumu bu pakette yoktur.
+9 Kasım 2026. Bağımlılıksız, responsive web arayüzü; mevcut Cihazlar tasarımının renk, yüzey, köşe, yazı ve menü dili korunur. Asistan, mobil APK, servo sürüşü, gerçek cihaz yüklemesi ve ev dışı bağlantı kurulumu bu pakette yoktur.
+
+## Güncel çalışma modu
+
+Yerel kurulum `node server.mjs` ile aynı paneli sunar. Kalıcı ayarlar ve otomasyonlar bu Node denetleyicide yürür; panel sekmesinin açık olması gerekmez. Cihaz kaydı, özel anahtar, rapor/komut/ACK ve kamera proxy sözleşmesi için [LOCAL-CONTROLLER.md](LOCAL-CONTROLLER.md), ilk kurulum için [BASLA.md](../BASLA.md) geçerlidir. Aşağıdaki tarayıcı depolaması ve doğrudan adaptör açıklamaları **statik önizleme modunu** anlatır. Yerel modda tüm paneller sunucudaki aynı evi kullanır; sürüm çakışmaları sessizce ezilmez.
+
+Sensörler sayısal birimleriyle gösterilir; eşik üstüne/altına geçiş otomasyonları desteklenir. İlk ölçüm bir eşik geçişi sayılmaz. Kaydedilmiş fiziksel işlev silindiğinde sonraki cihaz raporunda yeniden oluşmaz; Ayarlar’da cihazın “Kaldırılan işlevleri geri getir” düğmesi bu tercihi kaldırır. Kamera kartında bağlantı silinebilir; cihaz anahtarını iptal etmeden bağlı oda/işlev/kamera kayıtları kaldırılmalıdır.
 
 ## Sayfalar
 
@@ -17,7 +23,7 @@
 
 Ev ayarları `armut.home.v1` anahtarıyla bu tarayıcının localStorage alanında tutulur. Donanım envanteri yine inventory.json dosyasındadır; ev yedeği ayrı veridir ve firmware/pin değiştirmez. Başka tarayıcı veya cihazla otomatik eşitleme yoktur. Yedek içe aktarılırken doğrulanır ve mevcut yapılandırmanın değişmesi onaylanır. Bozuk yerel kayıt otomatik ezilmez.
 
-Zaman kuralları ve izleme panel açıkken çalışır. Tarayıcı kapalı/uykudayken sürekli çalışma, kaçırılmış zamanların telafisi veya gerçek zaman garantisi verilmez. 24 saat işletim için ileride aynı kuralları kullanan yerel yürütücü gerekir. Şu an sunucu servisi kurulmadı.
+Zaman kuralları ve izleme panel açıkken çalışır. Tarayıcı kapalı/uykudayken sürekli çalışma, kaçırılmış zamanların telafisi veya gerçek zaman garantisi verilmez. 24 saat işletim için paketteki yerel denetleyici çalıştırılır. Bu geliştirmede bilgisayarınıza otomatik işletim sistemi servisi kurulmadı.
 
 Test modu yalnız oturumda tutulur ve tüm sayfalarda etiketlenir. Test ışığı/sensörü gerçek envantere yazılmaz. Test modunda gerçek işlevlere fiziksel komut gönderilmez. Bağlantı kesme ve yeniden bağlama Ayarlar test alanından denenir. İşlev eklemek veya kameraya adres yazmak donanımın gerçekten bağlı olduğunu doğrulamaz.
 
