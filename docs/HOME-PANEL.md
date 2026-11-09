@@ -90,3 +90,11 @@ Otomasyonlar evin Ayarlar'da seçili saat dilimine göre haftanın belirli günl
 Tekrar aralığı 0–86400 saniyedir; yeni kurallarda 60, alanı olmayan eski kurallarda 0 varsayılır. Aynı kuralın önceki işi sonuçlanmadan ikincisi başlatılmaz. Tamamlanan/denenen çalışma sonrası interval boyunca yeni tetikleme atlanır; atlama süreyi uzatmaz ve lastRun bilgisini ezmez. Panel yeniden açılınca süre son çalışma kaydından devam eder. Manuel öncelik nedeniyle zaten atlanan komut süreyi yeniden başlatmaz. Test alanı kendi bekleme durumunu kullanır; çıkış gerçek durumları geri yükler. Kuralı dene gün/ev modu koşullarını korur fakat bekleme süresini başlatmaz veya değiştirmez; fiziksel komut üretmez.
 
 Geçmişte Türkçe karakterleri destekleyen metin araması, sonuç ve kaynak filtreleri birlikte kullanılabilir; bulunan/toplam kayıt sayısı ve boş sonuç gösterilir. Formlar yalnız gün/tekrar alanlarıyla genişletildi; mevcut estetik ve tarayıcıda çalışma sınırı değişmedi.
+
+## 9 Kasım 2026 — tamamlanan sahne ve kayıt akışları
+
+Sahneler artık Uygula yanında Sahneyi dene seçeneğine sahiptir. Deneme fiziksel/ağ komutu göndermeden eylemleri kontrol eder; son deneme ve normal çalışma ayrı kaydedilir. İlerleme ve tamamlanan/toplam işlem sayısı hem sahne kartında hem ana sayfanın sahne kartında görünür. Aynı sahne eşzamanlı ikinci kez başlatılmaz. İlk belirsiz/başarısız adımda kalan adımlar gönderilmez; sahne düzenlenirse/silinirse veya bağlantı oturumu değişirse kalan adımlar durur. Daha önce uygulanmış komutların geri alındığı iddia edilmez. Geçmişte adım kayıtları sahne adıyla, ayrıca sahne özetiyle tutulur.
+
+Silme onayı artık mevcut tasarımda bir penceredir; kaldırılacak otomasyonları, kaldırılacak/değiştirilecek sahneleri ve oda ataması kaldırılacak işlev/kameraları listeler. Onay sırasında bağımlılıklar değişirse silme durur ve pencerenin yeniden açılması istenir. Geçmiş temizleme ve yedek yükleme de aynı onay dilini kullanır. Boş dosya seçimi bir hata olarak bildirilmez.
+
+Komut/deneme sonuçları ve hatalar tarayıcı alert penceresi yerine sayfa içindeki kapatılabilir bildirimde gösterilir. Sahne ve otomasyon düzenlenirken kaydetme anındaki son çalışma/deneme kayıtları korunur; form açıkken tamamlanan işin sonucu eski snapshot ile ezilmez. Sonuç/geçmiş saatleri evin seçili saat dilimiyle biçimlendirilir.

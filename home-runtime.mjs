@@ -1,11 +1,11 @@
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261109-5';
-import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261109-5';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261109-6';
+import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261109-6';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>globalThis.crypto.randomUUID();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now()}={}){
  let home=initial?validateHome(structuredClone(initial)):emptyHome(),storageError='',demo=false,connected=false,sourceError='',disposed=false,demoPaused=false;
  if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw)home=validateHome(JSON.parse(raw));}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
- const listeners=new Set(),values=new Map(),holds=new Map(),busy=new Set(),fired=new Map(),cooldowns=new Map(),ruleBusy=new Set();
+ const listeners=new Set(),values=new Map(),holds=new Map(),busy=new Set(),fired=new Map(),cooldowns=new Map(),ruleBusy=new Set(),sceneRuns=new Map();
  let timer,request,session='',sequence=0,lastMinute='',generation=0,devices,savedHome,savedHolds,savedFired,savedCooldowns;
  const registry=inventory.devices.filter(d=>d.id!=='uno-history').map(d=>({deviceId:d.id,role:d.id==='hub'?'hub':'camera',capabilities:['camera','switch','sensor','presence','display'],components:[]}));
  function reset(){devices=createDeviceRuntime(registry,{now:mono});session=uid();devices.beginSession(session);sequence=0;values.clear();}
@@ -37,7 +37,33 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
   }catch(error){return finish('unknown',`Sonuç bilinmiyor (${error.name==='TimeoutError'?'zaman aşımı':error.message}). Otomatik tekrar yapılmadı.`);}
   finally{busy.delete(entityId);announce();}
  }
- async function runScene(id){const scene=home.scenes.find(s=>s.id===id);if(!scene)throw new Error('Sahne bulunamadı.');const results=[];for(const action of scene.actions){const result=await command(action.entityId,action.value,{origin:'scene'});results.push(result);if(result.result!=='ok')break;}return results;}
+ function sceneState(id){const current=sceneRuns.get(id);if(current&&current.token===generation){const {token,...state}=current;return structuredClone(state);}return {pending:false,...structuredClone(home.scenes.find(s=>s.id===id)?.lastRun||{})};}
+ async function runScene(id,{observeOnly=false}={}){
+  const scene=home.scenes.find(s=>s.id===id);if(!scene)throw new Error('Sahne bulunamadı.');
+  if(sceneRuns.get(id)?.pending)return {result:'skipped',message:'Bu sahnenin önceki çalışması henüz sonuçlanmadı.'};
+  const token=generation,signature=JSON.stringify(scene.actions),expected=observeOnly?'observed':'ok';
+  const progress={token,pending:true,result:'pending',completed:0,total:scene.actions.length,message:observeOnly?'Sahne deneniyor…':'Sahne uygulanıyor…'};
+  sceneRuns.set(id,progress);announce();
+  let result=expected,reason='';
+  try{
+   for(const action of scene.actions){
+    if(token!==generation){result='unknown';reason='Bağlantı değişti; kalan işlemler gönderilmedi.';break;}
+    if(JSON.stringify(home.scenes.find(s=>s.id===id)?.actions)!==signature){result='skipped';reason='Sahne değişti veya silindi; kalan işlemler gönderilmedi.';break;}
+    const response=await command(action.entityId,action.value,{origin:'scene',observeOnly,ruleName:scene.name});
+    if(response.result!==expected){result=response.result;reason=response.message;break;}
+    progress.completed++;progress.message=`${progress.completed} / ${progress.total} işlem ${observeOnly?'denendi':'tamamlandı'}`;announce();
+   }
+   if(token!==generation){result='unknown';reason='Bağlantı değişti; sonuçların tamamı doğrulanamadı.';}
+   const message=`${progress.completed} / ${progress.total} işlem ${observeOnly?'denendi':'tamamlandı'}${reason?` · ${reason}`:''}`;
+   const summary={at:new Date(now()).toISOString(),result,completed:progress.completed,total:progress.total,message};
+   Object.assign(progress,summary);
+   if(token===generation){
+    update(h=>{const current=h.scenes.find(s=>s.id===id);if(current)current[observeOnly?'lastPreview':'lastRun']=summary;return h;});
+    log('scene',`${scene.name}: ${message}`,result);
+   }
+   return structuredClone(summary);
+  }finally{progress.pending=false;announce();}
+ }
  async function runRule(rule){
   rule=home.automations.find(r=>r.id===rule.id);
   if(!rule||!rule.enabled)return {result:'skipped',message:'Kural etkin değil.'};
@@ -124,7 +150,7 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  }
  function simulatePresence(){if(!demo)return;const previous=values.get('test-presence')?.value||false;ingestEntities([{entityId:'test-presence',value:!previous,ageMs:0}]);announce();}
  const interval=setInterval(()=>{if(demo&&!demoPaused)demoPulse();void tick();},1000);void tick();
- return {home:()=>structuredClone(home),backup:()=>structuredClone(demo?savedHome:home),entities,entityState,deviceStatus,update,log,command,runScene,setMode,runRule,previewRule,setDemo,simulatePresence,pauseDemo(){if(demo){demoPaused=true;devices.disconnect();sourceError='Test bağlantısı kesildi';announce();}},connect,disconnect,tick,subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},get demo(){return demo;},get connected(){return connected;},get storageError(){return storageError;},get sourceError(){return sourceError;},dispose(){disposed=true;disconnect();clearInterval(interval);listeners.clear();}};
+ return {home:()=>structuredClone(home),backup:()=>structuredClone(demo?savedHome:home),entities,entityState,deviceStatus,update,log,command,runScene,sceneState,setMode,runRule,previewRule,setDemo,simulatePresence,pauseDemo(){if(demo){demoPaused=true;devices.disconnect();sourceError='Test bağlantısı kesildi';announce();}},connect,disconnect,tick,subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},get demo(){return demo;},get connected(){return connected;},get storageError(){return storageError;},get sourceError(){return sourceError;},dispose(){disposed=true;disconnect();clearInterval(interval);listeners.clear();}};
 }
 async function boundedJson(response){
  if(!response.body)throw new Error('Yanıt gövdesi boş.');

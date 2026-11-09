@@ -1,15 +1,15 @@
-import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261109-5';
-import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261109-5';
-import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261109-5';
-import {devicePresence} from './live-evidence.mjs?v=cloud20261109-5';
-import {moduleActivity} from './module-history.mjs?v=cloud20261109-5';
-import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261109-5';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261109-5';
-import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261109-5';
-import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261109-5';
-import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261109-5';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261109-5';
-import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261109-5';
+import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261109-6';
+import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261109-6';
+import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261109-6';
+import {devicePresence} from './live-evidence.mjs?v=cloud20261109-6';
+import {moduleActivity} from './module-history.mjs?v=cloud20261109-6';
+import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261109-6';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261109-6';
+import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261109-6';
+import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261109-6';
+import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261109-6';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261109-6';
+import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261109-6';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
