@@ -82,3 +82,11 @@ Kaynak testleri, sözleşme/oturum/eskime/komut onayı ve kamera parser/profil h
 Test modu artık ayrı bir geçici ev kopyasında çalışır. Test odası, ışık ve varlık sensörü otomasyon ve sahne formlarında seçilebilir. Testteki tüm düzenlemeler/geçmiş geçicidir; testten çıkınca gerçek ev ayarları, manuel öncelikler ve zaman kuralı izleri geri gelir. Testi yeniden bağlamak geçici kuralları silmez. Test sırasında Yedek indir gerçek evin yedeğini indirir; test kopyasını kalıcı kayıtla karıştırmaz. Bekleyen komut varken test moduna geçiş engellenir. Test modunda gerçek kamera bağlantısı açılmaz.
 
 Otomasyon kartındaki Kuralı dene tetikleyiciyi ve etkinlik anahtarını beklemeden yalnız eylemi önizler; ev modu koşulu uygulanır. Hiçbir ağ komutu gönderilmez. Son deneme sonucu lastPreview, normal çalışma sonucu lastRun olarak ayrı tutulur. Geçmiş mesajında kural adı bulunur. Test otomasyonunda gerçek tetikleme için Test varlık sensörü kontrolü kullanılabilir.
+
+## 9 Kasım 2026 — gün seçimi, tekrar aralığı ve geçmiş filtreleri
+
+Otomasyonlar evin Ayarlar'da seçili saat dilimine göre haftanın belirli günlerinde çalıştırılabilir. Gün seçimi saat, durum ve mod kurallarına uygulanır. Alanı olmayan eski kurallar her gün çalışmaya devam eder; düzenlenirken davranışları değişmez. En az bir gün seçilmelidir.
+
+Tekrar aralığı 0–86400 saniyedir; yeni kurallarda 60, alanı olmayan eski kurallarda 0 varsayılır. Aynı kuralın önceki işi sonuçlanmadan ikincisi başlatılmaz. Tamamlanan/denenen çalışma sonrası interval boyunca yeni tetikleme atlanır; atlama süreyi uzatmaz ve lastRun bilgisini ezmez. Panel yeniden açılınca süre son çalışma kaydından devam eder. Manuel öncelik nedeniyle zaten atlanan komut süreyi yeniden başlatmaz. Test alanı kendi bekleme durumunu kullanır; çıkış gerçek durumları geri yükler. Kuralı dene gün/ev modu koşullarını korur fakat bekleme süresini başlatmaz veya değiştirmez; fiziksel komut üretmez.
+
+Geçmişte Türkçe karakterleri destekleyen metin araması, sonuç ve kaynak filtreleri birlikte kullanılabilir; bulunan/toplam kayıt sayısı ve boş sonuç gösterilir. Formlar yalnız gün/tekrar alanlarıyla genişletildi; mevcut estetik ve tarayıcıda çalışma sınırı değişmedi.

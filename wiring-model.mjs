@@ -1,5 +1,5 @@
-import {normalizePin} from './hardware-map.mjs?v=cloud20261109-4';
-import {validateInventory} from './inventory-core.mjs?v=cloud20261109-4';
+import {normalizePin} from './hardware-map.mjs?v=cloud20261109-5';
+import {validateInventory} from './inventory-core.mjs?v=cloud20261109-5';
 
 function connectionValues(device,partIndex,values,inventory) {
   const terminal=String(values.terminal||'').trim(),target=String(values.target||'').trim(),owner=Number(values.targetComponent);
