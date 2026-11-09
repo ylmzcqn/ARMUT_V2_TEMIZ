@@ -10,12 +10,12 @@ while(pending.length){const path=pending.pop();if(seen.has(path))continue;seen.a
 for(const path of ['index.html','style.css','inventory.json'])include(path);
 function directory(path){for(const entry of readdirSync(join(root,path),{withFileTypes:true})){const child=path+'/'+entry.name;if(entry.isDirectory())directory(child);else if(entry.isFile())include(child);}}
 directory('assets');
-const parser=readFileSync(join(root,'legacy-camera-status.mjs'),'utf8').replace(/export function /g,'function ');
-const provider=readFileSync(join(root,'legacy-camera-provider.mjs'),'utf8').replace(/^import[^\n]+\n/gm,'').replace(/^export \{[^\n]+\n/gm,'').replace(/export function /g,'function ');
 const worker=readFileSync(join(root,'cloud-presence-worker.mjs'),'utf8').replace(/^import[^\n]+\n/gm,'');
-const bundle=`const ARMUT_STATIC_ASSETS=${JSON.stringify(assets)};\nconst createLegacyCameraProvider=(()=>{const createCameraPresenceState=(()=>{${parser}\nreturn createCameraPresenceState;})();\n${provider}\nreturn createLegacyCameraProvider;})();\n${worker}`;
+const ingest=readFileSync(join(root,'presence-ingest.mjs'),'utf8').replace(/export (async function|function) /g,'$1 ');
+const bundle=`const {createPresenceIngest,createD1PresenceStore,validPublisher}=(()=>{${ingest}\nreturn {createPresenceIngest,createD1PresenceStore,validPublisher};})();\nconst ARMUT_STATIC_ASSETS=${JSON.stringify(assets)};\n${worker}`;
 mkdirSync(join(out,'dist/server'),{recursive:true});mkdirSync(join(out,'.openai'),{recursive:true});
 writeFileSync(join(out,'dist/server/index.js'),bundle);
 const manifest=JSON.parse(readFileSync(join(root,'.openai/hosting.json'),'utf8'));delete manifest.static;
+mkdirSync(join(out,'migrations/presence'),{recursive:true});writeFileSync(join(out,'migrations/presence/0001_presence.sql'),readFileSync(join(root,'migrations/presence/0001_presence.sql')));
 writeFileSync(join(out,'.openai/hosting.json'),JSON.stringify(manifest,null,2)+'\n');
-console.log(JSON.stringify({artifact:out,assets:Object.keys(assets).length,bytes:Buffer.byteLength(bundle),published:false,privateServiceBinding:'not-provisioned'}));
+console.log(JSON.stringify({artifact:out,assets:Object.keys(assets).length,bytes:Buffer.byteLength(bundle),published:false,publisherStorage:'D1-binding-and-migration-not-applied',publisherSecrets:'not-configured'}));

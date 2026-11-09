@@ -12,11 +12,11 @@ Cloudflare’ın resmî [Workers VPC](https://developers.cloudflare.com/workers-
 
 **Önemli sınır:** Sites’ın belgelenen manifest/binding araçlarında VPC service/tunnel alanı gösterilmedi; mevcut Sites projesine bu binding’i provision etme kapasitesi doğrulanmadı. Cloudflare Workers’ın genel özelliği Sites hesabında kullanılabilir diye varsayılmaz. Geliştirme ortamının Tailscale bağlantısı yayın Worker’ına aktarılmaz; bunun için VPN menüsü aranmamalı.
 
-### Uygulanan ve çevrimdışı doğrulanan
+### Önceki özel ağ taslağının durumu
 
-`cloud-presence-worker.mjs` aynı Sites özel oturum kimliğiyle yalnız GET `/api/presence` sunar. Mevcut `legacy-camera-provider` ve V1 `/api/system` ayrıştırıcısını kullanır. Yalnız özel servis binding’i açıkça mevcutsa bu kaynaktan veri ister; normal/public fetch ile LAN’a geri dönüş yapmaz. Kaynak yokken `sourceReady=false`, varlık null döner. Kamera tokenı yalnız backend env’indedir; kullanıcıya kamera JSON’u, tokenı, adresi veya video dönmez. Binding’in adı kaynak kodunda bir **gelecek entegrasyon noktasıdır**, bugün Sites’ta kurulduğu iddiası değildir.
+İlk hazırlıkta mevcut V1 GET API’sini yalnız açıkça sağlanan özel servis binding’iyle okuyan Worker taslağı test edildi. Bu, Sites’ta binding provision edildiği anlamına gelmiyordu. Kullanıcı daha sonra cihazdan dışarı HTTPS yönünü seçti; mevcut `cloud-presence-worker.mjs` artık bu push yolunu kullanır. Eski LAN/VPC Worker okuma yolu kaldırıldı. Yerel GET sağlayıcısı kaynak sözleşmesi ve isteğe bağlı yerel çalışma biçiminde korunur.
 
-`node build-cloud.mjs` aktif statik manifesti değiştirmeden `build/cloud-prepared` altında aynı proje kimliğiyle Worker/varlık paketi oluşturur. Mevcut HTML/CSS/browser modül grafiği ve envanter taşınır; Node sunucusu, sırlar, çalışma verisi ve testler pakete alınmaz. Mevcut cloud panelinde yalnız aynı origin’e, özel oturumla okuma modu hazırlanmıştır. Yerel IP/yönetici anahtarı formu cloud hedefinin varsayılan yolu olmaktan çıkarıldı. Bu build/yazılım testi yayın veya gerçek ağ kabulü değildir.
+`node build-cloud.mjs` aktif statik manifesti/yayını değiştirmeden aynı panel varlıkları ve Worker alıcı artefaktını üretir. Güncel şema/kimlik/provisioning ve kabul sınırı aşağıdaki seçilen mimari bölümündedir.
 
 ### Özel bağlantı için seçenekler ve eksik tek bilgi
 
@@ -29,6 +29,31 @@ Cloudflare’ın resmî [Workers VPC](https://developers.cloudflare.com/workers-
 Kullanıcı modemini **TP-Link TD-W9980** olarak bildirdi. [Resmî V1 kullanım kılavuzu](https://static.tp-link.com/resources/document/1910010923_TD-W9980_1.0_User_Guide.pdf), bölüm 4.5.8, en fazla 10 LAN-to-LAN IPSec tüneli ve tek adresle sınırlama tarif eder. [Resmî veri sayfası](https://static.tp-link.com/resources/document/TD-W9980_1.0.pdf) bunu doğrular. Bu, Tailscale veya Cloudflare Tunnel connector desteği değildir; standart kaynaklarda bu connector desteği belgelenmedi. Kurulu modem firmware’i/hardware revizyonu veya gerçek VPN hazırlığı ayrıca okunmadı.
 
 Mevcut Sites yayınında uygun IPSec karşı ucu veya VPC bağlaması doğrulanmadığından router’daki IPSec menüsü tek başına çözüm değildir. Ayrı uyumlu VPN gateway/backend, dar ACL ve muhtemel ücret/operasyon gerektirecektir; satın alma veya router firmware değişikliği önerilen varsayılan yol değildir. Yeni donanım/PC sunucusu olmadan sonraki aday, **Kamera 2 veya mevcut Hub’ın yalnız varlık özetini doğrulanmış HTTPS ile cloud’a dışarı göndermesidir**. Mevcut GET API bunu tek başına yapmaz; firmware eklemesi, cloud alım/son veri/tazelik katmanı ve sınırlandırılmış cihaz yayın yetkisi gerektirir. Bu yol henüz uygulanmadı ve OTA yetkisi sayılmaz. Kullanıcıya tek karar olarak bu firmware/cloud ekinin hazırlanması sunulur; gerçek OTA hedef/derleme/bölüm/geri dönüş incelemesinden sonra ayrıca değerlendirilir. Sır istenmez, görüntü aktarılmaz, router portu açılmaz. Gerçek cihaz kabulü AÇIK kalır.
+
+## Seçilen ve uygulanan mimari: cihazdan dışarı HTTPS — 10 Kasım 2026
+
+Kullanıcı bu yönün mimarisini ve yazılımını oluşturmayı onayladı. Yeni varsayılan: **Kamera 2’nin mevcut radar sürücüsü → ayrı düşük öncelikli HTTPS yayın task’ı → sahibi-özel Sites Worker → D1’de tek son durum satırı → aynı özel panel**. Bilgisayar, router VPN’i, port yönlendirme, yeni donanım veya kamera görüntüsü aktarımı gerekmez. Cloud Worker’daki önceki VPC/LAN okuma taslağı kaldırıldı; tek kaynak seçimi nettir. V1’in sensör/kamera/yerel API/OTA işlevleri değiştirilmez; yayıncı yalnız mevcut radar snapshot callback’ini okur.
+
+### Veri, yetki ve tazelik
+
+- Cihaz, mevcut özel Sites servis erişimi başlığı yanında yalnız `camera-02/presence-radar` yayınını yetkilendiren `PRESENCE_PUBLISH_TOKEN` kullanır. Platform servis anahtarı özel Site kapısı içindir; yayıncı anahtarı uygulamada dar yazma yetkisidir. İkisi de cihazın güvenli provisioning alanında tutulur. LAN kamera API anahtarı cloud’a gönderilmez; hiçbir anahtar tarayıcıya/loga/Git’e konmaz. Browser okumaları Sites’ın mevcut özel oturumunu kullanır.
+- `/api/presence/hello` ilk açılış/bağlantı onarımı için tek kullanımlık 5 saniyelik bilet verir; önceki varlığı bilinmiyor yapar. `/api/presence/report` yalnız doğru cihaz/bileşen/boot, ardışık sıra ve güncel biletle kabul edilir. Her başarılı işlem bir sonraki bileti verir. Bilet DB’de hash olarak tutulur; eski bilet/boot/sıra kabul edilmez. CAS revision güncellemesi eşzamanlı iki Worker’ın aynı bileti tüketmesini engeller. Ağ yazması belirsizse ESP eski paketi tekrarlamaz; yeniden hello yapıp yeni ölçüm alır.
+- Firmware her rapordan hemen önce mevcut sürücünün son gözlemini/yaşını kopyalar. Bilet alındıktan ölçüm okumaya kadar geçen **monoton bekleme** `sinceLeaseMs` ile bildirilir. Muhafazakâr yaş = sunucuda biletin yaşı − bu bekleme + UART ölçüm yaşı + 10 ms pay. Bildirilen bekleme sunucudaki bilet yaşını aşamaz. Böylece normal 1 saniyelik heartbeat beklemesi gözlem yaşı sanılmaz; HTTP gecikmesi ve eski ölçüm yine sayılır. Kaynak alanlar yetkili fiziksel yayıncıya dayanır; kötü niyetli/bozuk firmware’in fiziksel yalanını kanıtlamaz.
+- D1’de gözlemin ihtiyatlı zamanı saklanır; okurken ve tarayıcıda beklerken yaş artar. 2000 ms sınırında `value=null` olur. Eksik/eskimiş ölçüm false değildir. Yeni cihaz boot’u son değeri siler. Cloud restart’ında belleğe güvenilmez; DB okunur ve eski kayıt yaş kontrolünden geçer. DB kesintisinde başarı ACK’i verilmez; panel bilinmiyor olur ve yeniden dener.
+
+### Bileşenler ve kesinti davranışı
+
+`presence-ingest.mjs` doğrulama/lease/CAS ve D1 adaptörüdür. `migrations/presence/0001_presence.sql` yalnız tablo şemasıdır; request sırasında DDL yapılmaz. Tablo tek cihazın tek son satırını tutar, olay/görüntü kuyruğu veya sınırsız geçmiş yoktur. D1 read session `first-primary` ile başlar. [Resmî D1 API](https://developers.cloudflare.com/d1/worker-api/d1-database/#withsession) ve [hazır SQL statement API](https://developers.cloudflare.com/d1/worker-api/prepared-statements/) esas alındı.
+
+`firmware/armut_presence_push` ESP-IDF 5.5 bileşeni mevcut `armut_read_fn` snapshot sözleşmesini kullanır. Tek istek, 1 KiB yanıt, 1,5 sn socket timeout ve 2 sn işlem bütçesi, TLS CA bundle/hostname doğrulaması, redirect reddi, keep-alive istemcisi vardır. Bloklayan son native çağrı işlem bütçesini kendi timeout’u kadar aşabilir; mutlak gerçek zaman garantisi verilmez. Birikmiş telemetri tutulmaz. Ağ hatasında 1/2/4/8/16/30 sn + küçük jitter, yetki hatasında 30 sn bekler. Sensör/kamera task’ını durdurmaz; callback’in yalnız hızlı/thread-safe snapshot kopyalaması zorunludur. Wi-Fi ve saat senkronizasyonunu mevcut firmware sağlar; TLS doğrulaması gevşetilmez.
+
+### Doğrulama ve devreye alma sınırı
+
+Yazılım testleri: gerçek SQLite ile D1 sorguları, restart/expiry, CAS yarışı, eski/tekrar/yanlış paket, DB/HTTP/izin hatası ve hazırlanmış Worker artefaktından aynı browser runtime’ına var/yok/bilinmiyor akışı. C host testleri HTTPS yapılandırması, hello/report, doğru false, eski ölçümün null olması, 409 sonrası yeniden hello ve artan beklemeyi denetler. Bunlar gerçek ESP-IDF/linker/PSRAM/Wi-Fi performansı veya fiziksel radar kanıtı değildir.
+
+Hazırlanan Worker artefaktı aktif Site manifestini/yayını değiştirmez. **D1 `DB` kaynağının bağlanması, şemanın onaylı migration akışında uygulanması ve yayıncı/özel Site servis erişiminin güvenli provisioning’i henüz yapılmadı.** Sites’ın D1 logical-binding/migration biçimi bu mevcut buildless projede uygulanıp doğrulanmadan manifest alanı tahmin edilmeyecek. Gerçek V1 çalışma kopyasında callback bağlanması ve IDF 5.5 derlemesi de açık iştir; kaynak sözleşmesi, fiziksel entegrasyonun yerine geçmez. Gerçek OTA ancak hedef/kurulu firmware/partitions/geri dönüş incelenip ayrıca yetkilendirilince yapılır.
+
+Nominal yayın aralığı 1 saniyedir: kesintisiz çalışmada en fazla yaklaşık 86.400 rapor/gün, açık her panel için yaklaşık 86.400 okuma/gün oluşabilir. D1/Worker kapasitesi ve mevcut Sites hesap kotası devreye alma öncesi kontrol edilir; ücretsiz veya sınırsız çalışma sözü verilmez. Ücretli servis/plan seçilmedi. Fiziksel kabul: açılış/var-yok, radar kopması, Wi-Fi/internet kesilmesi, cihaz/cloud yeniden başlaması, uzun süre çalışma, heap/task yığını ve mevcut kamera akışına etki. **Gerçek kabul AÇIK.**
 
 ## Amaç ve mevcut kanıt
 

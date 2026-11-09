@@ -1,21 +1,25 @@
-// Prepared Sites Worker. Requires an explicitly provisioned private service binding.
-// Development-VM VPN and arbitrary public fetch are deliberately not used.
-import {createLegacyCameraProvider} from './legacy-camera-provider.mjs';
+// Prepared owner-private Sites Worker: device-initiated HTTPS, durable radar state.
+// No VPN, LAN fetch, commands or camera frames.
+import {createPresenceIngest,createD1PresenceStore,validPublisher} from './presence-ingest.mjs';
 const reply=(status,body)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export default {
  async fetch(request,env={}){
   const url=new URL(request.url);
+  if(url.pathname==='/api/presence/hello'||url.pathname==='/api/presence/report'){
+   if(request.method!=='POST')return reply(405,{error:'POST required'});
+   if(!env.DB||!env.PRESENCE_PUBLISH_TOKEN)return reply(503,{error:'Publisher not configured'});
+   if(!await validPublisher(request.headers.get('Authorization'),env.PRESENCE_PUBLISH_TOKEN))return reply(401,{error:'Publisher authorization required'});
+   if(!request.headers.get('content-type')?.startsWith('application/json'))return reply(415,{error:'JSON required'});
+   try{const body=await smallJson(request),ingest=createPresenceIngest({store:createD1PresenceStore(env.DB)});return reply(200,await (url.pathname.endsWith('/hello')?ingest.hello(body):ingest.report(body)));}
+   catch(e){return reply([400,409,413].includes(e.status)?e.status:503,{error:[400,409,413].includes(e.status)?e.message:'Publication unavailable'});}
+  }
   if(url.pathname==='/api/presence'){
    // Sites dispatch authenticates/sets this header; this worker must stay owner-private.
    if(!request.headers.get('oai-authenticated-user-id'))return reply(401,{error:'Sign-in required'});
    if(request.method!=='GET')return reply(405,{error:'Read-only'});
    const unknown={deviceId:'camera-02',componentId:'presence-radar',bootId:null,value:null,ageMs:null,maxAgeMs:2000,sourceReady:false};
-   if(!env.CAMERA02_PRIVATE_SERVICE?.fetch)return reply(200,unknown);
-   try{
-    const provider=createLegacyCameraProvider({origin:env.CAMERA02_ORIGIN,token:env.CAMERA02_TOKEN,expectedHostname:env.CAMERA02_HOSTNAME,expectedRole:env.CAMERA02_ROLE,entityId:'presence-radar',fetcher:(target,options)=>env.CAMERA02_PRIVATE_SERVICE.fetch(target,options)});
-    const batch=await provider.read({signal:request.signal}),e=batch.entities[0],d=batch.devices[0];
-    return reply(200,{...unknown,sourceReady:true,bootId:d?.bootId||null,value:e.value,ageMs:e.ageMs});
-   }catch{return reply(200,unknown);}
+   if(env.DB){try{return reply(200,await createPresenceIngest({store:createD1PresenceStore(env.DB)}).snapshot());}catch{return reply(503,unknown);}}
+   return reply(200,unknown);
   }
   if(url.pathname.startsWith('/api/'))return reply(404,{error:'Not found'});
   if(!['GET','HEAD'].includes(request.method))return reply(405,{error:'Read-only'});
@@ -27,3 +31,11 @@ export default {
   return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':asset.type,'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'}});
  }
 };
+
+async function smallJson(request){
+ if(!request.body)throw Object.assign(new Error('empty'),{status:400});
+ const reader=request.body.getReader(),parts=[];let size=0,expired=false;
+ const timer=setTimeout(()=>{expired=true;void reader.cancel().catch(()=>{});},2000);
+ try{for(;;){const {done,value}=await reader.read();if(expired)throw new Error('timeout');if(done)break;size+=value.byteLength;if(size>1024)throw Object.assign(new Error('body-size'),{status:413});parts.push(value);}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.byteLength;}try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw Object.assign(new Error('JSON invalid'),{status:400});}}
+ finally{clearTimeout(timer);await reader.cancel().catch(()=>{});reader.releaseLock();}
+}

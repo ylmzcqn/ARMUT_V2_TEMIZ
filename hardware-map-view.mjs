@@ -1,4 +1,4 @@
-import {analyzeHardware,pinStatusLabels} from './hardware-map.mjs?v=cloud20261110-9';
+import {analyzeHardware,pinStatusLabels} from './hardware-map.mjs?v=cloud20261110-10';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const evidenceLabels={source:'Kaynak kod tanımı',reported:'Kullanıcı / belge kaydı',physical:'Tarihsel fiziksel gözlem',conflict:'Çelişkili kaynak',unknown:'Doğrulanmamış',user_edit:'Kullanıcı düzenlemesi',user_added:'Kullanıcı ekledi'};
 export function hardwareMapView({inventory,device,onOpenPart,renderReferences}){

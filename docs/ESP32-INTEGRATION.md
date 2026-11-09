@@ -2,6 +2,36 @@
 
 `firmware/armut_link`, ESP-IDF 5.5 için yeniden kullanılabilir C bileşenidir. Wi-Fi/Ethernet, GPIO, kart başlangıcı, sensör sürücüleri veya OTA kurmaz. Çalışan ağa ve uygulamanın doğruladığı sürücülere bağlanır. Pin, besleme ve kart revizyonu bu bileşenle doğrulanmış olmaz.
 
+## Güncel cloud yayın bileşeni
+
+Kullanıcı PC’den bağımsız dışarı HTTPS yayınını seçti. `firmware/armut_presence_push`, aynı IDF projesine `EXTRA_COMPONENT_DIRS` ve uygulamanın `REQUIRES` listesine eklenir. `armut_link` yalnız ortak read callback türü için bağımlılıktır; eski armut_link rapor task’ını ayrıca başlatmayın. V1’in kendi yerel Hub sync işlevini değiştirmek gerekmez. Sertifika bundle için `CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y` gerekir; mevcut Wi-Fi ve güvenilir saat/SNTP hazır olduktan sonra başlatılır.
+
+```c
+#include "armut_presence_push.h"
+/* Uygulama tarafından sağlanan, mevcut radar sürücüsüne salt okunur köprü.
+ * channel="presence": value yalnız 0/1, age gerçek son UART çerçevesinin yaşı.
+ * enabled/driver_ready/online doğru değilse ESP_ERR_INVALID_STATE döndürür.
+ * Yeni UART okuması veya ağ isteği yapmaz; thread-safe snapshot kopyalar. */
+extern esp_err_t read_existing_radar_snapshot(void *, const char *, double *, uint32_t *);
+
+esp_err_t start_cloud_presence(const char *origin, const char *publisher_key,
+                               const char *site_access_key, void *radar_context,
+                               armut_presence_push_handle_t *handle)
+{
+    armut_presence_push_config_t config = {
+        .origin=origin, .publisher_key=publisher_key, .site_access_key=site_access_key,
+        .read=read_existing_radar_snapshot, .context=radar_context,
+    };
+    return armut_presence_push_start(&config, handle);
+}
+```
+
+Bu snippet bir pin/sensör sürücüsü değildir ve `read_existing_radar_snapshot` mevcut V1 çalışma kopyasına henüz bağlanmadı. Yerel kaynakta doğrulanan `radar.enabled/driver_ready/online/presence/sample_age_ms` verilerinden bu callback oluşturulmalı; yanlış profil/Kamera 1/Hub kaynakları varlık üretmemeli. Kamera 2 GPIO40/39 profili ve çalışan mevcut sürücü korunur. Kaynak `sample_age_ms=0` ama online=false ise geçerli yokluk üretmeyin.
+
+Başlangıçta fiziksel çıkış veya komut yoktur. Okuma hatası/geçersiz value/yaş≥2000, raporda `value:null,sampleAgeMs:null` üretir. Cihaz anahtarları başlangıçta kopyalanır; context ve snapshot sürücüsü başarılı stop’a kadar yaşamalıdır. `armut_presence_push_stop(handle,10000)` timeout dönerse context/handle bırakılmaz; sonra stop tekrar denenir. Sensör task’ı yayıncıdan bağımsız kalır. Cloud DB/şema/servis erişimi ve gerçek IDF derlemesi/OTA devreye alma kapsamıdır; host testleri bunları kanıtlamaz. Güncel mimari ve kabul sınırı [ARCHITECTURE.md](ARCHITECTURE.md#seçilen-ve-uygulanan-mimari-cihazdan-dışarı-https--10-kasım-2026) içindedir.
+
+Aşağıdaki GET yolu, mevcut API sözleşmesinin kanıtı ve yerel test/okuma alternatifi olarak korunur; cloud için yeni seçilen yol değildir.
+
 ## Mevcut Kamera 2 firmware’iyle USB’siz geçiş — 10 Kasım 2026
 
 İlk tercih yeni firmware yüklemek değil, mevcut Kamera 2’nin `GET /api/system` çıktısını ev ağındaki yerel denetleyicide salt okunur adaptörle okumaktır. Aşağıdaki uç ve dosyalar yerel kaynak incelemesinden aktarılmış kanıttır; bu cloud oturumu özgün dosyaların tamamını veya kurulu cihazı incelemedi.

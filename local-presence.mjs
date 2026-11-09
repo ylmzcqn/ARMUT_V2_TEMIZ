@@ -1,5 +1,5 @@
-import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-9';
-import {boundedJson} from './home-runtime.mjs?v=cloud20261110-9';
+import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-10';
+import {boundedJson} from './home-runtime.mjs?v=cloud20261110-10';
 function localOrigin(value){
  let url;try{url=new URL(value);}catch{throw new Error('Yerel sunucu adresi geçersiz.');}
  const h=url.hostname,parts=h.split('.').map(Number),v4=parts.length===4&&parts.every(n=>Number.isInteger(n)&&n>=0&&n<=255),privateIp=v4&&(parts[0]===10||parts[0]===127||parts[0]===192&&parts[1]===168||parts[0]===172&&parts[1]>=16&&parts[1]<=31);
@@ -18,7 +18,7 @@ export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=
     const response=await fetcher(cloud?'/api/presence':origin+'/api/presence',{method:'GET',cache:'no-store',credentials:cloud?'same-origin':'omit',redirect:'error',headers:cloud?{Accept:'application/json'}:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal});
     if(token!==generation){await response.body?.cancel().catch(()=>{});return;}
     if(response.status===401){await response.body?.cancel().catch(()=>{});disconnect();status=cloud?'Özel panel oturumu gerekli; panelde yeniden giriş yapın.':'Yerel yönetici anahtarı geçersiz; yeniden bağlanın.';return;}
-    if(!response.ok){if(cloud&&(response.status===404||response.status===503)){await response.body?.cancel().catch(()=>{});disconnect();status='Bulut varlık backend’i henüz etkin değil.';return;}throw new Error('response');}
+    if(!response.ok){if(cloud&&response.status===404){await response.body?.cancel().catch(()=>{});disconnect();status='Bulut varlık backend’i henüz etkin değil.';return;}throw new Error('response');}
     const s=await boundedJson(response);if(token!==generation)return;if(signal.aborted)throw new Error('aborted');
     if(s.deviceId!=='camera-02'||s.componentId!=='presence-radar'||s.maxAgeMs!==2000||!(s.value===null||typeof s.value==='boolean')||!(s.bootId===null||typeof s.bootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.bootId))||s.value!==null&&(!s.bootId||!Number.isFinite(s.ageMs)||s.ageMs<0))throw new Error('contract');
     const elapsed=now()-started;if(!Number.isFinite(elapsed)||elapsed<0)throw new Error('clock');

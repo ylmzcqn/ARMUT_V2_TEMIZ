@@ -21,3 +21,7 @@ int cJSON_IsTrue(const cJSON *);
 int cJSON_GetArraySize(const cJSON *);
 #define cJSON_ArrayForEach(e,a) for((e)=(a)?(a)->child:NULL;(e);(e)=(e)->next)
 cJSON *cJSON_ParseWithLengthOpts(const char *,size_t,const char **,int);
+
+cJSON *cJSON_AddNullToObject(cJSON *,const char *);
+
+int cJSON_IsNull(const cJSON *);
