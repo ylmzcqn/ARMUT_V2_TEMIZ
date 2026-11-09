@@ -26,6 +26,10 @@ Tarayıcı ve firmware adresi bilgisayarın ev ağındaki IP'sini kullanır; ör
 
 Bu tek seferlik firmware/provizyon adımları tamamlanmadan ESP'yi açmak kendi başına bağlantı oluşturmaz. Bu geliştirmede cihazınıza firmware yüklenmedi.
 
+## Mevcut Kamera 2 varlık sensörü
+
+V1 firmware’indeki `/api/system` ile USB ve firmware güncellemesi olmadan salt okunur varlık bağlantısı hazırlanmıştır. Yerel ayarlar ve cloud panelinin yerel ağ erişim sınırı için [LOCAL-CONTROLLER.md](docs/LOCAL-CONTROLLER.md#kamera-2-mevcut-firmware-ile-varlık-okuma) bölümünü kullanın. Gerçek cihaz kabulü ve yeni cloud yayını bu geliştirmede yapılmadı.
+
 ## Kameralar
 
 Mevcut JPEG/MJPEG uçları kullanılabilir. ESP-IDF için `firmware/armut_camera_http` bileşeni de vardır; önceden başlatılmış `esp32-camera` sürücüsüne `/camera.jpg`, `/stream`, `/profile` uçlarını ekler. Kamera pinleri gerçek karta göre firmware tarafında belirlenir.

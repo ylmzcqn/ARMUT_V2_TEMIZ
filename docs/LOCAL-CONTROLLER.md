@@ -37,3 +37,21 @@ Kayıtlı kamera yapılandırmasının `GET /api/cameras/:id/stream` ve `POST /a
 ## Doğrulama
 
 `node --test server.test.mjs controller-devices.test.mjs` yalnız ephemeral loopback HTTP hizmetleriyle kayıt, telemetri, tek teslim, ACK, replay/boot, oturum/CSRF/Origin/Host, revizyon/kalıcılık, kamera profil aktarımı ve akış iptalini doğrular. Gerçek ESP, ev ağı, pinler veya üretim servisleri bu testlerle değiştirilmez.
+
+## Kamera 2: mevcut firmware ile varlık okuma
+
+Bu yol mevcut V1 `/api/system` API’sini kullanır; USB, yeni cihaz kaydı veya firmware yükleme istemez. Şu dört değer yalnız yerel Node sürecinin ortamında birlikte tanımlanır: `ARMUT_CAMERA_02_ORIGIN` (yalnız cihaz origin’i, `/api/system` eklemeyin), `ARMUT_CAMERA_02_TOKEN` (mevcut cihaz API tokenı), `ARMUT_CAMERA_02_HOSTNAME`, `ARMUT_CAMERA_02_ROLE` (mevcut yerel hedeften doğrulanmış tam değerler). Hiçbiri cloud’a veya Git’e aktarılmaz. Kod yapılandırma olmadan Kamera 2’ye istek yapmaz.
+
+Cloud panelinden ev ağına okuma için ayrıca `ARMUT_PANEL_ORIGIN=https://armut-v2-panel.jadeelm.chatgpt.site` tanımlanır. Yalnız **tam eşleşen origin** için `/api/presence` CORS ve GET/Authorization ön kontrolü açılır. `Access-Control-Allow-Private-Network: true` yalnız bu origin’in ilgili preflight isteğine verilir; wildcard/credentials CORS yoktur. Diğer API yolları dış origin’e açılmaz. Gerçek cihaz tokenı bu yolda asla dönmez.
+
+Yerel giriş çerezi HttpOnly/SameSite=Strict olduğu için cloud origin’den kullanılamaz. Salt okunur uç, yeni anahtar üretmek yerine mevcut `local-data/admin-key.txt` yönetici anahtarını Bearer olarak doğrular. Panel Ayarlar → **Ev ağından canlı varlık** formunda yerel sunucu origin’i ve bu yönetici anahtarı girilir. Kamera tokenını bu forma girmeyin. Form URL/anahtarı sunucuya kaydetmez; anahtar yalnız sekme belleğindedir, alan gönderim anında temizlenir ve bağlantı kesilince istemci anahtarı bırakır. Sekme yeniden açılınca tekrar bağlantı gerekir. Bu yol kamera görüntüsü/komut/yazma sağlamaz.
+
+### En küçük gerçek yerel kabul — henüz yapılmadı
+
+Ön koşul: güncel kod yerel V2’ye aktarılmış ve yeni panel sürümü kullanıcı yetkisiyle yayımlanmış olmalı. Bu pakette mevcut cloud yayını değiştirilmedi; eski yayında yeni form henüz yoktur.
+
+1. Yerel yetkili çalışma kapsamında mevcut Kamera 2 adresi, tokenı, hostname ve rolü dört yerel ortam değerine bağlayın; mevcut sunucuyu bu yapılandırmayla çalıştırma/değiştirme işlemi ayrıca yetkilendirilmelidir. LAN sunumu gerekiyorsa mevcut `ARMUT_HOST`/özel ağ güvenlik duvarı ayarları kullanılır; ağ taraması ve internet port yönlendirme yoktur.
+2. Aynı ev ağındaki tarayıcıdan cloud panelini açıp Ayarlar’daki forma yerel V2 sunucusunun IP/port’unu ve yerel yönetici anahtarını girin. Tarayıcı yerel ağ izni isterse kullanıcı verir.
+3. Genel bakıştaki tek Varlık sensörü kartında gerçek **var/yok** geçişini, radar/bağlantı kesilince **bilinmiyor** olmasını ve toparlanmasını gözleyin. Sensörün fiziksel boşluğu bildirmesi ile bağlantı kaybını karıştırmayın. Kamera, firmware, OTA ve çıkış denemesi bu kabulün parçası değildir.
+
+CORS izni tek başına HTTPS→HTTP mixed-content, tarayıcı Local Network Access izni veya hosting CSP kısıtını aşmaz. Sentetik Node testleri gerçek tarayıcı iznini kanıtlamaz. Cloud tarayıcısı isteği engellerse en küçük işleyen alternatif **aynı yerel sunucunun kendi panelini açmaktır**; o yol aynı radar verisini kullanır ve cross-origin gerektirmez. Cloud panelini açık tutma şartı için tarayıcı tanısı alınmadan yeni proxy/TLS/hosting altyapısı eklenmez. Gerçek tarayıcı erişimi doğrulanana kadar cloud→LAN kabulü açıktır.

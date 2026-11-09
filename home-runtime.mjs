@@ -1,6 +1,6 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261109-7';
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261109-7';
-import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261109-7';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-8';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-8';
+import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-8';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){
@@ -25,7 +25,7 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  }
  function log(kind,message,result='ok'){update(h=>{h.events.unshift({id:uid(),at:new Date(now()).toISOString(),kind,message:String(message).slice(0,1000),result});h.events=h.events.slice(0,200);return h;},{volatileOnError:true});}
  function entities(){return structuredClone(home.entities);}
- function entityState(entityId){const item=values.get(entityId),entity=entities().find(e=>e.id===entityId);const status=entity?devices.status(entity.deviceId):{state:'unregistered'};const age=item?item.age+mono()-item.at:Infinity;return {value:item?.value??null,fresh:status.state==='online'&&age<=30000,ageMs:age,pending:busy.has(entityId)||item?.pending===true,heldUntil:holds.get(entityId)||item?.heldUntil||0};}
+ function entityState(entityId){const item=values.get(entityId),entity=entities().find(e=>e.id===entityId);const status=entity?devices.status(entity.deviceId):{state:'unregistered'};const age=item?item.age+mono()-item.at:Infinity;return {value:item?.value??null,fresh:item?.value!==null&&status.state==='online'&&(item?.maxAgeMs===undefined?age<=30000:age<item.maxAgeMs),ageMs:age,maxAgeMs:item?.maxAgeMs,pending:busy.has(entityId)||item?.pending===true,heldUntil:holds.get(entityId)||item?.heldUntil||0};}
  function deviceStatus(id){return devices.status(id);}
  async function command(entityId,value,{origin='manual',observeOnly=false,ruleName=''}={}){
   const entity=entities().find(e=>e.id===entityId),label=entity?.name||entityId;
@@ -109,11 +109,11 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  function validateEntityBatch(list){
   if(!Array.isArray(list)||list.length>200)throw new Error('İşlev verisi geçersiz.');
   const seen=new Set();
-  for(const item of list){if(!item||typeof item.entityId!=='string'||seen.has(item.entityId)||!(typeof item.value==='boolean'||(typeof item.value==='number'&&Number.isFinite(item.value)))||!(item.ageMs===null||(Number.isFinite(item.ageMs)&&item.ageMs>=0)))throw new Error('İşlev gözlemi geçersiz.');seen.add(item.entityId);const entity=home.entities.find(e=>e.id===item.entityId);if(entity&&((entity.kind==='sensor')!==(typeof item.value==='number')))throw new Error('İşlev değerinin türü tanımıyla eşleşmiyor.');}
+  for(const item of list){if(!item||typeof item.entityId!=='string'||seen.has(item.entityId)||!(item.value===null||typeof item.value==='boolean'||(typeof item.value==='number'&&Number.isFinite(item.value)))||!(item.ageMs===null||(Number.isFinite(item.ageMs)&&item.ageMs>=0)))throw new Error('İşlev gözlemi geçersiz.');seen.add(item.entityId);if(item.maxAgeMs!==undefined&&(!Number.isFinite(item.maxAgeMs)||item.maxAgeMs<=0||item.maxAgeMs>30000))throw new Error('İşlev tazelik sınırı geçersiz.');const entity=home.entities.find(e=>e.id===item.entityId);if(entity&&item.value!==null&&((entity.kind==='sensor')!==(typeof item.value==='number')))throw new Error('İşlev değerinin türü tanımıyla eşleşmiyor.');}
  }
  function ingestEntities(list,previous=new Map(home.entities.map(e=>[e.id,entityState(e.id)]))){
   validateEntityBatch(list);const changes=[];
-  for(const item of list){if(!home.entities.some(e=>e.id===item.entityId))continue;values.set(item.entityId,{value:item.value,age:item.ageMs===null?Infinity:item.ageMs,at:mono(),heldUntil:Number.isFinite(item.heldUntil)?item.heldUntil:0,pending:item.pending===true});const before=previous.get(item.entityId),current=entityState(item.entityId);if(before?.fresh&&current.fresh&&before.value!==current.value)changes.push({entityId:item.entityId,previousValue:before.value,value:item.value,fresh:true});}
+  for(const item of list){if(!home.entities.some(e=>e.id===item.entityId))continue;values.set(item.entityId,{value:item.value,age:item.ageMs===null?Infinity:item.ageMs,maxAgeMs:item.maxAgeMs,at:mono(),heldUntil:Number.isFinite(item.heldUntil)?item.heldUntil:0,pending:item.pending===true});const before=previous.get(item.entityId),current=entityState(item.entityId);if(item.observeOnly!==true&&before?.fresh&&current.fresh&&before.value!==current.value)changes.push({entityId:item.entityId,previousValue:before.value,value:item.value,fresh:true});}
   for(const change of changes)void event(change).catch(backgroundError);
  }
  function backgroundError(error){sourceError=`İşlem tamamlanamadı: ${error.message}`;announce();}
@@ -136,7 +136,7 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
    else{const response=await fetcher(home.settings.statusUrl,{cache:'no-store',credentials:'omit',signal:activeRequest.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);batch=await boundedJson(response);}
    if(disposed||token!==generation)return;receiveState(batch);
   }catch(error){if(disposed||token!==generation)return;sourceError=`Bağlantı okunamadı: ${error.message}`;devices.disconnect();}
-  finally{clearTimeout(timeout);if(token===generation&&!disposed&&connected){if(sourceError)reset();timer=setTimeout(()=>poll(token),sourceError?8000:5000);announce();}}
+  finally{clearTimeout(timeout);if(token===generation&&!disposed&&connected){if(sourceError)reset();timer=setTimeout(()=>poll(token),sourceError?8000:Math.max(250,Math.min(5000,provider?.pollIntervalMs||5000)));announce();}}
  }
  function disconnect(){generation++;connected=false;demoPaused=true;clearTimeout(timer);request?.abort();devices.disconnect();announce();}
  function connect(){if(demo)setDemo(false);disconnect();if(!provider&&!home.settings.statusUrl)throw new Error('Önce durum adresini kaydedin.');demo=false;reset();connected=true;sourceError='';void poll(generation);announce();}
@@ -179,7 +179,7 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  const interval=setInterval(()=>{if(demo&&!demoPaused)demoPulse();void tick().catch(backgroundError);},1000);void tick().catch(backgroundError);
  return {home:()=>structuredClone(home),backup:()=>structuredClone(demo?savedHome:home),receiveState,entities,entityState,deviceStatus,update,log,command,runScene,sceneState,setMode,runRule,previewRule,setDemo,simulatePresence,pauseDemo(){if(demo){demoPaused=true;devices.disconnect();sourceError='Test bağlantısı kesildi';announce();}},connect,disconnect,tick,subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},get demo(){return demo;},get connected(){return connected;},get persistenceError(){return persistenceError;},get storageError(){return storageError;},get sourceError(){return sourceError;},dispose(){disposed=true;disconnect();clearInterval(interval);listeners.clear();}};
 }
-async function boundedJson(response){
+export async function boundedJson(response){
  if(!response.body)throw new Error('Yanıt gövdesi boş.');
  const reader=response.body.getReader(),parts=[];let size=0;
  try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>262144)throw new Error('Yanıt sınırı aşıldı.');parts.push(value);}}

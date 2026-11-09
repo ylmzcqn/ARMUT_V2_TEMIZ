@@ -42,3 +42,13 @@ export function deletionImpact(home,collection,key){
  const removed=(list,other)=>list.filter(r=>!other.some(n=>n.id===r.id)).map(r=>r.name);
  return {name:record.name,removedRules:removed(home.automations,next.automations),removedScenes:removed(home.scenes,next.scenes),changedScenes:home.scenes.filter(s=>next.scenes.some(n=>n.id===s.id&&JSON.stringify(n.actions)!==JSON.stringify(s.actions))).map(s=>s.name),unassignedEntities:home.entities.filter(e=>e.roomId&&next.entities.some(n=>n.id===e.id&&n.roomId==='')).map(e=>e.name),unassignedCameras:home.cameras.filter(e=>e.roomId&&next.cameras.some(n=>n.id===e.id&&n.roomId==='')).map(e=>e.name)};
 }
+
+// Logical view of the existing physical component; never enrolls another device.
+export function bindCameraPresence(home){
+ const next=structuredClone(home),matches=next.entities.filter(e=>e.deviceId==='camera-02'&&e.kind==='presence');
+ if(matches.length>1)throw new Error('Kamera 2 varlık işlevi eşlemesi belirsiz.');
+ if(matches.length){if(matches[0].channelId&&matches[0].channelId!=='presence-radar')throw new Error('Mevcut varlık işlevi başka kanala bağlı.');matches[0].channelId='presence-radar';return {home:validateHome(next),entityId:matches[0].id};}
+ const ignored=(next.ignoredEntities||[]).find(e=>e.deviceId==='camera-02'&&e.id==='presence-radar');
+ if(!ignored){if(next.entities.some(e=>e.id==='presence-radar'))throw new Error('Varlık bileşeni kimliği başka işlevde kullanılıyor.');next.entities.push({id:'presence-radar',deviceId:'camera-02',channelId:'presence-radar',name:'Varlık sensörü',kind:'presence',roomId:''});}
+ return {home:validateHome(next),entityId:'presence-radar'};
+}

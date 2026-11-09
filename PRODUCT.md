@@ -1,7 +1,7 @@
 # ARMUT V2
 
 ## Güncel ürün
-Home Assistant benzeri, kişisel kullanım için sade ve responsive ev otomasyonu paneli. Mevcut Cihazlar sayfasının grafik/yeşil estetiği tüm sayfaların referansıdır. Donanım haritası yardımcı bölümdür; ana ürün gerçek cihaz durumu, kameralar, kontroller, odalar, sahneler ve otomasyonlardır. Asistan, APK, servo ve internetten ev erişimi kapsam dışıdır.
+Home Assistant benzeri, kişisel kullanım için sade ve responsive ev otomasyonu paneli. Mevcut Cihazlar sayfasının grafik/yeşil estetiği tüm sayfaların referansıdır. Donanım haritası yardımcı bölümdür; ana ürün gerçek cihaz durumu, kameralar, kontroller, odalar, sahneler ve otomasyonlardır. Bu panel ilk aşamadır. Ürün hedefi, V1’in Türkçe konuşan ve kullanıcının amacını takip eden kişisel ev asistanı kimliğini korumaktır. Asistanın uygulanması sonraki aşamadır; APK, servo ve internetten ev erişimi bu paketin kapsamı dışındadır.
 
 ## Çalışma biçimleri
 - Statik önizleme: bağımlılıksız HTML/CSS/ES modülleri, tarayıcı kaydı, açık test alanı. Kurallar panel açıkken çalışır.

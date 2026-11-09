@@ -30,13 +30,17 @@
 
 Yedi Node testi tamamen sentetik yanıtlarla kimlik/rol, bozuk/eksik/çelişen veri, 2000 ms sınırı, geçerli false, örneksizlik, gecikme, saat gerilemesi, boot değişimi ve HTTP/istek hatasını kapsar. Girdi değiştirilmez; envanter veya cihaz kaydı yazılmaz.
 
-Bu API **henüz home-runtime provider veya sunucuya bağlı değildir**. Sonraki yerel köprü aşamasında tek salt okunur GET kaynağı seçilmeli; push/pull aynı cihazı paralel güncellememelidir. Mevcut home-runtime'ın genel 30 saniye tazelik eşiği radar için kullanılmamalı: köprü ve panel 2000 ms sınırını uçtan uca korumalı, geçersiz snapshot’ın eski boolean değeri runtime'da bırakmasına izin vermemelidir. Bu bağlama yapılmadan otomasyon kaynağı olarak kullanılmaz. Taşıyıcı tek sorgu, bounded JSON/timeout, redirect reddi, iptal ve eski oturum yanıtını atma sağlamalıdır. Yazma, kontrol veya OTA içermez.
+`legacy-camera-provider.mjs`, mevcut API’ye yalnız GET yapar; Bearer cihaz tokenı yalnız Node sürecinde kalır. JSON 256 KiB, istek/gövde 1000 ms ile sınırlıdır; redirect yoktur. Tek eşzamanlı okuma ve mevcut runtime provider yolu kullanılır. Hata/eksik ölçüm açık null gözlem üretir. Kaynak 1000 ms arayla sorgulanır; başarılı GET sensör yaşını sıfırlamaz.
+
+Mevcut `camera-02` cihaz kaydı korunur. Panelde aynı varlık işlevi varsa kullanılır; yoksa fiziksel `presence-radar` için bir mantıksal işlev görünümü eşlenir. Bu eşleme gereklidir çünkü ev paneli `home.entities` üzerinden gösterir; envanterdeki pin/modül kartı canlı işlev yerine geçmez. İkinci cihaz, cihaz anahtarı veya rapor/komut protokolü oluşturulmaz. Belirsiz birden fazla varlık işlevi veya aynı cihaz için paralel push kaynağı başlangıçta reddedilir.
+
+`home-runtime` kaynaktaki `maxAgeMs=2000` sınırını monoton saatle uygular ve null gözlemi eski değerin yerine koyar. Sunucunun mevcut `/api/state` yolu bu sınırı tarayıcıya taşır; `remote-home` istek süresini de yaşa ekler. Cloud için sınırlı `/api/presence` GET yolu aynı runtime’dan yalnız radar özetini verir. `local-presence` istemcisi de aynı runtime’a bağlanır. Bu kaynağın gözlemleri salt okunurdur; mevcut otomasyonları veya fiziksel çıkışları tetiklemez.
 
 ### Yerel kabul ve OTA
 
 Mevcut uç çalışıyorsa okuma için firmware değişikliği ve USB gerekmez. Kaynakta OTA bulunması cihazda OTA’nın çalıştığını veya bu cloud ortamından erişilebildiğini kanıtlamaz. Ağ erişimi ve canlı doğrulama bu aşamada yapılmaz. Daha sonra ayrıca yetkilendirilmiş yerel doğrulamada doğru cihaz, kurulu sürüm ve gerçek bölüm düzeni eşlenir. Firmware değişikliği gerçekten gerekirse geri dönüş imkânı doğrulanır ve ayrı açık yükleme yetkisi alınır; belirsiz yükleme tekrarlanmaz.
 
-Durum: kaynak sözleşmesi ve saf ayrıştırıcı/testler hazır. Ağ taşıyıcısı ve panel bağlantısı henüz uygulanmadı; cihaz erişimi, OTA, servis değişikliği ve yayın yapılmadı.
+Durum: kaynak sözleşmesi, ayrıştırıcı, yerel GET taşıyıcısı ve panel veri yolu uygulandı; yalnız sentetik yanıtlarla doğrulandı. Gerçek cihaz ve tarayıcı yerel ağ kabulü açık; cihaz erişimi, OTA, servis değişikliği ve yeni yayın yapılmadı.
 
 ## Dahil etme
 

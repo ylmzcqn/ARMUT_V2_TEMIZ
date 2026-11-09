@@ -1,5 +1,5 @@
-import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261109-7';
-import {validateHome} from './home-model.mjs?v=cloud20261109-7';
+import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-8';
+import {validateHome} from './home-model.mjs?v=cloud20261110-8';
 const clone=value=>structuredClone(value);
 async function readJson(response){if(!response.ok){let message=`HTTP ${response.status}`;try{const body=await response.json();if(typeof body.error==='string')message=body.error;}catch{}throw Object.assign(new Error(response.status===401?'Yerel sunucuya giriş gerekli. /login adresini açın.':message),{status:response.status});}const text=await response.text();if(text.length>2097152)throw new Error('Sunucu yanıtı çok büyük.');return JSON.parse(text);}
 export async function createPanelRuntime({inventory,fetcher=globalThis.fetch,baseUrl='',storage}={}){
@@ -33,16 +33,19 @@ export async function createRemoteHomeRuntime({inventory,fetcher=globalThis.fetc
   if(!local.demo){
    local.update(()=>state.home);
    const devices=(state.devices||[]).filter(d=>d.bootId&&typeof d.online==='boolean').map(d=>({deviceId:d.deviceId,role:d.role,bootId:d.bootId,online:d.online,observationAgeMs:Number.isFinite(d.ageMs)?d.ageMs:null,capabilities:d.capabilities||[],components:d.components||[]}));
-   const entities=(state.entities||[]).filter(e=>typeof e.value==='boolean'||(typeof e.value==='number'&&Number.isFinite(e.value))).map(e=>({...e,ageMs:Number.isFinite(e.ageMs)?e.ageMs:null}));
+   const entities=(state.entities||[]).filter(e=>e.value===null||typeof e.value==='boolean'||(typeof e.value==='number'&&Number.isFinite(e.value))).map(e=>({...e,ageMs:Number.isFinite(e.ageMs)?e.ageMs:null}));
    if(!paused)local.receiveState({devices,entities});
   }
   error='';announce();
  }
  async function request(path,{method='GET',body,timeout=12000,signal}={}){
+  const started=performance.now();
   const response=await fetcher(base+path,{method,cache:'no-store',credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:body===undefined?undefined:JSON.stringify(body),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(timeout)]):AbortSignal.timeout(timeout)});
-  return readJson(response);
+  const result=await readJson(response),elapsed=Math.max(0,performance.now()-started);
+  for(const state of [result,result.state])if(Array.isArray(state?.entities))for(const entity of state.entities)if(Number.isFinite(entity.maxAgeMs)&&Number.isFinite(entity.ageMs))entity.ageMs+=elapsed;
+  return result;
  }
- function schedule(){clearTimeout(timer);if(!disposed&&!paused)timer=setTimeout(()=>{void refresh().catch(()=>{});},error?5000:pollMs);}
+ function schedule(){clearTimeout(timer);if(!disposed&&!paused)timer=setTimeout(()=>{void refresh().catch(()=>{});},error?5000:Math.min(pollMs,latest?.entities?.some(e=>e.maxAgeMs===2000)?1000:pollMs));}
  async function refresh(){
   if(disposed||paused||local.demo){schedule();return;}
   if(inFlight)return inFlight;
