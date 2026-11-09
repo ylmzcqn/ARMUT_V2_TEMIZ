@@ -1,24 +1,24 @@
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261108-3';
-import {emptyHome,validateHome,ruleMatches,modes} from './home-model.mjs?v=cloud20261108-3';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261109-4';
+import {emptyHome,validateHome,ruleMatches,modes} from './home-model.mjs?v=cloud20261109-4';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>globalThis.crypto.randomUUID();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now()}={}){
  let home=initial?validateHome(structuredClone(initial)):emptyHome(),storageError='',demo=false,connected=false,sourceError='',disposed=false,demoPaused=false;
  if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw)home=validateHome(JSON.parse(raw));}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
  const listeners=new Set(),values=new Map(),holds=new Map(),busy=new Set(),fired=new Map();
- let timer,request,session='',sequence=0,lastMinute='',generation=0,devices;
+ let timer,request,session='',sequence=0,lastMinute='',generation=0,devices,savedHome,savedHolds,savedFired;
  const registry=inventory.devices.filter(d=>d.id!=='uno-history').map(d=>({deviceId:d.id,role:d.id==='hub'?'hub':'camera',capabilities:['camera','switch','sensor','presence','display'],components:[]}));
  function reset(){devices=createDeviceRuntime(registry,{now:mono});session=uid();devices.beginSession(session);sequence=0;values.clear();}
  reset();
  const announce=()=>{for(const fn of listeners)fn();};
- function update(fn,{recover=false}={}){if(storageError&&!recover)throw new Error(storageError);const next=validateHome(structuredClone(fn(structuredClone(home))));if(storage)storage.setItem(HOME_STORAGE_KEY,JSON.stringify(next));for(const previous of home.entities){const current=next.entities.find(e=>e.id===previous.id);if(recover||!current||current.deviceId!==previous.deviceId||current.kind!==previous.kind){values.delete(previous.id);holds.delete(previous.id);}}home=next;if(recover)storageError='';announce();}
+ function update(fn,{recover=false}={}){if(storageError&&!recover)throw new Error(storageError);const next=validateHome(structuredClone(fn(structuredClone(home))));if(storage&&!demo)storage.setItem(HOME_STORAGE_KEY,JSON.stringify(next));for(const previous of home.entities){const current=next.entities.find(e=>e.id===previous.id);if(recover||!current||current.deviceId!==previous.deviceId||current.kind!==previous.kind){values.delete(previous.id);holds.delete(previous.id);}}home=next;if(recover)storageError='';announce();}
  function log(kind,message,result='ok'){update(h=>{h.events.unshift({id:uid(),at:new Date(now()).toISOString(),kind,message,result});h.events=h.events.slice(0,200);return h;});}
- function entities(){return [...home.entities,...(demo?[{id:'test-light',name:'Test ışığı',deviceId:'hub',roomId:'',kind:'switch',test:true},{id:'test-presence',name:'Test varlık sensörü',deviceId:'hub',roomId:'',kind:'presence',test:true}]:[])];}
+ function entities(){return structuredClone(home.entities);}
  function entityState(entityId){const item=values.get(entityId),entity=entities().find(e=>e.id===entityId);const status=entity?devices.status(entity.deviceId):{state:'unregistered'};const age=item?item.age+mono()-item.at:Infinity;return {value:item?.value??null,fresh:status.state==='online'&&age<=30000,ageMs:age,pending:busy.has(entityId),heldUntil:holds.get(entityId)||0};}
  function deviceStatus(id){return devices.status(id);}
- async function command(entityId,value,{origin='manual',observeOnly=false}={}){
+ async function command(entityId,value,{origin='manual',observeOnly=false,ruleName=''}={}){
   const entity=entities().find(e=>e.id===entityId),label=entity?.name||entityId;
-  const finish=(result,message)=>{log(origin,`${label}: ${message}`,result);return {result,message};};
+  const finish=(result,message)=>{log(origin,`${ruleName?ruleName+' · ':''}${label}: ${message}`,result);return {result,message};};
   if(!entity||entity.kind!=='switch'||typeof value!=='boolean')return finish('error','Kontrol edilebilir bir aç/kapat işlevi seçin.');
   if(observeOnly)return finish('observed',`${value?'açılacaktı':'kapatılacaktı'} · yalnız izleme, komut gönderilmedi`);
   if(origin==='automation'&&(holds.get(entityId)||0)>now())return finish('skipped','Manuel kontrol önceliği sürüyor.');
@@ -39,14 +39,16 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  }
  async function runScene(id){const scene=home.scenes.find(s=>s.id===id);if(!scene)throw new Error('Sahne bulunamadı.');const results=[];for(const action of scene.actions){const result=await command(action.entityId,action.value,{origin:'scene'});results.push(result);if(result.result!=='ok')break;}return results;}
  async function runRule(rule){
-  const result=await command(rule.action.entityId,rule.action.value,{origin:'automation',observeOnly:rule.observeOnly});
+  const token=generation;
+  const result=await command(rule.action.entityId,rule.action.value,{origin:'automation',observeOnly:rule.observeOnly,ruleName:rule.name});
+  if(token!==generation)return result;
   update(h=>{const current=h.automations.find(r=>r.id===rule.id);if(current)current.lastRun={at:new Date(now()).toISOString(),result:result.result,message:result.message};return h;});
   return result;
  }
- async function event(event){for(const rule of home.automations){if(ruleMatches(rule,event,home.mode))await runRule(rule);}}
+ async function event(event){const token=generation;for(const rule of home.automations){if(token!==generation)return;if(ruleMatches(rule,event,home.mode))await runRule(rule);}}
  async function setMode(mode){if(!Object.hasOwn(modes,mode))throw new Error('Ev modu geçersiz.');if(home.mode===mode)return;update(h=>({...h,mode}));log('mode',`Ev modu: ${modes[mode]}`);await event({mode});}
  function minuteKey(){const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:home.settings.timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now()));return Object.fromEntries(parts.map(p=>[p.type,p.value]));}
- async function tick(){if(disposed)return;const p=minuteKey(),key=`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;if(lastMinute&&key!==lastMinute){for(const rule of home.automations){if(rule.enabled&&rule.trigger==='time'&&rule.time===`${p.hour}:${p.minute}`&&(!rule.mode||rule.mode===home.mode)&&fired.get(rule.id)!==key){fired.set(rule.id,key);await runRule(rule);}}}lastMinute=key;announce();}
+ async function tick(){if(disposed)return;const token=generation;const p=minuteKey(),key=`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;if(lastMinute&&key!==lastMinute){for(const rule of home.automations){if(token!==generation)return;if(rule.enabled&&rule.trigger==='time'&&rule.time===`${p.hour}:${p.minute}`&&(!rule.mode||rule.mode===home.mode)&&fired.get(rule.id)!==key){fired.set(rule.id,key);await runRule(rule);}}}if(token!==generation)return;lastMinute=key;announce();}
  function ingestEntities(list){if(!Array.isArray(list)||list.length>200)throw new Error('İşlev verisi geçersiz.');const accepted=[];for(const item of list){if(!item||typeof item.entityId!=='string'||!(typeof item.value==='boolean'||(typeof item.value==='number'&&Number.isFinite(item.value)))||!(item.ageMs===null||(Number.isFinite(item.ageMs)&&item.ageMs>=0)))throw new Error('İşlev gözlemi geçersiz.');const entity=entities().find(e=>e.id===item.entityId);if(entity)accepted.push({item,previous:entityState(item.entityId)});}
   for(const {item,previous} of accepted){values.set(item.entityId,{value:item.value,age:item.ageMs===null?Infinity:item.ageMs,at:mono()});const current=entityState(item.entityId);if(previous.fresh&&current.fresh&&previous.value!==current.value)void event({entityId:item.entityId,value:item.value,fresh:true});}}
  async function poll(token){if(disposed||token!==generation||demo||!connected)return;
@@ -66,12 +68,44 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
   finally{clearTimeout(timeout);if(token===generation&&!disposed&&connected){if(sourceError)reset();timer=setTimeout(()=>poll(token),sourceError?8000:5000);announce();}}
  }
  function disconnect(){generation++;connected=false;demoPaused=true;clearTimeout(timer);request?.abort();devices.disconnect();announce();}
- function connect(){disconnect();if(!home.settings.statusUrl)throw new Error('Önce durum adresini kaydedin.');demo=false;reset();connected=true;sourceError='';void poll(generation);announce();}
+ function connect(){if(demo)setDemo(false);disconnect();if(!home.settings.statusUrl)throw new Error('Önce durum adresini kaydedin.');demo=false;reset();connected=true;sourceError='';void poll(generation);announce();}
  function demoPulse(){for(const d of registry)devices.ingest({schemaVersion:1,sessionId:session,sequence:++sequence,deviceId:d.deviceId,role:d.role,bootId:'test-boot',online:true,observationAgeMs:0,capabilities:[],components:[]});for(const item of values.values())item.at=mono();}
- function setDemo(value){disconnect();demoPaused=false;demo=Boolean(value);reset();sourceError='';if(demo){demoPulse();values.set('test-light',{value:false,age:0,at:mono()});values.set('test-presence',{value:false,age:0,at:mono()});}announce();}
+ function setDemo(value){
+  const enable=Boolean(value),wasDemo=demo;
+  if(busy.size)throw new Error('Önce bekleyen komutun sonuçlanmasını bekleyin.');
+  let candidate;
+  if(enable&&!demo){
+   const deviceId=registry.find(d=>d.deviceId==='hub')?.deviceId||registry[0]?.deviceId;
+   if(!deviceId)throw new Error('Test için önce bir cihaz kaydı gerekli.');
+   candidate=structuredClone(home);
+   candidate.rooms=candidate.rooms.filter(r=>r.id!=='test-room');
+   candidate.rooms.push({id:'test-room',name:'Test odası',deviceIds:[deviceId]});
+   candidate.entities=candidate.entities.filter(e=>!['test-light','test-presence'].includes(e.id));
+   candidate.entities.push({id:'test-light',name:'Test ışığı',deviceId,roomId:'test-room',kind:'switch',test:true},{id:'test-presence',name:'Test varlık sensörü',deviceId,roomId:'test-room',kind:'presence',test:true});
+   validateHome(candidate);
+  }
+  disconnect();
+  if(candidate){savedHome=home;savedHolds=new Map(holds);savedFired=new Map(fired);home=candidate;}
+  else if(!enable&&demo){home=savedHome;savedHome=undefined;}
+  demo=enable;demoPaused=false;reset();
+  if(enable){holds.clear();fired.clear();}
+  else if(wasDemo){holds.clear();fired.clear();for(const [key,value]of savedHolds||[])holds.set(key,value);for(const [key,value]of savedFired||[])fired.set(key,value);savedHolds=savedFired=undefined;}
+  lastMinute='';sourceError='';
+  if(demo){demoPulse();values.set('test-light',{value:false,age:0,at:mono()});values.set('test-presence',{value:false,age:0,at:mono()});}
+  announce();
+ }
+ async function previewRule(id){
+  const rule=home.automations.find(r=>r.id===id);if(!rule)throw new Error('Otomasyon bulunamadı.');
+  const token=generation;
+  let result;
+  if(rule.mode&&rule.mode!==home.mode){result={result:'skipped',message:`Ev modu koşulu karşılanmadı: ${modes[rule.mode]}`};log('preview',`${rule.name}: ${result.message}`,'skipped');}
+  else result=await command(rule.action.entityId,rule.action.value,{origin:'preview',observeOnly:true,ruleName:rule.name});
+  if(token===generation)update(h=>{const current=h.automations.find(r=>r.id===id);if(current)current.lastPreview={at:new Date(now()).toISOString(),...result};return h;});
+  return result;
+ }
  function simulatePresence(){if(!demo)return;const previous=values.get('test-presence')?.value||false;ingestEntities([{entityId:'test-presence',value:!previous,ageMs:0}]);announce();}
  const interval=setInterval(()=>{if(demo&&!demoPaused)demoPulse();void tick();},1000);void tick();
- return {home:()=>structuredClone(home),entities,entityState,deviceStatus,update,log,command,runScene,setMode,runRule,setDemo,simulatePresence,pauseDemo(){if(demo){demoPaused=true;devices.disconnect();sourceError='Test bağlantısı kesildi';announce();}},connect,disconnect,tick,subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},get demo(){return demo;},get connected(){return connected;},get storageError(){return storageError;},get sourceError(){return sourceError;},dispose(){disposed=true;disconnect();clearInterval(interval);listeners.clear();}};
+ return {home:()=>structuredClone(home),backup:()=>structuredClone(demo?savedHome:home),entities,entityState,deviceStatus,update,log,command,runScene,setMode,runRule,previewRule,setDemo,simulatePresence,pauseDemo(){if(demo){demoPaused=true;devices.disconnect();sourceError='Test bağlantısı kesildi';announce();}},connect,disconnect,tick,subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},get demo(){return demo;},get connected(){return connected;},get storageError(){return storageError;},get sourceError(){return sourceError;},dispose(){disposed=true;disconnect();clearInterval(interval);listeners.clear();}};
 }
 async function boundedJson(response){
  if(!response.body)throw new Error('Yanıt gövdesi boş.');

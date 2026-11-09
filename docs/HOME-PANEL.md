@@ -76,3 +76,9 @@ Bunlar adaptöre iletilen hedeflerdir. ESP-IDF 5.5 + sensör/PSRAM/saat/besleme/
 ## Doğrulama
 
 Kaynak testleri, sözleşme/oturum/eskime/komut onayı ve kamera parser/profil hatası regresyonları çalıştırıldı. Geçici DOM test ortamında yedi yeni sayfa, eski cihaz rotaları, oda/işlev/kural/sahne oluşturma ve test modu akışı doğrulandı. Bu test gerçek tarayıcı çizimi veya mobil taşma ölçümü değildir. Cloud CUA tarayıcı runtime'ı kullanılamadı; sites-preview rölesi 4173 portunda zaman aşımına uğradı. Gerçek görüntü, fiziksel kontrol ve 25 FPS cihazlarla ayrıca doğrulanacaktır.
+
+## 9 Kasım 2026 — geçici test odası ve kural denemesi
+
+Test modu artık ayrı bir geçici ev kopyasında çalışır. Test odası, ışık ve varlık sensörü otomasyon ve sahne formlarında seçilebilir. Testteki tüm düzenlemeler/geçmiş geçicidir; testten çıkınca gerçek ev ayarları, manuel öncelikler ve zaman kuralı izleri geri gelir. Testi yeniden bağlamak geçici kuralları silmez. Test sırasında Yedek indir gerçek evin yedeğini indirir; test kopyasını kalıcı kayıtla karıştırmaz. Bekleyen komut varken test moduna geçiş engellenir. Test modunda gerçek kamera bağlantısı açılmaz.
+
+Otomasyon kartındaki Kuralı dene tetikleyiciyi ve etkinlik anahtarını beklemeden yalnız eylemi önizler; ev modu koşulu uygulanır. Hiçbir ağ komutu gönderilmez. Son deneme sonucu lastPreview, normal çalışma sonucu lastRun olarak ayrı tutulur. Geçmiş mesajında kural adı bulunur. Test otomasyonunda gerçek tetikleme için Test varlık sensörü kontrolü kullanılabilir.
