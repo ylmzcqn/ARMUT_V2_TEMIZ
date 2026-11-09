@@ -1,0 +1,15 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {pathToFileURL} from 'node:url';import {execFileSync} from 'node:child_process';
+import {createHomeRuntime} from './home-runtime.mjs';import {createLocalPresenceBridge} from './local-presence.mjs';
+test('hazırlanan Worker paketi mevcut paneli sunar; V1 örneği → backend → panel var/yok/bilinmiyor, PC servisi yok',async t=>{
+ const output=await mkdtemp(join(tmpdir(),'armut-cloud-artifact-'));t.after(()=>rm(output,{recursive:true,force:true}));const before=await readFile(new URL('./.openai/hosting.json',import.meta.url),'utf8');
+ execFileSync(process.execPath,['build-cloud.mjs',output],{cwd:new URL('.',import.meta.url),stdio:'pipe'});
+ assert.equal(await readFile(new URL('./.openai/hosting.json',import.meta.url),'utf8'),before);assert.equal(JSON.parse(await readFile(join(output,'.openai/hosting.json'),'utf8')).static,undefined);
+ const {default:worker}=await import(pathToFileURL(join(output,'dist/server/index.js')).href);
+ const req=path=>new Request('https://fixture-panel.invalid'+path,{headers:{'oai-authenticated-user-id':'fixture-owner'}});
+ const html=await(await worker.fetch(req('/'),{})).text();assert.ok(html.includes('Genel bakış'));
+ const app=await worker.fetch(req('/app.mjs'),{});assert.equal(app.status,200);assert.match(app.headers.get('content-type'),/javascript/);assert.equal((await worker.fetch(req('/server.mjs'),{})).status,404);assert.equal((await worker.fetch(req('/build-cloud.mjs'),{})).status,404);
+ let value=true,age=20,fail=false;const env={CAMERA02_ORIGIN:'http://fixture-camera.invalid',CAMERA02_TOKEN:'fixture-only-secret',CAMERA02_HOSTNAME:'fixture-camera',CAMERA02_ROLE:'camera',CAMERA02_PRIVATE_SERVICE:{fetch:async()=>{if(fail)throw Error('private');return Response.json({hostname:'fixture-camera',role:'camera',firmware:'fixture',build:'fixture',boot_health:{boot_id:'ab01',elf_sha256:'a'.repeat(64),healthy:true,pending_verification:false},radar:{installed_on:'camera-02',enabled:true,driver_ready:true,online:true,presence:value,sample_age_ms:age},components:[{id:'presence-radar',owner_device_id:'camera-02',online:true,value,presence:value}]});}}};
+ const runtime=createHomeRuntime({devices:[{id:'camera-02',name:'Fixture',icon:'camera'}]}),bridge=createLocalPresenceBridge({runtime,fetcher:path=>worker.fetch(req(path),env)});t.after(()=>{bridge.disconnect();runtime.dispose();});
+ await bridge.connectCloud();assert.equal(runtime.entityState('presence-radar').value,true);value=false;await bridge.refresh();assert.equal(runtime.entityState('presence-radar').value,false);age=2000;await bridge.refresh();assert.equal(runtime.entityState('presence-radar').value,null);assert.equal(runtime.entityState('presence-radar').fresh,false);age=20;value=true;await bridge.refresh();assert.equal(runtime.entityState('presence-radar').value,true);fail=true;await bridge.refresh();assert.equal(runtime.entityState('presence-radar').value,null);assert.ok(!JSON.stringify(runtime.home()).includes('fixture-only-secret'));
+});

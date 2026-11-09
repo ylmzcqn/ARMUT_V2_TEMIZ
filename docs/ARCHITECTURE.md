@@ -2,6 +2,32 @@
 
 Durum: 8 Kasım 2026, mimari önerisi ve uygulama kabul ölçütleri. Bu belge çalışan entegrasyon değildir. Cihazlara bağlantı, firmware yüklemesi, servis kurulumu veya otomasyon etkinleştirmesi yapılmadı.
 
+## Güncel hedef ve yayın kapasitesi — 10 Kasım 2026
+
+Kabul: kod ve panel/backend bulutta kalır; Windows PC kapalıyken PC/telefon aynı özel panelden Kamera 2’nin gerçek var/yok/bilinmiyor durumunu okur. Kullanıcının PC’sine proje, Node sunucusu veya yardımcı servis kurmak çözüm değildir. Önce tek radar akışı; görüntü sonraki paket. Aşağıdaki 8 Kasım önerileri tarihsel kayıttır; bu güncel hedef onları önceler.
+
+Doğrulanan yayın hedefi Sites’tır: `.openai/hosting.json` aynı proje kimliğiyle `static.directory=dist` içerir; mevcut yayın statiktir. Sites resmî beceri belgeleri `dist/server/index.js` Worker ESM backend’ini ve isteğe bağlı D1/R2 depolamayı destekler. Worker istekte çalışır; geliştirme VM’si, Windows PC veya sürekli Node süreci değildir. Bu salt okunur paket için her istekte güncel kaynağı okumak yeterlidir; geçmişi taze sanmamak için yeni veritabanı/kalıcı radar önbelleği eklenmedi.
+
+Cloudflare’ın resmî [Workers VPC](https://developers.cloudflare.com/workers-vpc/) belgesi özel HTTP servisine Cloudflare Tunnel ve `vpc_services` servis binding’i ile, belirli host/port’a sınırlı erişim tarif eder. Genel [TCP sockets](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/#troubleshooting) belgesi localhost/özel IP’ye normal çıkışın kısıtlandığını belirtir. Bu oturumda resmî docs alan adı ağ politikasınca engellendi; aynı belgelerin Cloudflare’a ait `cloudflare/cloudflare-docs` deposundaki `production` kaynakları okundu. Güncel VPC belgesi beta ve beta sırasında ücretsiz olduğunu söylüyor; bu hesapta kullanılabilirlik/fiyat taahhüdü veya otomatik kurulum sayılmaz.
+
+**Önemli sınır:** Sites’ın belgelenen manifest/binding araçlarında VPC service/tunnel alanı gösterilmedi; mevcut Sites projesine bu binding’i provision etme kapasitesi doğrulanmadı. Cloudflare Workers’ın genel özelliği Sites hesabında kullanılabilir diye varsayılmaz. Geliştirme ortamının Tailscale bağlantısı yayın Worker’ına aktarılmaz; bunun için VPN menüsü aranmamalı.
+
+### Uygulanan ve çevrimdışı doğrulanan
+
+`cloud-presence-worker.mjs` aynı Sites özel oturum kimliğiyle yalnız GET `/api/presence` sunar. Mevcut `legacy-camera-provider` ve V1 `/api/system` ayrıştırıcısını kullanır. Yalnız özel servis binding’i açıkça mevcutsa bu kaynaktan veri ister; normal/public fetch ile LAN’a geri dönüş yapmaz. Kaynak yokken `sourceReady=false`, varlık null döner. Kamera tokenı yalnız backend env’indedir; kullanıcıya kamera JSON’u, tokenı, adresi veya video dönmez. Binding’in adı kaynak kodunda bir **gelecek entegrasyon noktasıdır**, bugün Sites’ta kurulduğu iddiası değildir.
+
+`node build-cloud.mjs` aktif statik manifesti değiştirmeden `build/cloud-prepared` altında aynı proje kimliğiyle Worker/varlık paketi oluşturur. Mevcut HTML/CSS/browser modül grafiği ve envanter taşınır; Node sunucusu, sırlar, çalışma verisi ve testler pakete alınmaz. Mevcut cloud panelinde yalnız aynı origin’e, özel oturumla okuma modu hazırlanmıştır. Yerel IP/yönetici anahtarı formu cloud hedefinin varsayılan yolu olmaktan çıkarıldı. Bu build/yazılım testi yayın veya gerçek ağ kabulü değildir.
+
+### Özel bağlantı için seçenekler ve eksik tek bilgi
+
+| Yol | Gereken ve etki | Şimdiki durum |
+| --- | --- | --- |
+| Mevcut router veya zaten sürekli açık uygun ağ cihazı → tek kamera HTTP servisine özel tünel → cloud backend | Windows gerekmez; V1 firmware korunur. Router/connector kurulumu, yalnız Kamera 2 host/port erişimi ve backend binding/ACL için somut kurulum yetkisi gerekir. | İlk tercih; router modeli/yetenekleri ve Sites binding olanağı henüz bilinmiyor. Tailscale kurulu PC uygun kalıcı uç değildir. |
+| Mevcut Hub/ESP’den yalnız radar özetinin dışarı HTTPS gönderilmesi → kalıcı cloud backend | PC ve gelen port açma gerekmez. Mevcut firmware’de uygun dışarı yayın yoksa firmware/OTA değişikliği, backend alım/kalıcılık ve dar yayıncı yetkisi gerekir. | Kaynakta yerel node/sync var; cloud yayını yaptığı doğrulanmadı. Ayrı gerçek cihaz/yükleme kararı olmadan uygulanmaz. |
+| Ayrı kalıcı cloud backend + evde uygun özel connector | Sites VPC bağlaması yoksa statik özel panel korunarak ayrı backend değerlendirilebilir; hesap/ücret, kimlik ve özel ağ bağlantısı ayrıca seçilir. | Hesap/servis satın alınmadı, dış yayın yapılmadı. Evde uygun uç gereksinimini tek başına ortadan kaldırmaz. |
+
+Bir sonraki gerekli bilgi yalnız **ev modem/router’ının marka-modelidir**. Önce mevcut donanımla PC’den bağımsız yol olup olmadığı kontrol edilir. Uygun değilse Hub’dan dışarı yayın ve gerekirse ayrı backend için gereken tek paket karar kullanıcıya somut etkileriyle sunulur; yeni donanım/ücretli servis/firmware/router değişikliği varsayılmaz. Şu aşamada adres, token veya sır istenmez. Gerçek cihaz kabulü AÇIK kalır.
+
 ## Amaç ve mevcut kanıt
 
 Hedef: Hub ve Kamera-01 ilk bağlandığında kimlik ve sürüm doğrulandıktan sonra gerçek durumun panelde görünmesi; eksik bilgi, yeniden başlama ve bağlantı kesintisinin yanlış başarıya veya fiziksel harekete dönüşmemesi.

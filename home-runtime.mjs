@@ -1,6 +1,6 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-8';
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-8';
-import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-8';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-9';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-9';
+import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-9';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){

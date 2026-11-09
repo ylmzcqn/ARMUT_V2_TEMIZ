@@ -40,6 +40,8 @@ Kayıtlı kamera yapılandırmasının `GET /api/cameras/:id/stream` ve `POST /a
 
 ## Kamera 2: mevcut firmware ile varlık okuma
 
+**Güncel tercih:** Kullanıcı Windows PC kapalıyken cloud backend’den çalışmayı istiyor. Aşağıdaki yerel sunucu/CORS yolu bu hedefin çözümü değildir; eski isteğe bağlı mod olarak korunur. Cloud Worker hazırlığı ve özel ağ kapasitesi için [ARCHITECTURE.md](ARCHITECTURE.md#güncel-hedef-ve-yayın-kapasitesi--10-kasım-2026) geçerlidir.
+
 Bu yol mevcut V1 `/api/system` API’sini kullanır; USB, yeni cihaz kaydı veya firmware yükleme istemez. Şu dört değer yalnız yerel Node sürecinin ortamında birlikte tanımlanır: `ARMUT_CAMERA_02_ORIGIN` (yalnız cihaz origin’i, `/api/system` eklemeyin), `ARMUT_CAMERA_02_TOKEN` (mevcut cihaz API tokenı), `ARMUT_CAMERA_02_HOSTNAME`, `ARMUT_CAMERA_02_ROLE` (mevcut yerel hedeften doğrulanmış tam değerler). Hiçbiri cloud’a veya Git’e aktarılmaz. Kod yapılandırma olmadan Kamera 2’ye istek yapmaz.
 
 Cloud panelinden ev ağına okuma için ayrıca `ARMUT_PANEL_ORIGIN=https://armut-v2-panel.jadeelm.chatgpt.site` tanımlanır. Yalnız **tam eşleşen origin** için `/api/presence` CORS ve GET/Authorization ön kontrolü açılır. `Access-Control-Allow-Private-Network: true` yalnız bu origin’in ilgili preflight isteğine verilir; wildcard/credentials CORS yoktur. Diğer API yolları dış origin’e açılmaz. Gerçek cihaz tokenı bu yolda asla dönmez.

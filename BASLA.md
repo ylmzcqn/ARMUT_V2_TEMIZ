@@ -2,6 +2,10 @@
 
 Bu paket, mevcut minimal paneli ve aynı evde çalışan Node.js denetleyicisini içerir. Ek npm paketi veya veritabanı kurulumu gerekmez. Node.js 22 veya üzeri gerekir.
 
+## Güncel cloud hedefi
+
+Windows PC kapalıyken çalışma için bilgisayara bu paketi kurmak önerilen çözüm değildir. Aynı özel Sites panelinin Worker backend paketi hazırlanmıştır; özel ev bağlantısı ve gerçek cihaz kabulü açıktır. Güncel kapasite/bağlantı kararı [ARCHITECTURE.md](docs/ARCHITECTURE.md#güncel-hedef-ve-yayın-kapasitesi--10-kasım-2026) içindedir. Aşağıdaki yerel kurulum isteğe bağlı eski çalışma biçimidir.
+
 ## İlk açılış
 
 1. Paketi bilgisayarınızda kalıcı bir klasöre çıkarın.

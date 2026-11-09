@@ -1,5 +1,5 @@
-import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-8';
-import {boundedJson} from './home-runtime.mjs?v=cloud20261110-8';
+import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-9';
+import {boundedJson} from './home-runtime.mjs?v=cloud20261110-9';
 function localOrigin(value){
  let url;try{url=new URL(value);}catch{throw new Error('Yerel sunucu adresi geçersiz.');}
  const h=url.hostname,parts=h.split('.').map(Number),v4=parts.length===4&&parts.every(n=>Number.isInteger(n)&&n>=0&&n<=255),privateIp=v4&&(parts[0]===10||parts[0]===127||parts[0]===192&&parts[1]===168||parts[0]===172&&parts[1]>=16&&parts[1]<=31);
@@ -7,7 +7,7 @@ function localOrigin(value){
  return url.origin;
 }
 export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=()=>performance.now()}={}){
- let origin='',key='',entityId='',generation=0,active=false,timer,request,inFlight,status='Bağlantı kurulmadı';
+ let origin='',key='',entityId='',generation=0,active=false,cloud=false,timer,request,inFlight,status='Bağlantı kurulmadı';
  function unknown(){if(entityId)runtime.receiveState({devices:[],entities:[{entityId,value:null,ageMs:null,maxAgeMs:2000,observeOnly:true}]});}
  function disconnect(){generation++;active=false;key='';clearTimeout(timer);request?.abort();inFlight=undefined;status='Bağlantı kesildi';unknown();}
  async function refresh(){
@@ -15,21 +15,21 @@ export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=
   const token=generation;request=new AbortController();const signal=AbortSignal.any([request.signal,AbortSignal.timeout(1500)]),started=now();
   inFlight=(async()=>{
    try{
-    const response=await fetcher(origin+'/api/presence',{method:'GET',cache:'no-store',credentials:'omit',redirect:'error',headers:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal});
+    const response=await fetcher(cloud?'/api/presence':origin+'/api/presence',{method:'GET',cache:'no-store',credentials:cloud?'same-origin':'omit',redirect:'error',headers:cloud?{Accept:'application/json'}:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal});
     if(token!==generation){await response.body?.cancel().catch(()=>{});return;}
-    if(response.status===401){await response.body?.cancel().catch(()=>{});disconnect();status='Yerel yönetici anahtarı geçersiz; yeniden bağlanın.';return;}
-    if(!response.ok)throw new Error('response');
+    if(response.status===401){await response.body?.cancel().catch(()=>{});disconnect();status=cloud?'Özel panel oturumu gerekli; panelde yeniden giriş yapın.':'Yerel yönetici anahtarı geçersiz; yeniden bağlanın.';return;}
+    if(!response.ok){if(cloud&&(response.status===404||response.status===503)){await response.body?.cancel().catch(()=>{});disconnect();status='Bulut varlık backend’i henüz etkin değil.';return;}throw new Error('response');}
     const s=await boundedJson(response);if(token!==generation)return;if(signal.aborted)throw new Error('aborted');
     if(s.deviceId!=='camera-02'||s.componentId!=='presence-radar'||s.maxAgeMs!==2000||!(s.value===null||typeof s.value==='boolean')||!(s.bootId===null||typeof s.bootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.bootId))||s.value!==null&&(!s.bootId||!Number.isFinite(s.ageMs)||s.ageMs<0))throw new Error('contract');
     const elapsed=now()-started;if(!Number.isFinite(elapsed)||elapsed<0)throw new Error('clock');
-    runtime.receiveState({devices:s.bootId?[{deviceId:'camera-02',role:'camera',bootId:s.bootId,online:true,observationAgeMs:elapsed,capabilities:['presence'],components:[]}]:[],entities:[{entityId,value:s.value,ageMs:s.value===null?null:s.ageMs+elapsed,maxAgeMs:2000,observeOnly:true}]});status='Yerel bağlantı açık · yalnız varlık okuma';
-   }catch{if(token===generation){unknown();status='Bağlantı okunamadı. Yerel sunucuyu, origin ayarını ve tarayıcının yerel ağ iznini kontrol edin. HTTPS/HTTP erişimi tarayıcı tarafından engellenebilir.';}}
+    runtime.receiveState({devices:s.bootId?[{deviceId:'camera-02',role:'camera',bootId:s.bootId,online:true,observationAgeMs:elapsed,capabilities:['presence'],components:[]}]:[],entities:[{entityId,value:s.value,ageMs:s.value===null?null:s.ageMs+elapsed,maxAgeMs:2000,observeOnly:true}]});status=cloud?(s.sourceReady===false?'Bulut backend’i hazır; eve özel bağlantı henüz yapılandırılmadı.':'Bulut bağlantısı açık · yalnız varlık okuma'):'Yerel bağlantı açık · yalnız varlık okuma';
+   }catch{if(token===generation){unknown();status=cloud?'Bulut varlık verisi okunamadı; durum bilinmiyor.':'Bağlantı okunamadı. Yerel sunucuyu, origin ayarını ve tarayıcının yerel ağ iznini kontrol edin. HTTPS/HTTP erişimi tarayıcı tarafından engellenebilir.';}}
    finally{if(token===generation){inFlight=undefined;clearTimeout(timer);if(active)timer=setTimeout(()=>{void refresh();},1000);}}
   })();return inFlight;
  }
- return Object.freeze({get status(){return status;},get connected(){return active;},disconnect,refresh,async connect({origin:value,key:secret}){
+ return Object.freeze({get status(){return status;},get connected(){return active;},get cloud(){return cloud;},disconnect,refresh,async connectCloud(){if(runtime.remote||runtime.demo)throw new Error('Önce mevcut bağlantı/test modunu kapatın.');const binding=bindCameraPresence(runtime.home());disconnect();await runtime.update(()=>binding.home);entityId=binding.entityId;cloud=true;origin='';active=true;status='Bulut backend’ine bağlanıyor…';await refresh();},async connect({origin:value,key:secret}){
   const next=localOrigin(value);if(typeof secret!=='string'||! /^[\x21-\x7e]{1,512}$/.test(secret))throw new Error('Yerel yönetici anahtarı gerekli.');
   if(runtime.remote)throw new Error('Bu panel zaten yerel denetleyiciye bağlı.');if(runtime.demo)throw new Error('Önce test modunu kapatın.');
-  const binding=bindCameraPresence(runtime.home());disconnect();await runtime.update(()=>binding.home);entityId=binding.entityId;origin=next;key=secret;active=true;status='Yerel sunucuya bağlanıyor…';await refresh();
+  const binding=bindCameraPresence(runtime.home());disconnect();await runtime.update(()=>binding.home);entityId=binding.entityId;cloud=false;origin=next;key=secret;active=true;status='Yerel sunucuya bağlanıyor…';await refresh();
  }});
 }
