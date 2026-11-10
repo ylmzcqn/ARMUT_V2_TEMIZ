@@ -65,6 +65,10 @@ async function syncOnce() {
   const residence = 10;
   const totalAge = sourceSample + transit + residence;
 
+  const cam01 = hubData.devices?.find(d => d.device_id === 'camera-01');
+  const cam01Online = Boolean(cam01?.online);
+  const cam01BootId = cam01?.system?.boot_health?.boot_id || '71a48c12';
+
   const report = {
     version: 1,
     publisherId: 'hub',
@@ -81,8 +85,9 @@ async function syncOnce() {
     hubResidenceMs: residence,
     sourceTransitMs: transit,
     devices: [
-      { deviceId: 'hub', role: 'hub', online: true, bootId: hubBootId },
-      { deviceId: 'camera-02', role: 'camera', online: Boolean(isOnline), bootId: camBootId }
+      { deviceId: 'hub', role: 'hub', online: true, bootId: hubBootId, capabilities: ['system', 'hub'] },
+      { deviceId: 'camera-02', role: 'camera', online: Boolean(isOnline), bootId: camBootId, capabilities: ['presence'] },
+      { deviceId: 'camera-01', role: 'camera', online: Boolean(cam01Online), bootId: cam01BootId, capabilities: ['camera'] }
     ]
   };
 
