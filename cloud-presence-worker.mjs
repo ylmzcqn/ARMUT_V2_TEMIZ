@@ -3,7 +3,7 @@
 import {createPresenceIngest,createD1PresenceStore,createKVPresenceStore,createMemoryPresenceStore,validPublisher} from './presence-ingest.mjs';
 const corsHeaders={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-Requested-With'};
 const reply=(status,body)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...corsHeaders}});
-let cachedMemStore=null;
+let cachedMemStore=null, mediaStore=new Map();
 function getStore(env){if(env?.DB)return createD1PresenceStore(env.DB);if(env?.KV)return createKVPresenceStore(env.KV);if(!cachedMemStore)cachedMemStore=createMemoryPresenceStore();return cachedMemStore;}
 export default {
  async fetch(request,env={}){
@@ -30,6 +30,42 @@ export default {
    try{const body=await smallJson(request);return reply(200,await createPresenceIngest({store}).command(body));}
    catch(e){return reply([400,409,413].includes(e.status)?e.status:500,{error:e.message});}
   }
+  if(url.pathname==='/api/camera/snapshot'){
+   if(request.method==='POST'){
+    if(!env.PRESENCE_PUBLISH_TOKEN)return reply(503,{error:'Publisher not configured'});
+    if(!await validPublisher(request.headers.get('Authorization'),env.PRESENCE_PUBLISH_TOKEN))return reply(401,{error:'Publisher authorization required'});
+    try{
+     const bytes=await readBinary(request,262144);
+     const devId=url.searchParams.get('deviceId')||'camera-02';
+     mediaStore.set('snapshot:'+devId,{bytes,contentType:request.headers.get('content-type')||'image/jpeg',updatedAt:Date.now()});
+     return reply(200,{ok:true,deviceId:devId,size:bytes.byteLength});
+    }catch(e){return reply([400,413].includes(e.status)?e.status:500,{error:e.message});}
+   }
+   if(request.method==='GET'){
+    const devId=url.searchParams.get('deviceId')||'camera-02';
+    const item=mediaStore.get('snapshot:'+devId);
+    if(!item)return new Response(null,{status:204,headers:corsHeaders});
+    return new Response(item.bytes,{headers:{'Content-Type':item.contentType,'Cache-Control':'no-cache, max-age=1','X-Updated-At':String(item.updatedAt),...corsHeaders}});
+   }
+   return reply(405,{error:'Method not allowed'});
+  }
+  if(url.pathname==='/api/hub/display/preview'){
+   if(request.method==='POST'){
+    if(!env.PRESENCE_PUBLISH_TOKEN)return reply(503,{error:'Publisher not configured'});
+    if(!await validPublisher(request.headers.get('Authorization'),env.PRESENCE_PUBLISH_TOKEN))return reply(401,{error:'Publisher authorization required'});
+    try{
+     const bytes=await readBinary(request,262144);
+     mediaStore.set('preview:hub',{bytes,contentType:request.headers.get('content-type')||'image/bmp',updatedAt:Date.now()});
+     return reply(200,{ok:true,size:bytes.byteLength});
+    }catch(e){return reply([400,413].includes(e.status)?e.status:500,{error:e.message});}
+   }
+   if(request.method==='GET'){
+    const item=mediaStore.get('preview:hub');
+    if(!item)return new Response(null,{status:204,headers:corsHeaders});
+    return new Response(item.bytes,{headers:{'Content-Type':item.contentType,'Cache-Control':'no-cache, max-age=1','X-Updated-At':String(item.updatedAt),...corsHeaders}});
+   }
+   return reply(405,{error:'Method not allowed'});
+  }
   if(url.pathname.startsWith('/api/'))return reply(404,{error:'Not found'});
   if(!['GET','HEAD'].includes(request.method))return reply(405,{error:'Read-only'});
   // The offline build embeds only the current browser asset graph; no filesystem API.
@@ -48,3 +84,12 @@ async function smallJson(request){
  try{for(;;){const {done,value}=await reader.read();if(expired)throw new Error('timeout');if(done)break;size+=value.byteLength;if(size>1024)throw Object.assign(new Error('body-size'),{status:413});parts.push(value);}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.byteLength;}try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw Object.assign(new Error('JSON invalid'),{status:400});}}
  finally{clearTimeout(timer);await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
+
+async function readBinary(request,maxBytes=262144){
+ if(!request.body)throw Object.assign(new Error('empty'),{status:400});
+ const reader=request.body.getReader(),parts=[];let size=0,expired=false;
+ const timer=setTimeout(()=>{expired=true;void reader.cancel().catch(()=>{});},4000);
+ try{for(;;){const {done,value}=await reader.read();if(expired)throw new Error('timeout');if(done)break;size+=value.byteLength;if(size>maxBytes)throw Object.assign(new Error('body-size'),{status:413});parts.push(value);}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.byteLength;}return bytes;}
+ finally{clearTimeout(timer);await reader.cancel().catch(()=>{});reader.releaseLock();}
+}
+

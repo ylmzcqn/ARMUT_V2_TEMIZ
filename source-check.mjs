@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
-import {validateInventory,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261110-15';
+import {validateInventory,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261110-16';
 try{
  const data=validateInventory(JSON.parse(await readFile(new URL('./inventory.json',import.meta.url),'utf8')));await verifySourceSnapshots(data);
  const args=process.argv.slice(2),index=args.indexOf('--root'),root=index>=0?path.resolve(args[index+1]||''):null,files=new Map();

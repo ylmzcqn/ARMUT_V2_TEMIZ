@@ -1,5 +1,5 @@
-import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-15';
-import {boundedJson} from './home-runtime.mjs?v=cloud20261110-15';
+import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-16';
+import {boundedJson} from './home-runtime.mjs?v=cloud20261110-16';
 function localOrigin(value){
  let url;try{url=new URL(value);}catch{throw new Error('Yerel sunucu adresi geçersiz.');}
  const h=url.hostname,parts=h.split('.').map(Number),v4=parts.length===4&&parts.every(n=>Number.isInteger(n)&&n>=0&&n<=255),privateIp=v4&&(parts[0]===10||parts[0]===127||parts[0]===192&&parts[1]===168||parts[0]===172&&parts[1]>=16&&parts[1]<=31);

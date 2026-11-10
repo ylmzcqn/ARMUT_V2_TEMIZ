@@ -128,11 +128,59 @@ async function syncOnce() {
   console.log(`[Cloud-Sync] Sync OK -> Radar=${presenceVal ? 'VAR' : 'YOK'} (${radar.detection_distance_cm || 0}cm), seq=${sequence}`);
 }
 
+let lastCameraSnapshotPush = 0;
+async function pushCameraSnapshot() {
+  const now = Date.now();
+  if (now - lastCameraSnapshotPush < 3000) return;
+  lastCameraSnapshotPush = now;
+  try {
+    const camRes = await fetch('http://192.168.1.116/snapshot.jpg', { signal: AbortSignal.timeout(2000) });
+    if (!camRes.ok) return;
+    const buf = await camRes.arrayBuffer();
+    await fetch(`${CLOUD_URL}/api/camera/snapshot?deviceId=camera-02`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${PUBLISH_TOKEN}`,
+        'Content-Type': 'image/jpeg'
+      },
+      body: buf,
+      signal: AbortSignal.timeout(3000)
+    });
+  } catch (e) {
+    /* Kamera karesi geçici olarak meşgulse döngüyü aksatma */
+  }
+}
+
+let lastDisplayPreviewPush = 0;
+async function pushDisplayPreview() {
+  const now = Date.now();
+  if (now - lastDisplayPreviewPush < 5000) return;
+  lastDisplayPreviewPush = now;
+  try {
+    const dispRes = await fetch(`${HUB_URL}/api/display/preview`, { signal: AbortSignal.timeout(2000) });
+    if (!dispRes.ok) return;
+    const buf = await dispRes.arrayBuffer();
+    await fetch(`${CLOUD_URL}/api/hub/display/preview`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${PUBLISH_TOKEN}`,
+        'Content-Type': 'image/bmp'
+      },
+      body: buf,
+      signal: AbortSignal.timeout(3000)
+    });
+  } catch (e) {
+    /* Hub ekranı geçici olarak meşgulse döngüyü aksatma */
+  }
+}
+
 async function loop() {
   while (true) {
     try {
       if (!lease) await getLease();
       await syncOnce();
+      void pushCameraSnapshot();
+      void pushDisplayPreview();
     } catch (e) {
       console.error(`[Cloud-Sync Error]: ${e.message}`);
       lease = null;
@@ -142,3 +190,4 @@ async function loop() {
 }
 
 loop();
+
