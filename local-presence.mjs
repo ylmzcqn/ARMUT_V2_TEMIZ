@@ -15,7 +15,8 @@ export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=
   const token=generation;request=new AbortController();const signal=AbortSignal.any([request.signal,AbortSignal.timeout(1500)]),started=now();
   inFlight=(async()=>{
    try{
-    const response=await fetcher(cloud?'/api/presence':origin+'/api/presence',{method:'GET',cache:'no-store',credentials:cloud?'same-origin':'omit',redirect:'error',headers:cloud?{Accept:'application/json'}:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal});
+    const cloudUrl=typeof location!=='undefined'&&location.hostname&&!location.hostname.includes('workers.dev')?'https://armut.armut-home.workers.dev/api/presence':'/api/presence';
+    const response=await fetcher(cloud?cloudUrl:origin+'/api/presence',{method:'GET',cache:'no-store',credentials:cloud?'same-origin':'omit',redirect:'error',headers:cloud?{Accept:'application/json'}:{Authorization:`Bearer ${key}`,Accept:'application/json'},signal});
     if(token!==generation){await response.body?.cancel().catch(()=>{});return;}
     if(response.status===401){await response.body?.cancel().catch(()=>{});disconnect();status=cloud?'Özel panel oturumu gerekli; panelde yeniden giriş yapın.':'Yerel yönetici anahtarı geçersiz; yeniden bağlanın.';return;}
     if(!response.ok){if(cloud&&response.status===404){await response.body?.cancel().catch(()=>{});disconnect();status='Bulut varlık backend’i henüz etkin değil.';return;}throw new Error('response');}
