@@ -1,11 +1,11 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-14';
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-14';
-import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes,getSolarTimes} from './home-model.mjs?v=cloud20261110-14';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-15';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-15';
+import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes,getSolarTimes} from './home-model.mjs?v=cloud20261110-15';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){
  let home=initial?validateHome(structuredClone(initial)):emptyHome(),storageError='',demo=false,connected=false,sourceError='',disposed=false,demoPaused=false,persistenceError='';
- if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw)home=validateHome(JSON.parse(raw));else{home=defaultHome();storage.setItem(HOME_STORAGE_KEY,JSON.stringify(home));}}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
+ if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw){home=validateHome(JSON.parse(raw));if(home.entities.length===0&&(!home.rooms||home.rooms.length===0)){home=defaultHome();storage.setItem(HOME_STORAGE_KEY,JSON.stringify(home));}}else{home=defaultHome();storage.setItem(HOME_STORAGE_KEY,JSON.stringify(home));}}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
  const listeners=new Set(),values=new Map(),holds=new Map(),busy=new Set(),fired=new Map(),cooldowns=new Map(),ruleBusy=new Set(),sceneRuns=new Map();
  let timer,request,session='',sequence=0,lastMinute='',generation=0,devices,savedHome,savedHolds,savedFired,savedCooldowns;
  function deviceRegistry(){const byId=new Map(inventory.devices.filter(d=>d.id!=='uno-history').map(d=>[d.id,{id:d.id,role:d.id==='hub'?'hub':d.icon==='camera'||d.id.startsWith('camera')?'camera':'node'}]));for(const d of home.devices||[])byId.set(d.id,d);return [...byId.values()].map(d=>({deviceId:d.id,role:d.role,capabilities:['camera','switch','sensor','presence','display','system','hub'],components:[]}));}
