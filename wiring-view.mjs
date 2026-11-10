@@ -1,8 +1,8 @@
-import {connectionIsActive,connectionVerifiedUntil} from './live-evidence.mjs?v=cloud20261110-13';
-import {flowEnabled,toggleFlow} from './motion-effects.mjs?v=cloud20261110-13';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261110-13';
-import {svgNode} from './visuals.mjs?v=cloud20261110-13';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261110-13';
+import {connectionIsActive,connectionVerifiedUntil} from './live-evidence.mjs?v=cloud20261110-14';
+import {flowEnabled,toggleFlow} from './motion-effects.mjs?v=cloud20261110-14';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261110-14';
+import {svgNode} from './visuals.mjs?v=cloud20261110-14';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261110-14';
 const assets = new Set(['board','display','imu','proximity','microphone','amplifier','speaker','servo','radar','camera']);
 export function artwork(kind, className='module-artwork') {
  const image=document.createElement('img');image.src=`./assets/modules/${assets.has(kind)?kind:'board'}.svg`;image.alt='';image.className=className;return image;

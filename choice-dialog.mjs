@@ -1,4 +1,4 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-13';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-14';
 // Modül seçimi ve cihaz filtresi aynı erişilebilir, mobil alt paneli kullanır.
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
 export function createChoiceDialog({title,onSelect,returnFocus,renderIcon}) {
