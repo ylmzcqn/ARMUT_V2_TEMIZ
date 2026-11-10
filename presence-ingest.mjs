@@ -13,7 +13,8 @@ export function createD1PresenceStore(binding){
  const db=binding.withSession?binding.withSession('first-primary'):binding;
  return {async load(deviceId='camera-02'){const row=await db.prepare('SELECT revision,state_json FROM presence_state WHERE device_id=?').bind(deviceId).first();return row?{revision:row.revision,state:JSON.parse(row.state_json)}:null;},async loadAll(){const res=await db.prepare('SELECT device_id,revision,state_json FROM presence_state').all?.()||{results:[]};return (res.results||[]).map(r=>({deviceId:r.device_id,revision:r.revision,state:JSON.parse(r.state_json)}));},async save(previous,state,deviceId='camera-02'){
   const revision=(previous?.revision||0)+1;if(!Number.isSafeInteger(revision))reject('revision-exhausted',503);
-  await db.prepare('INSERT INTO presence_state(device_id,revision,state_json) VALUES(?,?,?) ON CONFLICT(device_id) DO UPDATE SET revision=excluded.revision, state_json=excluded.state_json').bind(deviceId,revision,JSON.stringify(state)).run();
+  const statement=previous?db.prepare('UPDATE presence_state SET revision=?,state_json=? WHERE device_id=? AND revision=?').bind(revision,JSON.stringify(state),deviceId,previous.revision):db.prepare('INSERT INTO presence_state(device_id,revision,state_json) VALUES(?,?,?) ON CONFLICT(device_id) DO NOTHING').bind(deviceId,revision,JSON.stringify(state));
+  const result=await statement.run();if(result?.meta?.changes!==1)reject('lease-conflict',409);
  }};
 }
 export function createMemoryPresenceStore(){
@@ -83,7 +84,7 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
     {deviceId:'camera-02',role:'camera',online:Boolean(fresh),bootId:fresh?s.sourceBootId:null,capabilities:['presence']}
    ];
    if(Array.isArray(s?.devices)){for(const d of s.devices){if(d&&typeof d.deviceId==='string'&&!devices.some(x=>x.deviceId===d.deviceId))devices.push(d);}}
-   return {publisherId:'hub',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:true,devices};
+   return {publisherId:'hub',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:Boolean(s),devices};
   }
  });
 }
