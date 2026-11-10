@@ -206,3 +206,7 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 - `presence-ingest.mjs` ve `cloud-presence-worker.mjs`: Hub canlılık takibi (5 sn pencere), ek cihaz telemetrisi ve `/api/devices/status` uç noktası eklendi. Şifresiz/doğrudan link erişimi için `PUBLIC_ACCESS` seçeneği bağlandı.
 - `local-presence.mjs`: Buluttan gelen çoklu cihaz listesini filtreleyip `runtime.receiveState` üzerinden Genel Bakış ve Cihazlar görünümüne aktarır.
 - 155 Node testi, `source-check.mjs` ve `build-cloud.mjs` başarıyla geçti.
+
+10 Kasım 2026 — yerel ajan görev paketi devri:
+- Bilgisayarda yapılması gereken işler kullanıcıdan bağımsız olarak yerelde çalışan ajana devredildi (`docs/YEREL_AJAN_TALIMATLARI.md`).
+- Öncelikli işler: PC tüneli/köprüsünün (`pc-bridge`) yenilenmesi, yerel V1 referansındaki (`ESP_ARMUT_V1.1`) radar callback'inin V2 bileşeniyle ESP-IDF 5.5 derlemesi (`idf.py build`), ev ağındaki cihazların canlı HTTP doğrulaması.
