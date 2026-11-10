@@ -12,6 +12,7 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 ## Güncel durum
 
+10 Kasım 2026 — GitHub Pages canlı yayında: Depo kullanıcı onayıyla Public yapıldı ve GitHub Pages gh-pages dalı üzerinden https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/ adresinde 7/24 yayına alındı. Bilgisayar kapalıyken de erişilebilir.
 10 Kasım 2026 — son yön: Hub tek cloud yayıncısı, kamera-02/presence-radar ayrı kaynak. Hub/kamera boot’ları ayrıldı; üç yaş parçası ve toplamı alıcıda doğrulanıyor, <2000ms sınırı korunuyor. Saf Hub normalleştirici + mock Hub→Worker→panel testleri uygulandı. Hub ↔ Kamera 2 radar tazeliği için karar: V1'in 2 sn sync aralığı nedeniyle Hub'ın Kamera 2'ye 1 sn kısa GET yapması birincil yol seçildi (Kamera 2 firmware değişikliği yok); Hub kodu yazılmadı, fiziksel olarak ölçülmedi. Önce gerçek radar kabulü, sonra Kamera 1/Hub sağlık ve ayrı video. Kamera 2 doğrudan C yayıncı yedek adaydır; henüz Hub contract’ı göndermez, OTA yapılmaz. Schema standart drizzle/ yoluna taşındı; tam Sites D1 declaration/üretilmiş migration metadata doğrulaması hâlâ açık.
 
 
