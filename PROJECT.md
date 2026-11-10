@@ -12,6 +12,15 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 ## Güncel durum
 
+10 Kasım 2026 — Güneş döngüsü, gecikmeli otomasyonlar ve canlı radar kart vurgusu:
+- Güneş döngüsü (`getSolarTimes`): Enlem/gün açısı hesabı ile gün doğumu ve gün batımı hesaplanır. `trigger: 'sun'` (`sunrise` / `sunset`) otomasyon tetikleyicisi `home-model.mjs` ve `home-runtime.tick()` içine entegre edildi.
+- Gecikmeli otomasyon (`delaySeconds`): Tetiklendikten sonra komut gönderilmeden önce (0–86400 sn) bekleme desteği runtime seviyesinde sağlandı. Gecikme sırasında kural değişirse işlem güvenle iptal edilir.
+- Panel arayüz iyileştirmeleri (`home-panel.mjs` & `style.css`):
+  - Genel bakış ekranına anlık gündüz/gece ve gün doğumu/batımı saatlerini gösteren `hp-solar-line` bilgi satırı eklendi.
+  - Otomasyon formuna (`ruleForm`) "Güneş döngüsünde" seçeneği ve "Gecikme süresi (saniye)" alanları eklendi; kart üzerinde gecikme süresi gösterildi.
+  - Varlık algılandığında (`kind === 'presence'`) kart üzerinde canlı `presence-active` yeşil vurgu efekti ve `🟢 Varlık algılandı` durumu eklendi.
+- Doğrulama: 161 Node testi, taşınabilir kaynak kontrolü (`source-check.mjs`) ve 3 C firmware host testi sıfır hatayla geçti. `cloudflare-worker.js` derlendi.
+
 10 Kasım 2026 — Hub ST7789 ekran ayarları, kamera profilleri ve canlı durum senkronizasyonu:
 - Hub ST7789V3 1.69 inç 240×280 ekranı için V1 benzeri parlaklık (%0–100), yön (0°, 90°, 180°, 270°), zaman aşımı (0–300 sn), varsayılan sayfa ve tema ayarları `home-model.mjs`, `home-panel.mjs` Ayarlar ve Hub cihaz ayrıntı görünümüne eklendi.
 - ESP-IDF 5.5 `firmware/armut_camera_http` bileşeniyle Akıcı (VGA, 25 FPS), Az Işık (VGA, 16 kalite, AE+2) ve Ayrıntılı (SXGA 1280×1024, 10 kalite) profilleri, kamera ekleme formunda varsayılan `/stream` ve `/profile` adresleri ve rehber ipuçlarıyla doğrulandı.

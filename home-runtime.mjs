@@ -1,6 +1,6 @@
 import {newId} from './browser-crypto.mjs?v=cloud20261110-13';
 import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-13';
-import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-13';
+import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes,getSolarTimes} from './home-model.mjs?v=cloud20261110-13';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){
@@ -96,6 +96,11 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
   if(seconds&&cooldown.until>mono())return skip(`Yeniden çalışma için ${Math.ceil((cooldown.until-mono())/1000)} sn bekleniyor.`);
   ruleBusy.add(key);
   try{
+   if(rule.delaySeconds&&rule.delaySeconds>0&&!rule.observeOnly){
+    log('automation',`${rule.name}: ${rule.delaySeconds} sn sonra uygulanacak…`,'pending');
+    await new Promise(r=>setTimeout(r,Math.min(rule.delaySeconds*1000, 3600000)));
+    if(token!==generation||!home.automations.some(r=>r.id===rule.id&&r.enabled))return skip('Gecikme sırasında kural değişti veya devre dışı bırakıldı.');
+   }
    const result=await command(rule.action.entityId,rule.action.value,{origin:'automation',observeOnly:rule.observeOnly,ruleName:rule.name});
    if(token!==generation||result.result==='skipped')return result;
    const at=new Date(now()).toISOString();
@@ -107,7 +112,7 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  async function event(event){if(!manageAutomations&&!demo)return;const token=generation;for(const rule of home.automations){if(token!==generation)return;if(ruleMatches(rule,event,home.mode))await runRule(rule);}}
  async function setMode(mode){if(!Object.hasOwn(modes,mode))throw new Error('Ev modu geçersiz.');if(home.mode===mode)return;update(h=>({...h,mode}));log('mode',`Ev modu: ${modes[mode]}`);await event({mode});}
  function minuteKey(){const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:home.settings.timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now()));return Object.fromEntries(parts.map(p=>[p.type,p.value]));}
- async function tick(){if(disposed)return;const token=generation;const p=minuteKey(),key=`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;if((manageAutomations||demo)&&lastMinute&&key!==lastMinute){for(const rule of home.automations){if(token!==generation)return;if(rule.enabled&&rule.trigger==='time'&&rule.time===`${p.hour}:${p.minute}`&&ruleAppliesOnDay(rule,now(),home.settings.timeZone)&&(!rule.mode||rule.mode===home.mode)&&fired.get(rule.id)!==key){fired.set(rule.id,key);await runRule(rule);}}}if(token!==generation)return;lastMinute=key;announce();}
+ async function tick(){if(disposed)return;const token=generation;const p=minuteKey(),key=`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`,timeStr=`${p.hour}:${p.minute}`;if((manageAutomations||demo)&&lastMinute&&key!==lastMinute){const solar=getSolarTimes(new Date(now()),home.settings.timeZone);for(const rule of home.automations){if(token!==generation)return;const applies=rule.enabled&&ruleAppliesOnDay(rule,now(),home.settings.timeZone)&&(!rule.mode||rule.mode===home.mode);if(!applies)continue;const matchesTime=rule.trigger==='time'&&rule.time===timeStr;const matchesSun=rule.trigger==='sun'&&((rule.sunEvent==='sunrise'&&solar.sunrise===timeStr)||(rule.sunEvent==='sunset'&&solar.sunset===timeStr));if((matchesTime||matchesSun)&&fired.get(rule.id)!==key){fired.set(rule.id,key);await runRule(rule);}}}if(token!==generation)return;lastMinute=key;announce();}
  function validateEntityBatch(list){
   if(!Array.isArray(list)||list.length>200)throw new Error('İşlev verisi geçersiz.');
   const seen=new Set();
