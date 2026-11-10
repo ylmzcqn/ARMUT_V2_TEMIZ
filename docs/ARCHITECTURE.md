@@ -55,7 +55,7 @@ Kullanıcı bu yönün mimarisini ve yazılımını oluşturmayı onayladı. Yen
 
 ### Bileşenler ve kesinti davranışı
 
-`presence-ingest.mjs` doğrulama/lease/CAS ve D1 adaptörüdür. `migrations/presence/0001_presence.sql` yalnız tablo şemasıdır; request sırasında DDL yapılmaz. Tablo tek cihazın tek son satırını tutar, olay/görüntü kuyruğu veya sınırsız geçmiş yoktur. D1 read session `first-primary` ile başlar. [Resmî D1 API](https://developers.cloudflare.com/d1/worker-api/d1-database/#withsession) ve [hazır SQL statement API](https://developers.cloudflare.com/d1/worker-api/prepared-statements/) esas alındı.
+`presence-ingest.mjs` doğrulama/lease/CAS ve D1 adaptörüdür. `drizzle/0001_presence.sql` yalnız tablo şemasıdır; request sırasında DDL yapılmaz. Tablo tek cihazın tek son satırını tutar, olay/görüntü kuyruğu veya sınırsız geçmiş yoktur. D1 read session `first-primary` ile başlar. [Resmî D1 API](https://developers.cloudflare.com/d1/worker-api/d1-database/#withsession) ve [hazır SQL statement API](https://developers.cloudflare.com/d1/worker-api/prepared-statements/) esas alındı.
 
 `firmware/armut_presence_push` ESP-IDF 5.5 bileşeni mevcut `armut_read_fn` snapshot sözleşmesini kullanır. Tek istek, 1 KiB yanıt, 1,5 sn socket timeout ve 2 sn işlem bütçesi, TLS CA bundle/hostname doğrulaması, redirect reddi, keep-alive istemcisi vardır. Bloklayan son native çağrı işlem bütçesini kendi timeout’u kadar aşabilir; mutlak gerçek zaman garantisi verilmez. Birikmiş telemetri tutulmaz. Ağ hatasında 1/2/4/8/16/30 sn + küçük jitter, yetki hatasında 30 sn bekler. Sensör/kamera task’ını durdurmaz; callback’in yalnız hızlı/thread-safe snapshot kopyalaması zorunludur. Wi-Fi ve saat senkronizasyonunu mevcut firmware sağlar; TLS doğrulaması gevşetilmez.
 

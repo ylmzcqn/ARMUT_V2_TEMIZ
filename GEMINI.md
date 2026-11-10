@@ -31,8 +31,8 @@ Bu dosya Antigravity (Yerel ve Bulut) tarafından her oturumda otomatik olarak y
    - Kullanıcının modemi TP-Link TD-W9980 (Tailscale/cloudflared connector desteklemiyor). PC kapalıyken de çalışması için dışarı doğru HTTPS push mimarisi seçildi.
    - `presence-ingest.mjs`, `cloud-presence-worker.mjs`, `hub-presence.mjs`, `build-cloud.mjs`, `drizzle/0001_presence.sql` ve `firmware/armut_presence_push` hazırlandı.
    - **En Son Mimari Yön (10 Kasım):** Hub (`hub`) tek cloud yayıncısı, `camera-02/presence-radar` ayrı radar kaynağı olarak ayrıldı. Hub ve kamera boot kimlikleri ayrıldı; üç yaş parçası (`sourceSampleAgeMs + hubResidenceMs + sourceTransitMs`) ve toplamı alıcıda doğrulanarak `<2000ms` tazelik sınırı korundu.
-   - **Radar Tazelik (<2000ms) Uyumu Çözüldü (10 Kasım):** V1 2000 ms sync aralığındaki kesinti riski değerlendirildi; Hub'ın Kamera 2'ye 1 sn kısa `GET /api/system` yapması birincil çözüm olarak kesinleştirildi (Kamera 2'de firmware değişikliği gerekmez; pasif registry sync yedek kalır).
-   - **Doğrulama Durumu:** 154 Node testi (`node --test`) ve `node source-check.mjs` eksiksiz geçmektedir.
+   - **Radar Tazelik (<2000ms) Kararı (10 Kasım):** V1 2000 ms sync aralığı değerlendirildi; Hub'ın Kamera 2'ye 1 sn kısa `GET /api/system` yapması birincil yol seçildi (Kamera 2 firmware değişmez; pasif sync yedek). Hub tarafı kodu ve fiziksel ölçüm henüz yok.
+   - **Doğrulama Durumu:** 155 Node testi (`node --test`) ve `node source-check.mjs` eksiksiz geçmektedir.
 
 ---
 
