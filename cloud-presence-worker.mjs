@@ -13,11 +13,10 @@ export default {
    try{const body=await smallJson(request),ingest=createPresenceIngest({store:createD1PresenceStore(env.DB)});return reply(200,await (url.pathname.endsWith('/hello')?ingest.hello(body):ingest.report(body)));}
    catch(e){return reply([400,409,413].includes(e.status)?e.status:503,{error:[400,409,413].includes(e.status)?e.message:'Publication unavailable'});}
   }
-  if(url.pathname==='/api/presence'){
-   // Sites dispatch authenticates/sets this header; this worker must stay owner-private.
-   if(!request.headers.get('oai-authenticated-user-id'))return reply(401,{error:'Sign-in required'});
+  if(url.pathname==='/api/presence'||url.pathname==='/api/devices/status'){
+   if(env.PUBLIC_ACCESS!=='true'&&!request.headers.get('oai-authenticated-user-id'))return reply(401,{error:'Sign-in required'});
    if(request.method!=='GET')return reply(405,{error:'Read-only'});
-   const unknown={publisherId:'hub',deviceId:'camera-02',componentId:'presence-radar',bootId:null,value:null,ageMs:null,maxAgeMs:2000,sourceReady:false};
+   const unknown={publisherId:'hub',deviceId:'camera-02',componentId:'presence-radar',bootId:null,value:null,ageMs:null,maxAgeMs:2000,sourceReady:false,devices:[{deviceId:'hub',role:'hub',online:false},{deviceId:'camera-02',role:'camera',online:false}]};
    if(env.DB){try{return reply(200,await createPresenceIngest({store:createD1PresenceStore(env.DB)}).snapshot());}catch{return reply(503,unknown);}}
    return reply(200,unknown);
   }

@@ -199,3 +199,9 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 - server.mjs içinde kaynakta sabit duran kişisel tailnet adları/IP kaldırıldı; aynı loopback-proxy izni artık yalnız yerel `ARMUT_TRUSTED_HOSTS` ortam değeriyle verilir (docs/LOCAL-CONTROLLER.md). Bu adlarla erişen yerel kurulum bu değeri tanımlamalıdır. Odaklı regresyon testi eklendi.
 - docs/ARCHITECTURE.md eski `migrations/presence` yolu `drizzle/` olarak düzeltildi; radar tazelik belgesindeki ölçülmemiş kesinlik ifadeleri geri alındı. Codex devir kuralındaki giderilmiş Windows fsync notu güncellendi.
 - 155 Node testi, source-check, Worker build/sözdizimi ve 3 C host testi geçti. Servis, yayın, cihaz veya OTA işlemi yapılmadı.
+
+10 Kasım 2026 — çoklu ESP32 cihaz bulut desteği ve doğrudan erişim:
+- `drizzle/0001_presence.sql` tablosu `hub`, `camera-01`, `camera-02` cihazlarının durumunu tutacak şekilde genişletildi.
+- `presence-ingest.mjs` ve `cloud-presence-worker.mjs`: Hub canlılık takibi (5 sn pencere), ek cihaz telemetrisi ve `/api/devices/status` uç noktası eklendi. Şifresiz/doğrudan link erişimi için `PUBLIC_ACCESS` seçeneği bağlandı.
+- `local-presence.mjs`: Buluttan gelen çoklu cihaz listesini filtreleyip `runtime.receiveState` üzerinden Genel Bakış ve Cihazlar görünümüne aktarır.
+- 155 Node testi, `source-check.mjs` ve `build-cloud.mjs` başarıyla geçti.
