@@ -46,15 +46,12 @@ Bu dosya Antigravity (Yerel ve Bulut) tarafından her oturumda otomatik olarak y
 
 ---
 
-## 4. Buluttan Bilgisayarda Komut Çalıştırma (Remote Runner Köprüsü)
-Bulut ortamındayken (Cloud VM / Codespaces vb.) fiziksel bilgisayarda (Windows) komut koşturmak veya donanım/test adımlarını yürütmek için Tailscale tüneli hazır ve aktiftir:
-- **Tünel Adresi:** `http://armut.tailcbe65e.ts.net:8099/run` (veya IP üzerinden: `http://100.82.246.76:8099/run`)
-- **Doğrulama:** `Authorization: Bearer <RUNNER_KEY>` (Anahtar: `C:\Users\icanp\.gemini\antigravity\remote-runner\runner-key.txt` dosyasındadır).
-- **Kullanım (Buluttaki cURL veya Python üzerinden):**
+## 4. Buluttan Bilgisayarda Komut Çalıştırma (`pc-run.mjs` Köprüsü)
+Bulut ortamındayken (Cloud VM / Codespaces vb.) evdeki Windows bilgisayarda komut koşturmak, `ESP_ARMUT_V1.1` dosyalarını okumak, ESP-IDF derlemesi veya donanım/test adımlarını yürütmek için depoda hazır **`pc-run.mjs`** aracı vardır:
+- **İlk Adım:** Eğer çalışma alanında `pc-run.mjs` yoksa önce `git pull origin main` çalıştır.
+- **Kullanım:**
   ```bash
-  curl -X POST http://100.82.246.76:8099/run \
-    -H "Authorization: Bearer <RUNNER_KEY>" \
-    -H "Content-Type: application/json" \
-    -d '{"cmd": "node --test", "cwd": "C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ARMUT_V2_TEMIZ"}'
+  node pc-run.mjs "Get-Location ; node --version"
+  node pc-run.mjs "Get-ChildItem C:\Users\icanp\OneDrive\Belgeler\ChatGPT\ESP_ARMUT_V1.1"
   ```
-  Bu çağrı yapıldığında komut doğrudan evdeki Windows bilgisayarınızda çalışır, çıktıyı (`stdout`, `stderr`, `exitCode`) JSON olarak buluttaki ajana anında geri döndürür.
+- **Nasıl Çalışır:** `pc-run.mjs` otomatik olarak `origin/pc-bridge` dalından güncel canlı HTTPS tünel adresini (`*.lhr.life/run`) ve yetki anahtarını çeker, komutu evdeki Windows bilgisayarda çalıştırır ve `stdout`/`stderr` çıktısını doğrudan bulut terminaline yazar (`100.x` yerel Tailscale IP'sine ihtiyaç duymaz, genel HTTPS tüneli kullanır).
