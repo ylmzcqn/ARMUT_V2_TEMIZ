@@ -55,9 +55,9 @@ export function createKVPresenceStore(kv){
 export function createPresenceIngest({store,now=()=>Date.now()}={}){
  function clock(){const t=now();if(!Number.isSafeInteger(t)||t<0)reject('clock-unavailable',503);return t;}
  function identity(body){if(!body||typeof body!=='object'||body.version!==1||body.publisherId!=='hub'||body.deviceId!=='camera-02'||body.componentId!=='presence-radar'||typeof body.bootId!=='string'||!hex.test(body.bootId))reject('identity');}
- async function freshLease(previous,state){const token=nonce();await store.save(previous,{...state,nonceHash:await hash(token)});return {version:1,nonce:token,leaseMs:5000,reportIntervalMs:1000};}
+ async function freshLease(previous,state,commands=[]){const token=nonce();await store.save(previous,{...state,nonceHash:await hash(token)});return {version:1,nonce:token,leaseMs:5000,reportIntervalMs:1000,commands};}
  return Object.freeze({
-  async hello(body){identity(body);const previous=await store.load();return freshLease(previous,{bootId:body.bootId,issuedAt:clock(),sequence:0,value:null,observedAt:null,devices:[]});},
+  async hello(body){identity(body);const previous=await store.load();return freshLease(previous,{bootId:body.bootId,issuedAt:clock(),sequence:0,value:null,observedAt:null,devices:[],pendingCommands:[]});},
   async report(body){
    identity(body);if(typeof body.nonce!=='string'||!/^[a-f0-9]{64}$/i.test(body.nonce))reject('lease');
    if(!Number.isSafeInteger(body.sequence)||body.sequence<=0||!Number.isSafeInteger(body.sinceLeaseMs)||body.sinceLeaseMs<0||!(body.value===null||typeof body.value==='boolean')||(body.value===null?body.sampleAgeMs!==null:!Number.isFinite(body.sampleAgeMs)||body.sampleAgeMs<0||body.sampleAgeMs>=2000))reject('sample');
@@ -74,7 +74,19 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
    const age=body.value===null?null:elapsed-body.sinceLeaseMs+body.sampleAgeMs+10;
    if(age!==null&&age>=2000)reject('sample-stale',409);
    const extraDevices=Array.isArray(body.devices)?body.devices.filter(d=>d&&typeof d.deviceId==='string'&&typeof d.online==='boolean'):s.devices||[];
-   return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age,devices:extraDevices});
+   const commandsToDeliver=[...(s.pendingCommands||[])];
+   return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age,devices:extraDevices,pendingCommands:[]},commandsToDeliver);
+  },
+  async command(body){
+   if(!body||body.version!==1||typeof body.commandId!=='string'||typeof body.entityId!=='string'||typeof body.value!=='boolean')reject('invalid-command',400);
+   const previous=await store.load(),s=previous?.state;
+   const targetBoot=body.bootId||s?.bootId||'hub';
+   const cmd={commandId:body.commandId,entityId:body.entityId,value:body.value,bootId:targetBoot,at:clock()};
+   if(s){
+    const pending=[...(s.pendingCommands||[]).slice(-15),cmd];
+    await store.save(previous,{...s,pendingCommands:pending});
+   }
+   return {commandId:body.commandId,applied:true,value:body.value,bootId:targetBoot};
   },
   async snapshot(){
    const record=await store.load(),s=record?.state,time=clock(),age=!Number.isFinite(s?.observedAt)?null:time-s.observedAt;

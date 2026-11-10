@@ -15,8 +15,11 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 10 Kasım 2026 — Hub ST7789 ekran ayarları, kamera profilleri ve canlı durum senkronizasyonu:
 - Hub ST7789V3 1.69 inç 240×280 ekranı için V1 benzeri parlaklık (%0–100), yön (0°, 90°, 180°, 270°), zaman aşımı (0–300 sn), varsayılan sayfa ve tema ayarları `home-model.mjs`, `home-panel.mjs` Ayarlar ve Hub cihaz ayrıntı görünümüne eklendi.
 - ESP-IDF 5.5 `firmware/armut_camera_http` bileşeniyle Akıcı (VGA, 25 FPS), Az Işık (VGA, 16 kalite, AE+2) ve Ayrıntılı (SXGA 1280×1024, 10 kalite) profilleri, kamera ekleme formunda varsayılan `/stream` ve `/profile` adresleri ve rehber ipuçlarıyla doğrulandı.
-- `#devices` ve `#hub` sayfalarında canlı durum rozetleri ve runtime telemetrisi `refreshLive()` ile anında senkronize edildi; offline cihazların kayıt dışı kalmaması için köprü filtreleri güncellendi.
-- 156 test ve `node source-check.mjs` eksiksiz geçti; `cloudflare-worker.js` hazırlandı.
+- Varlık radarı (`presence-radar`) durum değişikliklerinin otomasyonları tetiklemesini engelleyen `observeOnly: true` kilidi kaldırıldı; radar canlı varlık algıladığında otomasyonlar anında tetiklenir.
+- Buluttan iki yönlü cihaz kontrolü: `presence-ingest.mjs` ve `cloud-presence-worker.mjs` üzerine `/api/presence/command` uç noktası ve komut kuyruğu entegre edildi.
+- `defaultHome()` akıllı ev şablonu eklendi: Odalar, hazır anahtarlar, kameralar, varlık sensörü, aydınlatma otomasyonları ve sahneler hazır gelir; Ayarlar paneline tek tıkla yükleme butonu eklendi.
+- `#devices` ve `#hub` sayfalarında canlı durum rozetleri ve runtime telemetrisi `refreshLive()` ile anında senkronize edildi; offline cihazların kayıt dışı kalmaması sağlandı.
+- 158 Node testi ve `node source-check.mjs` eksiksiz geçti; `cloudflare-worker.js` hazırlandı.
 
 10 Kasım 2026 — Hub ve Kamera 1 çevrimiçi durumu düzeltmesi: Bulut telemetrisinde Hub rapor vermediğinde bağlı cihazların (`camera-01`) süresiz çevrimiçi ("hayalet durum") kalması engellendi. Hub çevrimdışı olduğunda tüm bağımlı telemetri çevrimdışıya düşürülür; Hub canlılık toleransı 10 saniyeye çıkarıldı.
 10 Kasım 2026 — çoklu ESP32 cihaz bulut senkronizasyonu ve canlı yayın: Cloudflare Worker (https://armut.armut-home.workers.dev) üzerinde `hub`, `camera-02` ve `camera-01` çoklu cihaz telemetrisi ve radar durumu uçtan uca gerçek HTTP istekleriyle doğrulandı. `cloud-hub-sync.mjs` scripti üç cihazı da kapsayacak şekilde güncellendi. GitHub Pages canlı yayını (`gh-pages` dalı) güncel kodla eşitlendi (https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/). 155 test ve kaynak bütünlüğü geçti.

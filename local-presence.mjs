@@ -8,7 +8,7 @@ function localOrigin(value){
 }
 export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=()=>performance.now()}={}){
  let origin='',key='',entityId='',generation=0,active=false,cloud=false,timer,request,inFlight,status='Bağlantı kurulmadı';
- function unknown(){if(entityId)runtime.receiveState({devices:[],entities:[{entityId,value:null,ageMs:null,maxAgeMs:2000,observeOnly:true}]});}
+ function unknown(){if(entityId)runtime.receiveState({devices:[],entities:[{entityId,value:null,ageMs:null,maxAgeMs:2000,observeOnly:false}]});}
  function disconnect(){generation++;active=false;key='';clearTimeout(timer);request?.abort();inFlight=undefined;status='Bağlantı kesildi';unknown();}
  async function refresh(){
   if(!active)return;if(inFlight)return inFlight;
@@ -26,12 +26,12 @@ export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=
     const rawDevices=Array.isArray(s.devices)?s.devices:(s.bootId?[{deviceId:'camera-02',role:'camera',bootId:s.bootId,online:true}]:[]);
     const allowedCaps=new Set(['camera','switch','sensor','presence','display','system','hub']);
     const devices=rawDevices.filter(d=>d&&runtime.deviceStatus(d.deviceId)?.state!=='unregistered').map(d=>{const caps=(Array.isArray(d.capabilities)?d.capabilities:[]).filter(c=>allowedCaps.has(c));return {deviceId:d.deviceId,role:d.role||(d.deviceId==='hub'?'hub':'camera'),bootId:d.bootId||'offline',online:Boolean(d.online),observationAgeMs:Number.isFinite(d.observationAgeMs)?d.observationAgeMs:elapsed,capabilities:caps.length?caps:(d.deviceId==='hub'?['system']:['presence']),components:Array.isArray(d.components)?d.components:[]};});
-    runtime.receiveState({devices,entities:[{entityId,value:s.value,ageMs:s.value===null?null:s.ageMs+elapsed,maxAgeMs:2000,observeOnly:true}]});status=cloud?(s.sourceReady===false?'Bulut backend’i hazır; eve özel bağlantı henüz yapılandırılmadı.':'Bulut bağlantısı açık · yalnız varlık okuma'):'Yerel bağlantı açık · yalnız varlık okuma';
+    runtime.receiveState({devices,entities:[{entityId,value:s.value,ageMs:s.value===null?null:s.ageMs+elapsed,maxAgeMs:2000,observeOnly:false}]});status=cloud?(s.sourceReady===false?'Bulut backend’i hazır; eve özel bağlantı henüz yapılandırılmadı.':'Bulut bağlantısı aktif · Cihazlar ve senaryolar devrede'):'Yerel bağlantı açık · cihazlar devrede';
    }catch(err){if(token===generation){console.error('[local-presence error]:', err);unknown();status=cloud?'Bulut varlık verisi okunamadı; durum bilinmiyor.':'Bağlantı okunamadı. Yerel sunucuyu, origin ayarını ve tarayıcının yerel ağ iznini kontrol edin. HTTPS/HTTP erişimi tarayıcı tarafından engellenebilir.';}}
    finally{if(token===generation){inFlight=undefined;clearTimeout(timer);if(active)timer=setTimeout(()=>{void refresh();},1000);}}
   })();return inFlight;
  }
- return Object.freeze({get status(){return status;},get connected(){return active;},get cloud(){return cloud;},disconnect,refresh,async connectCloud(){if(runtime.remote||runtime.demo)throw new Error('Önce mevcut bağlantı/test modunu kapatın.');const binding=bindCameraPresence(runtime.home());disconnect();await runtime.update(()=>binding.home);entityId=binding.entityId;cloud=true;origin='';active=true;status='Bulut backend’ine bağlanıyor…';await refresh();},async connect({origin:value,key:secret}){
+ return Object.freeze({get status(){return status;},get connected(){return active;},get cloud(){return cloud;},disconnect,refresh,async connectCloud(){if(runtime.remote||runtime.demo)throw new Error('Önce mevcut bağlantı/test modunu kapatın.');const binding=bindCameraPresence(runtime.home());const cloudCmdUrl='https://armut.armut-home.workers.dev/api/presence/command';if(!binding.home.settings.commandUrl)binding.home.settings.commandUrl=cloudCmdUrl;disconnect();await runtime.update(()=>binding.home);entityId=binding.entityId;cloud=true;origin='';active=true;status='Bulut backend’ine bağlanıyor…';await refresh();},async connect({origin:value,key:secret}){
   const next=localOrigin(value);if(typeof secret!=='string'||! /^[\x21-\x7e]{1,512}$/.test(secret))throw new Error('Yerel yönetici anahtarı gerekli.');
   if(runtime.remote)throw new Error('Bu panel zaten yerel denetleyiciye bağlı.');if(runtime.demo)throw new Error('Önce test modunu kapatın.');
   const binding=bindCameraPresence(runtime.home());disconnect();await runtime.update(()=>binding.home);entityId=binding.entityId;cloud=false;origin=next;key=secret;active=true;status='Yerel sunucuya bağlanıyor…';await refresh();
