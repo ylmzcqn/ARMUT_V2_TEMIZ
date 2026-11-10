@@ -29,5 +29,7 @@ Bu proje, Codex Cloud üzerindeki `ylmzcqn/ARMUT_V2_TEMIZ` deposunun en güncel 
 - Codex Cloud'da erişilemeyen yerel V1 referans projesi bu bilgisayarda mevcuttur:
   - **V1 Referans Dizini:** `C:\Users\icanp\OneDrive\Belgeler\ChatGPT\ESP_ARMUT_V1.1` (salt okunur referans olarak kullanılmalı; izinsiz değiştirilmemelidir).
 - **Windows Test Notu:** `server.mjs` içindeki `atomic()` fonksiyonunda `openSync(temporary, 'r')` üzerinde `fsyncSync` çağrısı Linux'ta çalışırken Windows'ta `EPERM` hatası vermektedir (`server.test.mjs` içindeki 15 alt test bu yüzden etkilenir; diğer 139 Node testi ve `source-check.mjs` doğrudan geçmektedir).
-- **Özel Cloud Paneli (Codex Sites):** `https://armut-v2-panel.jadeelm.chatgpt.site`
+- **Özel Tailscale Bulut / Uzaktan Erişim Adresleri:**
+  - Şifresiz Önizleme Paneli: `http://armut.tailcbe65e.ts.net:8080/?v=cloud20261110-10#home` (`http://100.82.246.76:8080/?v=cloud20261110-10#home`)
+  - Tam Denetleyici Sunucusu: `http://armut.tailcbe65e.ts.net:8090/login` (`http://100.82.246.76:8090/login`)
 - **Yerel Önizleme Sunucusu:** `http://127.0.0.1:8080/?v=cloud20261110-10#home`
