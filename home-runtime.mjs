@@ -1,6 +1,6 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-10';
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-10';
-import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-10';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-12';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-12';
+import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-12';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){
@@ -8,7 +8,7 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
  if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw)home=validateHome(JSON.parse(raw));}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
  const listeners=new Set(),values=new Map(),holds=new Map(),busy=new Set(),fired=new Map(),cooldowns=new Map(),ruleBusy=new Set(),sceneRuns=new Map();
  let timer,request,session='',sequence=0,lastMinute='',generation=0,devices,savedHome,savedHolds,savedFired,savedCooldowns;
- function deviceRegistry(){const byId=new Map(inventory.devices.filter(d=>d.id!=='uno-history').map(d=>[d.id,{id:d.id,role:d.id==='hub'?'hub':d.icon==='camera'||d.id.startsWith('camera')?'camera':'node'}]));for(const d of home.devices||[])byId.set(d.id,d);return [...byId.values()].map(d=>({deviceId:d.id,role:d.role,capabilities:['camera','switch','sensor','presence','display'],components:[]}));}
+ function deviceRegistry(){const byId=new Map(inventory.devices.filter(d=>d.id!=='uno-history').map(d=>[d.id,{id:d.id,role:d.id==='hub'?'hub':d.icon==='camera'||d.id.startsWith('camera')?'camera':'node'}]));for(const d of home.devices||[])byId.set(d.id,d);return [...byId.values()].map(d=>({deviceId:d.id,role:d.role,capabilities:['camera','switch','sensor','presence','display','system','hub'],components:[]}));}
  let registry=deviceRegistry();
  function reset(){devices=createDeviceRuntime(registry,{now:mono});session=uid();devices.beginSession(session);sequence=0;values.clear();}
  reset();

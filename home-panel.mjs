@@ -1,8 +1,8 @@
-import {createLocalPresenceBridge} from './local-presence.mjs?v=cloud20261110-10';
-import {newId} from './browser-crypto.mjs?v=cloud20261110-10';
-import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-10';
-import {saveRecord,deleteRecord,serializeBackup,parseBackup,modes,weekDays,filterHistory,deletionImpact} from './home-model.mjs?v=cloud20261110-10';
-import {createCameraPlayer,cameraProfiles} from './camera-stream.mjs?v=cloud20261110-10';
+import {createLocalPresenceBridge} from './local-presence.mjs?v=cloud20261110-12';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-12';
+import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-12';
+import {saveRecord,deleteRecord,serializeBackup,parseBackup,modes,weekDays,filterHistory,deletionImpact} from './home-model.mjs?v=cloud20261110-12';
+import {createCameraPlayer,cameraProfiles} from './camera-stream.mjs?v=cloud20261110-12';
 const titles={home:'Genel bakış',rooms:'Odalar',cameras:'Kameralar',automations:'Otomasyonlar',scenes:'Sahneler',history:'Geçmiş',settings:'Ayarlar'};
 const paths={home:'m3 10 9-7 9 7v10H3Z M9 20v-7h6v7',rooms:'M3 21V3h18v18M3 11h8V3m0 8v10m0-6h10',cameras:'M3 6h18v14H3z M7 6l2-3h6l2 3 M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0',automations:'m13 2-9 12h7l-1 8 10-13h-7z',scenes:'m12 3 2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9L2.5 9.2l5.9-.9Z',history:'M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v6l4 2',settings:'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',device:'M5 4h14v16H5z M9 8h6v8H9z',plus:'M12 5v14M5 12h14'};
 const labels={unknown:'Durum bilinmiyor',online:'Çevrimiçi',offline:'Çevrimdışı',delayed:'Veri gecikti',stale:'Veri güncel değil',disconnected:'Bağlantı kesildi',unregistered:'Kayıt dışı'};

@@ -1,5 +1,5 @@
-import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-10';
-import {boundedJson} from './home-runtime.mjs?v=cloud20261110-10';
+import {bindCameraPresence} from './home-model.mjs?v=cloud20261110-12';
+import {boundedJson} from './home-runtime.mjs?v=cloud20261110-12';
 function localOrigin(value){
  let url;try{url=new URL(value);}catch{throw new Error('Yerel sunucu adresi geçersiz.');}
  const h=url.hostname,parts=h.split('.').map(Number),v4=parts.length===4&&parts.every(n=>Number.isInteger(n)&&n>=0&&n<=255),privateIp=v4&&(parts[0]===10||parts[0]===127||parts[0]===192&&parts[1]===168||parts[0]===172&&parts[1]>=16&&parts[1]<=31);
@@ -24,9 +24,10 @@ export function createLocalPresenceBridge({runtime,fetcher=globalThis.fetch,now=
     if(s.deviceId!=='camera-02'||s.componentId!=='presence-radar'||s.maxAgeMs!==2000||!(s.value===null||typeof s.value==='boolean')||!(s.bootId===null||typeof s.bootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.bootId))||s.value!==null&&(!s.bootId||!Number.isFinite(s.ageMs)||s.ageMs<0))throw new Error('contract');
     const elapsed=now()-started;if(!Number.isFinite(elapsed)||elapsed<0)throw new Error('clock');
     const rawDevices=Array.isArray(s.devices)?s.devices:(s.bootId?[{deviceId:'camera-02',role:'camera',bootId:s.bootId,online:true}]:[]);
-    const devices=rawDevices.filter(d=>d&&d.online&&d.bootId&&runtime.deviceStatus(d.deviceId)?.state!=='unregistered').map(d=>({deviceId:d.deviceId,role:d.role||(d.deviceId==='hub'?'hub':'camera'),bootId:d.bootId,online:true,observationAgeMs:Number.isFinite(d.observationAgeMs)?d.observationAgeMs:elapsed,capabilities:d.capabilities||(d.deviceId==='hub'?['system']:['presence']),components:Array.isArray(d.components)?d.components:[]}));
+    const allowedCaps=new Set(['camera','switch','sensor','presence','display','system','hub']);
+    const devices=rawDevices.filter(d=>d&&d.online&&d.bootId&&runtime.deviceStatus(d.deviceId)?.state!=='unregistered').map(d=>{const caps=(Array.isArray(d.capabilities)?d.capabilities:[]).filter(c=>allowedCaps.has(c));return {deviceId:d.deviceId,role:d.role||(d.deviceId==='hub'?'hub':'camera'),bootId:d.bootId,online:true,observationAgeMs:Number.isFinite(d.observationAgeMs)?d.observationAgeMs:elapsed,capabilities:caps.length?caps:(d.deviceId==='hub'?['system']:['presence']),components:Array.isArray(d.components)?d.components:[]};});
     runtime.receiveState({devices,entities:[{entityId,value:s.value,ageMs:s.value===null?null:s.ageMs+elapsed,maxAgeMs:2000,observeOnly:true}]});status=cloud?(s.sourceReady===false?'Bulut backend’i hazır; eve özel bağlantı henüz yapılandırılmadı.':'Bulut bağlantısı açık · yalnız varlık okuma'):'Yerel bağlantı açık · yalnız varlık okuma';
-   }catch{if(token===generation){unknown();status=cloud?'Bulut varlık verisi okunamadı; durum bilinmiyor.':'Bağlantı okunamadı. Yerel sunucuyu, origin ayarını ve tarayıcının yerel ağ iznini kontrol edin. HTTPS/HTTP erişimi tarayıcı tarafından engellenebilir.';}}
+   }catch(err){if(token===generation){console.error('[local-presence error]:', err);unknown();status=cloud?'Bulut varlık verisi okunamadı; durum bilinmiyor.':'Bağlantı okunamadı. Yerel sunucuyu, origin ayarını ve tarayıcının yerel ağ iznini kontrol edin. HTTPS/HTTP erişimi tarayıcı tarafından engellenebilir.';}}
    finally{if(token===generation){inFlight=undefined;clearTimeout(timer);if(active)timer=setTimeout(()=>{void refresh();},1000);}}
   })();return inFlight;
  }
