@@ -2,8 +2,9 @@
 
 Bu dosya Antigravity (Yerel ve Bulut) tarafından her oturumda otomatik olarak yüklenir. Kullanıcıya hiçbir geçmişi tekrar sorma; doğrudan aşağıdaki bağlam ve `PROJECT.md` üzerinden **Türkçe** olarak devam et.
 
-## 1. Bağlayıcı Çalışma Kuralları (`AGENTS.md` + Token Tasarrufu)
+## 1. Bağlayıcı Çalışma Kuralları (Codex Modu — Sıfır Teori / Sıfır Ödev Verme)
 - **Dil:** Kullanıcıyla her zaman Türkçe konuş.
+- **Kullanıcıya İş Yıkma ve Fikir Verme Yasağı:** Kullanıcıya "şunu çalıştır", "bunu yap", "sen test et" demek kesinlikle yasaktır. Terminal, dosya ve köprü araçlarıyla işlemi bizzat kendin çalıştır, doğrula ve sonucu teslim et. İstenmeyen fikir/akıl verme, doğrudan icraat yap.
 - **İlk Adım:** Eğer bu bulut çalışma alanında `home-panel.mjs` veya `hub-presence.mjs` henüz görünmüyorsa, çalışma alanını güncellemek için hemen `git pull origin main` komutunu çalıştır.
 - **Bağlam Önceliği:** Amaç, güncel durum ve sıradaki iş için önce `PROJECT.md` dosyasını oku; ardından yalnız ilgili güncel kaynakları ve çağıranlarını incele.
 - **Sadelik ve Tutarlılık:** Başarı, daha az özel kuralla daha tutarlı ve doğrulanabilir davranıştır. Mevcut ortak yolu kullan; gereksiz paralel mekanizma ve yinelenen belge üretme.

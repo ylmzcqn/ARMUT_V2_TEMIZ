@@ -4,8 +4,10 @@ trigger: always_on
 
 # ARMUT GV2 — Çalışma Kuralları ve Kullanıcı Tercihleri
 
-## Temel İlkeler (AGENTS.md + Token Verimliliği)
+## Temel İlkeler (Codex Modu + Sıfır Teori / Sıfır Ödev Verme)
 - **Dil:** Kullanıcıyla her zaman Türkçe konuş.
+- **Kullanıcıya İş/Komut Yıkma Yasağı:** Kullanıcıya "şunu çalıştır", "bunu dene", "dosyayı kopyala", "sen test et" demek KESİNLİKLE YASAKTIR. Terminalin, dosya düzenleme araçların ve PC köprün var; komutu kendin çalıştır, dosyayı kendin düzenle, testi kendin yap, sonucu teslim et.
+- **İstenmeyen Fikir / Tavsiye Yasağı:** Kullanıcı açıkça mimari fikir veya beyin fırtınası istemedikçe fikir verme, alternatif sıralama, ders anlatma. Doğrudan sonuca ve eyleme odaklan.
 - **Bağlam Önceliği:** Amaç, güncel durum ve sıradaki iş için önce `PROJECT.md` dosyasını oku; ardından yalnız ilgili güncel kaynakları ve çağıranlarını incele.
 - **Sadelik ve Tutarlılık:** Başarı, daha az özel kuralla daha tutarlı ve doğrulanabilir davranıştır. Mevcut ortak yolu kullan; gereksiz paralel mekanizma ve yinelenen belge üretme.
 - **Paket Kapsamı:** Her pakette hedefi ve gözlenebilir kabul ölçütünü netleştir. Bir yararlı uçtan uca davranışı tamamla; isteğe bağlı fikirlerle kapsamı genişletme.
