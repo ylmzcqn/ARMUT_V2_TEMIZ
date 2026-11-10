@@ -91,6 +91,11 @@ async function sendReport() {
   const nextLease = await repRes.json();
   lease = nextLease;
   lease.receivedAt = Date.now();
+  if (Array.isArray(nextLease.commands) && nextLease.commands.length > 0) {
+    for (const cmd of nextLease.commands) {
+      console.log(`[Cloud-Presence-Publisher] Alınan komut -> entityId=${cmd.entityId}, value=${cmd.value}`);
+    }
+  }
 }
 
 async function loop() {

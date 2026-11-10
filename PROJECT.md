@@ -12,6 +12,12 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 ## Güncel durum
 
+10 Kasım 2026 — V1 kalitesinde senaryo ve otomasyon entegrasyonu tamamlandı:
+- Varlık radarı (`presence-radar`) durum değişikliklerinin otomasyonları tetiklemesini engelleyen `observeOnly: true` kilidi kaldırıldı. Radar canlı olarak varlık algıladığında veya oda boşaldığında otomasyon kuralları anında tetiklenir.
+- Buluttan iki yönlü cihaz kontrolü: `presence-ingest.mjs` ve `cloud-presence-worker.mjs` üzerine `/api/presence/command` uç noktası ve komut kuyruğu eklendi. Panelden verilen aç/kapat komutları Hub rapor döngüsünde (`nextLease.commands`) Hub'a teslim edilir.
+- `defaultHome()` akıllı ev şablonu eklendi: Odalar (Giriş/Koridor, Salon), hazır anahtarlar (Koridor spotu, Salon aydınlatması), kameralar, varlık sensörü, aydınlatma otomasyonları ve sahneler hazır gelir; Ayarlar paneline tek tıkla yükleme butonu eklendi.
+- Önbellek sürümü `v=cloud20261110-13` olarak güncellendi, `cloudflare-worker.js` derlendi. 158 Node testi ve 3 C host testi sıfır hatayla geçti.
+
 10 Kasım 2026 — Hub ve Kamera 1 çevrimiçi durumu düzeltmesi: Bulut telemetrisinde Hub rapor vermediğinde bağlı cihazların (`camera-01`) süresiz çevrimiçi ("hayalet durum") kalması engellendi. Hub çevrimdışı olduğunda tüm bağımlı telemetri çevrimdışıya düşürülür; Hub canlılık toleransı 10 saniyeye çıkarıldı.
 10 Kasım 2026 — çoklu ESP32 cihaz bulut senkronizasyonu ve canlı yayın: Cloudflare Worker (https://armut.armut-home.workers.dev) üzerinde `hub`, `camera-02` ve `camera-01` çoklu cihaz telemetrisi ve radar durumu uçtan uca gerçek HTTP istekleriyle doğrulandı. `cloud-hub-sync.mjs` scripti üç cihazı da kapsayacak şekilde güncellendi. GitHub Pages canlı yayını (`gh-pages` dalı) güncel kodla eşitlendi (https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/). 155 test ve kaynak bütünlüğü geçti.
 10 Kasım 2026 — GitHub Pages canlı yayında: Depo kullanıcı onayıyla Public yapıldı ve GitHub Pages gh-pages dalı üzerinden https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/ adresinde 7/24 yayına alındı. Bilgisayar kapalıyken de erişilebilir.

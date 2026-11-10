@@ -110,6 +110,21 @@ async function syncOnce() {
   const nextLease = await repRes.json();
   lease = nextLease;
   lease.receivedAt = Date.now();
+  if (Array.isArray(nextLease.commands) && nextLease.commands.length > 0) {
+    for (const cmd of nextLease.commands) {
+      console.log(`[Cloud-Sync] Cihaza komut yönlendiriliyor -> entityId=${cmd.entityId}, value=${cmd.value}`);
+      try {
+        await fetch(`${HUB_URL}/api/device/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' },
+          body: JSON.stringify(cmd),
+          signal: AbortSignal.timeout(2000)
+        });
+      } catch (e) {
+        console.warn(`[Cloud-Sync] Hub komut iletimi: ${e.message}`);
+      }
+    }
+  }
   console.log(`[Cloud-Sync] Sync OK -> Radar=${presenceVal ? 'VAR' : 'YOK'} (${radar.detection_distance_cm || 0}cm), seq=${sequence}`);
 }
 

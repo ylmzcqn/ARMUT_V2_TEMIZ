@@ -1,11 +1,11 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-12';
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-12';
-import {emptyHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-12';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-13';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-13';
+import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes} from './home-model.mjs?v=cloud20261110-13';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){
  let home=initial?validateHome(structuredClone(initial)):emptyHome(),storageError='',demo=false,connected=false,sourceError='',disposed=false,demoPaused=false,persistenceError='';
- if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw)home=validateHome(JSON.parse(raw));}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
+ if(!initial&&storage){try{const raw=storage.getItem(HOME_STORAGE_KEY);if(raw)home=validateHome(JSON.parse(raw));else{home=defaultHome();storage.setItem(HOME_STORAGE_KEY,JSON.stringify(home));}}catch{storageError='Yerel ev kaydı okunamadı. Mevcut kayıt korundu; Ayarlar’dan geçerli bir yedek yükleyin.';}}
  const listeners=new Set(),values=new Map(),holds=new Map(),busy=new Set(),fired=new Map(),cooldowns=new Map(),ruleBusy=new Set(),sceneRuns=new Map();
  let timer,request,session='',sequence=0,lastMinute='',generation=0,devices,savedHome,savedHolds,savedFired,savedCooldowns;
  function deviceRegistry(){const byId=new Map(inventory.devices.filter(d=>d.id!=='uno-history').map(d=>[d.id,{id:d.id,role:d.id==='hub'?'hub':d.icon==='camera'||d.id.startsWith('camera')?'camera':'node'}]));for(const d of home.devices||[])byId.set(d.id,d);return [...byId.values()].map(d=>({deviceId:d.id,role:d.role,capabilities:['camera','switch','sensor','presence','display','system','hub'],components:[]}));}
@@ -34,7 +34,9 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
   if(observeOnly)return finish('observed',`${value?'açılacaktı':'kapatılacaktı'} · yalnız izleme, komut gönderilmedi`);
   if(origin==='automation'&&(holds.get(entityId)||0)>now())return finish('skipped','Manuel kontrol önceliği sürüyor.');
   if(busy.has(entityId))return finish('skipped','Önceki komutun sonucu bekleniyor.');
-  if(!entityState(entityId).fresh)return finish('error','Güncel cihaz verisi yok; komut gönderilmedi.');
+  const status=devices.status(entity.deviceId);
+  const canSend=entityState(entityId).fresh || (status.state==='online');
+  if(!canSend)return finish('error','Güncel cihaz verisi yok; komut gönderilmedi.');
   if(!demo&&!provider&&!home.settings.commandUrl)return finish('error','Komut bağlantısı ayarlanmamış.');
   if(origin!=='automation')holds.set(entityId,now()+home.settings.manualHoldMinutes*60000);
   busy.add(entityId);announce();const activeGeneration=generation,targetBoot=devices.status(entity.deviceId).bootId;

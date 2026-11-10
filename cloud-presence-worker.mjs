@@ -23,6 +23,12 @@ export default {
    if(store){try{return reply(200,await createPresenceIngest({store}).snapshot());}catch{return reply(503,unknown);}}
    return reply(200,unknown);
   }
+  if(url.pathname==='/api/presence/command'||url.pathname==='/api/command'){
+   if(request.method!=='POST')return reply(405,{error:'POST required'});
+   if(!store)return reply(503,{error:'Store unavailable'});
+   try{const body=await smallJson(request);return reply(200,await createPresenceIngest({store}).command(body));}
+   catch(e){return reply([400,409,413].includes(e.status)?e.status:500,{error:e.message});}
+  }
   if(url.pathname.startsWith('/api/'))return reply(404,{error:'Not found'});
   if(!['GET','HEAD'].includes(request.method))return reply(405,{error:'Read-only'});
   // The offline build embeds only the current browser asset graph; no filesystem API.

@@ -6,6 +6,39 @@ const id=x=>typeof x==='string'&&/^[a-zA-Z0-9][\w.-]{0,95}$/.test(x);
 const fail=message=>{throw new Error(message);};
 export function validEndpoint(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password&&!u.hash;}catch{return false;}}
 export function emptyHome(){return {version:1,devices:[],ignoredEntities:[],rooms:[],entities:[],cameras:[],automations:[],scenes:[],mode:'home',settings:{statusUrl:'',commandUrl:'',timeZone:'Europe/Istanbul',manualHoldMinutes:30},events:[]};}
+export function defaultHome(){
+ return validateHome({
+  version:1,
+  devices:[],
+  ignoredEntities:[],
+  rooms:[
+   {id:'room-entry',name:'Giriş / Koridor',deviceIds:['camera-02']},
+   {id:'room-living',name:'Salon',deviceIds:['camera-01','hub']}
+  ],
+  entities:[
+   {id:'presence-radar',deviceId:'camera-02',channelId:'presence-radar',name:'Koridor Varlık Radarı',kind:'presence',roomId:'room-entry'},
+   {id:'hub-relay',deviceId:'hub',channelId:'relay',name:'Salon Ana Aydınlatma',kind:'switch',roomId:'room-living'},
+   {id:'cam02-led',deviceId:'camera-02',channelId:'led',name:'Koridor Spotu',kind:'switch',roomId:'room-entry'},
+   {id:'cam01-led',deviceId:'camera-01',channelId:'led',name:'Salon Spotu',kind:'switch',roomId:'room-living'}
+  ],
+  cameras:[
+   {id:'cam-01',deviceId:'camera-01',name:'Salon Kamerası',roomId:'room-living',url:'http://192.168.1.119/stream',transport:'mjpeg'},
+   {id:'cam-02',deviceId:'camera-02',name:'Koridor Kamerası',roomId:'room-entry',url:'http://192.168.1.120/stream',transport:'mjpeg'}
+  ],
+  automations:[
+   {id:'auto-welcome',name:'Varlık Algılandığında Aydınlat',trigger:'state',sourceId:'presence-radar',expected:true,mode:'',cooldownSeconds:30,action:{entityId:'cam02-led',value:true},observeOnly:false,enabled:true},
+   {id:'auto-leave',name:'Oda Boşaldığında Işığı Kapat',trigger:'state',sourceId:'presence-radar',expected:false,mode:'',cooldownSeconds:60,action:{entityId:'cam02-led',value:false},observeOnly:false,enabled:true}
+  ],
+  scenes:[
+   {id:'scene-home',name:'Eve Giriş / Karşılama',actions:[{entityId:'hub-relay',value:true},{entityId:'cam02-led',value:true}]},
+   {id:'scene-away',name:'Evden Ayrılış / Dışarıda',actions:[{entityId:'hub-relay',value:false},{entityId:'cam02-led',value:false}]},
+   {id:'scene-night',name:'Gece Modu',actions:[{entityId:'hub-relay',value:false},{entityId:'cam02-led',value:false}]}
+  ],
+  mode:'home',
+  settings:{statusUrl:'',commandUrl:'',timeZone:'Europe/Istanbul',manualHoldMinutes:30},
+  events:[]
+ });
+}
 export function validateHome(h){
  if(!obj(h)||h.version!==1||!Object.hasOwn(modes,h.mode)||!obj(h.settings)||!Array.isArray(h.events)||h.events.length>200)fail('Ev dosyasının biçimi geçersiz.');
  if(h.devices!==undefined){if(!Array.isArray(h.devices)||h.devices.length>64)fail('Cihaz kataloğu geçersiz.');const ids=new Set();for(const d of h.devices){if(!obj(d)||!id(d.id)||!text(d.name)||!['hub','camera','node'].includes(d.role)||ids.has(d.id))fail('Cihaz kimliği/rolü geçersiz.');ids.add(d.id);}}
@@ -49,6 +82,7 @@ export function bindCameraPresence(home){
  if(matches.length>1)throw new Error('Kamera 2 varlık işlevi eşlemesi belirsiz.');
  if(matches.length){if(matches[0].channelId&&matches[0].channelId!=='presence-radar')throw new Error('Mevcut varlık işlevi başka kanala bağlı.');matches[0].channelId='presence-radar';return {home:validateHome(next),entityId:matches[0].id};}
  const ignored=(next.ignoredEntities||[]).find(e=>e.deviceId==='camera-02'&&e.id==='presence-radar');
- if(!ignored){if(next.entities.some(e=>e.id==='presence-radar'))throw new Error('Varlık bileşeni kimliği başka işlevde kullanılıyor.');next.entities.push({id:'presence-radar',deviceId:'camera-02',channelId:'presence-radar',name:'Varlık sensörü',kind:'presence',roomId:''});}
+ const defaultRoom=next.rooms?.find(r=>r.deviceIds?.includes('camera-02'))?.id||'';
+ if(!ignored){if(next.entities.some(e=>e.id==='presence-radar'))throw new Error('Varlık bileşeni kimliği başka işlevde kullanılıyor.');next.entities.push({id:'presence-radar',deviceId:'camera-02',channelId:'presence-radar',name:'Varlık sensörü',kind:'presence',roomId:defaultRoom});}
  return {home:validateHome(next),entityId:'presence-radar'};
 }
