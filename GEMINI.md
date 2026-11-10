@@ -43,3 +43,18 @@ Bu dosya Antigravity (Yerel ve Bulut) tarafından her oturumda otomatik olarak y
    - `firmware/armut_presence_push` bileşeninin gerçek V1 (`ESP_ARMUT_V1.1`) snapshot callback'ine bağlanıp ESP-IDF 5.5 ile derlenmesi ve fiziksel radar kabul testi.
 3. **Sonraki Aşamalar:**
    - Gerçek `camera-02` radar kabulünden sonra sırasıyla `camera-01` ve `hub` canlı sağlık durumu, ardından ayrı canlı kamera video akışı.
+
+---
+
+## 4. Buluttan Bilgisayarda Komut Çalıştırma (Remote Runner Köprüsü)
+Bulut ortamındayken (Cloud VM / Codespaces vb.) fiziksel bilgisayarda (Windows) komut koşturmak veya donanım/test adımlarını yürütmek için Tailscale tüneli hazır ve aktiftir:
+- **Tünel Adresi:** `http://armut.tailcbe65e.ts.net:8099/run` (veya IP üzerinden: `http://100.82.246.76:8099/run`)
+- **Doğrulama:** `Authorization: Bearer <RUNNER_KEY>` (Anahtar: `C:\Users\icanp\.gemini\antigravity\remote-runner\runner-key.txt` dosyasındadır).
+- **Kullanım (Buluttaki cURL veya Python üzerinden):**
+  ```bash
+  curl -X POST http://100.82.246.76:8099/run \
+    -H "Authorization: Bearer <RUNNER_KEY>" \
+    -H "Content-Type: application/json" \
+    -d '{"cmd": "node --test", "cwd": "C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ARMUT_V2_TEMIZ"}'
+  ```
+  Bu çağrı yapıldığında komut doğrudan evdeki Windows bilgisayarınızda çalışır, çıktıyı (`stdout`, `stderr`, `exitCode`) JSON olarak buluttaki ajana anında geri döndürür.
