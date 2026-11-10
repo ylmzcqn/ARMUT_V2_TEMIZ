@@ -234,3 +234,10 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 10 Kasım 2026 — cloud-yerel bağlantı ajanı (local-bridge-agent) uygulandı:
 - Buluttaki yapay zekâ ajanlarından gelen istekleri yerel ortamda çalıştırmak ve çıktıyı cloud'a aktarmak için `local-bridge-agent.mjs` ve `YEREL-AJAN-BASLAT.cmd` hazırlandı.
 - Otomatik localhost.run SSH tüneli, düşme durumunda 5 saniyelik watchdog ile yeniden bağlanma, `bridge.json` metaverisini otomatik olarak `origin/pc-bridge` dalına push etme ve PowerShell ile güvenli komut yürütme sağlandı.
+
+10 Kasım 2026 — Hub ST7789 ekranı, fiziksel doğrulama ve sürekli bulut telemetrisi:
+- `pc-run.mjs` köprüsü üzerinden evdeki Windows PC'de `cloud-hub-sync.mjs` arka plan servisi başlatıldı; Hub ve Kamera 2 telemetrisi Cloudflare Worker'a (`/api/presence`) kesintisiz ve taze (<2000 ms) aktarılmaya başlandı.
+- Ev ağındaki Hub (`192.168.1.118`) ve Kamera 2 (`192.168.1.116`) canlı olarak sorgulandı. Hub'ın gerçek boot kimliği (`1db768d6`), ST7789V3 ekran durumu (SPI, 240×280) ve Kamera 2'deki HLK-LD2410C radarının canlı varlık algılaması (54 cm) fiziksel olarak doğrulandı.
+- Hub'ın `/api/display` uç noktasına `smile`, `heart` ifadeleri ve sayfa geçişleri canlı gönderildi; fiziksel Hub tarafından onaylandı.
+- Panelde Hub cihazı ve ekranının görünürlüğü sağlandı: boş depolamada otomatik `defaultHome()` yükleme, Genel Bakış sayfasında Hub ST7789 ekran kartı ve hızlı ifade butonları (❤️, ⭐, 🙂, 🌸), Donanım Haritası üstünden doğrudan `#device/hub` geçişi eklendi.
+- 162 Node testi ve `source-check.mjs` eksiksiz geçti, `main` dalı senkronize edildi.
