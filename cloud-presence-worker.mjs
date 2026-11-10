@@ -1,9 +1,10 @@
 // Prepared owner-private Sites Worker: device-initiated HTTPS, durable radar state.
 // No VPN, LAN fetch, commands or camera frames.
-import {createPresenceIngest,createD1PresenceStore,createKVPresenceStore,validPublisher} from './presence-ingest.mjs';
+import {createPresenceIngest,createD1PresenceStore,createKVPresenceStore,createMemoryPresenceStore,validPublisher} from './presence-ingest.mjs';
 const corsHeaders={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-Requested-With'};
 const reply=(status,body)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...corsHeaders}});
-function getStore(env){if(env.DB)return createD1PresenceStore(env.DB);if(env.KV)return createKVPresenceStore(env.KV);return null;}
+let activeStore=null;
+function getStore(env){if(activeStore)return activeStore;if(env.DB)activeStore=createD1PresenceStore(env.DB);else if(env.KV)activeStore=createKVPresenceStore(env.KV);else activeStore=createMemoryPresenceStore();return activeStore;}
 export default {
  async fetch(request,env={}){
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders});

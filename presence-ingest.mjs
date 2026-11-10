@@ -17,12 +17,38 @@ export function createD1PresenceStore(binding){
   const result=await statement.run();if(result.meta?.changes!==1)reject('lease-conflict',409);
  }};
 }
-export function createKVPresenceStore(kv){
+export function createMemoryPresenceStore(){
  const mem=new Map();
  return {
-  async load(deviceId='camera-02'){if(mem.has(deviceId))return mem.get(deviceId);const row=await kv.get('presence:'+deviceId,'json');if(row)mem.set(deviceId,row);return row?{revision:row.revision,state:row.state}:null;},
+  async load(deviceId='camera-02'){return mem.get(deviceId)||null;},
   async loadAll(){return Array.from(mem.values());},
-  async save(previous,state,deviceId='camera-02'){const revision=(previous?.revision||0)+1;const record={revision,state};mem.set(deviceId,record);await kv.put('presence:'+deviceId,JSON.stringify(record));}
+  async save(previous,state,deviceId='camera-02'){
+   const revision=(previous?.revision||0)+1;
+   mem.set(deviceId,{revision,state});
+  }
+ };
+}
+export function createKVPresenceStore(kv){
+ const mem=new Map();
+ let lastKvWriteAt=0,lastVal=undefined;
+ return {
+  async load(deviceId='camera-02'){
+   if(mem.has(deviceId))return mem.get(deviceId);
+   try{const row=await kv.get('presence:'+deviceId,'json');if(row)mem.set(deviceId,row);return row?{revision:row.revision,state:row.state}:null;}catch{return null;}
+  },
+  async loadAll(){return Array.from(mem.values());},
+  async save(previous,state,deviceId='camera-02'){
+   const revision=(previous?.revision||0)+1;
+   const record={revision,state};
+   mem.set(deviceId,record);
+   const now=Date.now();
+   const shouldWrite=lastVal!==state.value||(now-lastKvWriteAt)>60000;
+   if(shouldWrite){
+    lastVal=state.value;
+    lastKvWriteAt=now;
+    try{await kv.put('presence:'+deviceId,JSON.stringify(record));}catch(e){/* KV kota ve ag sinirlari canli bellek akisini bozmaz */}
+   }
+  }
  };
 }
 export function createPresenceIngest({store,now=()=>Date.now()}={}){
