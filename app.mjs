@@ -1,17 +1,17 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-12';
-import {createPanelRuntime} from './remote-home.mjs?v=cloud20261110-12';
-import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261110-12';
-import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261110-12';
-import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261110-12';
-import {devicePresence} from './live-evidence.mjs?v=cloud20261110-12';
-import {moduleActivity} from './module-history.mjs?v=cloud20261110-12';
-import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261110-12';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261110-12';
-import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261110-12';
-import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261110-12';
-import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261110-12';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261110-12';
-import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261110-12';
+import {newId} from './browser-crypto.mjs?v=cloud20261110-13';
+import {createPanelRuntime} from './remote-home.mjs?v=cloud20261110-13';
+import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261110-13';
+import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261110-13';
+import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261110-13';
+import {devicePresence} from './live-evidence.mjs?v=cloud20261110-13';
+import {moduleActivity} from './module-history.mjs?v=cloud20261110-13';
+import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261110-13';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261110-13';
+import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261110-13';
+import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261110-13';
+import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261110-13';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261110-13';
+import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261110-13';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
@@ -342,6 +342,7 @@ function renderSelection(focus = false) {
     for (const part of parts.filter(part=>part.icon!=='board')) modules.append(componentCard(part, device));
     detail.append(modules);
   }
+  homePanel?.refreshLive();
   if (focus) { $('content').focus({preventScroll:true}); window.scrollTo(0,0); }
 }
 function listedDevices(){const saved=homePanel?.runtime.home();return [...data.devices,...(saved?.devices||[]).filter(d=>!data.devices.some(original=>original.id===d.id)).map(d=>({...d,icon:d.role==='camera'?'camera':'board',summary:d.role==='camera'?'Yerel kameraya kayıtlı':'Yerel denetleyiciye kayıtlı ESP32',connectedRecord:true,presentation:{components:(saved.entities||[]).filter(e=>e.deviceId===d.id).map(e=>({icon:e.kind==='switch'?'board':'sensor'}))}}))];}
@@ -366,7 +367,9 @@ function renderDeviceCards() {
     const copy=element('div',undefined,'device-card-copy');
     if(device.id==='uno-history')copy.append(element('span','Tarihsel kayıt','card-tag'));
     copy.append(element('h3',device.name),element('p',device.summary));
-    const presence=devicePresence(device),status=element('span',undefined,`device-card-status is-${presence.state}`);
+    const live=homePanel?.runtime.deviceStatus(device.id);
+    const presence=(live&&live.state&&live.state!=='unknown')?{state:live.state,label:live.state==='online'?'Çevrimiçi':live.state==='offline'?'Çevrimdışı':live.state}:devicePresence(device);
+    const status=element('span',undefined,`device-card-status is-${presence.state}`);
     const liveText=element('span',presence.label);if(device.id!=='uno-history')liveText.dataset.runtimeDevice=device.id;
     status.append(actionIcon(presence.state==='online'?'M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h0':presence.state==='historical'?'M4 12a8 8 0 1 0 2-5M4 3v5h5M12 8v5l3 2':'M3 3l18 18M2 8a16 16 0 0 1 4-2m4-2a16 16 0 0 1 12 4M5 12a11 11 0 0 1 4-2m6 0a11 11 0 0 1 4 2M8 16a6 6 0 0 1 8 0M12 20h0'),liveText);
     const meta=element('div',undefined,'device-card-meta');
@@ -378,6 +381,7 @@ function renderDeviceCards() {
     link.append(artwork(device.icon,'device-artwork'),copy,arrow);$('devices').append(link);
   }
   $('device-empty').hidden=filtered.length>0 || !listedDevices().length;
+  homePanel?.refreshLive();
 }
 function populateInventory() {
   renderDeviceCards();updateListStatus(true);

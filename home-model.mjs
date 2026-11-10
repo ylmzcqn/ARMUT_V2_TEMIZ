@@ -5,7 +5,12 @@ const text=x=>typeof x==='string'&&x.trim().length>0&&x.length<=160;
 const id=x=>typeof x==='string'&&/^[a-zA-Z0-9][\w.-]{0,95}$/.test(x);
 const fail=message=>{throw new Error(message);};
 export function validEndpoint(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password&&!u.hash;}catch{return false;}}
-export function emptyHome(){return {version:1,devices:[],ignoredEntities:[],rooms:[],entities:[],cameras:[],automations:[],scenes:[],mode:'home',settings:{statusUrl:'',commandUrl:'',timeZone:'Europe/Istanbul',manualHoldMinutes:30},events:[]};}
+export const displayPages=[['status','Durum ve Saat'],['presence','Varlık ve Radar'],['sensors','Sensör Değerleri'],['system','Sistem Bilgileri']];
+export const displayRotations=[[0,'0° Dikey (Standart)'],[90,'90° Yatay (Saat yönü)'],[180,'180° Ters dikey'],[270,'270° Ters yatay']];
+export const displayTimeouts=[[0,'Sürekli Açık (Zaman aşımı yok)'],[15,'15 saniye'],[30,'30 saniye'],[60,'1 dakika (60 sn)'],[120,'2 dakika (120 sn)'],[300,'5 dakika (300 sn)']];
+export const displayThemes=[['dark','Koyu tema (Düşük güç)'],['light','Açık tema']];
+export function defaultHubDisplay(){return {brightness:80,rotation:0,timeoutSeconds:60,defaultPage:'status',theme:'dark'};}
+export function emptyHome(){return {version:1,devices:[],ignoredEntities:[],rooms:[],entities:[],cameras:[],automations:[],scenes:[],mode:'home',settings:{statusUrl:'',commandUrl:'',timeZone:'Europe/Istanbul',manualHoldMinutes:30,hubDisplay:defaultHubDisplay()},events:[]};}
 export function validateHome(h){
  if(!obj(h)||h.version!==1||!Object.hasOwn(modes,h.mode)||!obj(h.settings)||!Array.isArray(h.events)||h.events.length>200)fail('Ev dosyasının biçimi geçersiz.');
  if(h.devices!==undefined){if(!Array.isArray(h.devices)||h.devices.length>64)fail('Cihaz kataloğu geçersiz.');const ids=new Set();for(const d of h.devices){if(!obj(d)||!id(d.id)||!text(d.name)||!['hub','camera','node'].includes(d.role)||ids.has(d.id))fail('Cihaz kimliği/rolü geçersiz.');ids.add(d.id);}}
@@ -23,6 +28,8 @@ export function validateHome(h){
  if(!text(h.settings.timeZone))fail('Saat dilimi gerekli.');
  try{new Intl.DateTimeFormat('tr',{timeZone:h.settings.timeZone}).format();}catch{fail('Saat dilimi geçersiz.');}
  if(!Number.isInteger(h.settings.manualHoldMinutes)||h.settings.manualHoldMinutes<0||h.settings.manualHoldMinutes>1440)fail('Manuel öncelik süresi geçersiz.');
+ if(h.settings.hubDisplay===undefined)h.settings.hubDisplay=defaultHubDisplay();
+ else{const d=h.settings.hubDisplay;if(!obj(d)||!Number.isInteger(d.brightness)||d.brightness<0||d.brightness>100||![0,90,180,270].includes(d.rotation)||!Number.isInteger(d.timeoutSeconds)||d.timeoutSeconds<0||d.timeoutSeconds>3600||!['status','presence','sensors','system'].includes(d.defaultPage)||!['dark','light'].includes(d.theme))fail('Hub ekran ayarları geçersiz.');}
  for(const event of h.events)if(!obj(event)||!text(event.id)||!text(event.at)||!Number.isFinite(Date.parse(event.at))||!text(event.kind)||typeof event.message!=='string'||event.message.length>1000||!['ok','error','pending','observed','unknown','skipped'].includes(event.result))fail('Geçmiş kaydı geçersiz.');
  return h;
 }

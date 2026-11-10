@@ -13,6 +13,7 @@ let cam02BootId = '82d59cdf';
 let cam01BootId = '71a48c12';
 
 async function getLease() {
+  sequence = 0;
   const id = {
     version: 1,
     publisherId: 'hub',
@@ -31,8 +32,7 @@ async function getLease() {
   if (!res.ok) throw new Error(`Hello failed: ${res.status} ${await res.text()}`);
   lease = await res.json();
   lease.receivedAt = Date.now();
-  sequence = 0;
-  console.log(`[Cloud-Presence-Publisher] Yeni kira alındı (nonce: ${lease.nonce.slice(0, 10)}...)`);
+  console.log(`[Cloud-Presence-Publisher] Yeni kira alındı (bootId: ${hubBootId}, nonce: ${lease.nonce.slice(0, 10)}...)`);
 }
 
 async function sendReport() {

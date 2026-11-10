@@ -17,8 +17,9 @@ export function createD1PresenceStore(binding){
   const result=await statement.run();if(result?.meta?.changes!==1)reject('lease-conflict',409);
  }};
 }
-export function createMemoryPresenceStore(){
- const mem=new Map();
+const sharedMemoryStore=new Map();
+export function createMemoryPresenceStore(customMap){
+ const mem=customMap||sharedMemoryStore;
  return {
   async load(deviceId='camera-02'){return mem.get(deviceId)||null;},
   async loadAll(){return Array.from(mem.values());},

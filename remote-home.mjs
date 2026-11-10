@@ -1,5 +1,5 @@
-import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-12';
-import {validateHome} from './home-model.mjs?v=cloud20261110-12';
+import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-13';
+import {validateHome} from './home-model.mjs?v=cloud20261110-13';
 const clone=value=>structuredClone(value);
 async function readJson(response){if(!response.ok){let message=`HTTP ${response.status}`;try{const body=await response.json();if(typeof body.error==='string')message=body.error;}catch{}throw Object.assign(new Error(response.status===401?'Yerel sunucuya giriş gerekli. /login adresini açın.':message),{status:response.status});}const text=await response.text();if(text.length>2097152)throw new Error('Sunucu yanıtı çok büyük.');return JSON.parse(text);}
 export async function createPanelRuntime({inventory,fetcher=globalThis.fetch,baseUrl='',storage}={}){
