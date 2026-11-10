@@ -78,12 +78,12 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
   async snapshot(){
    const record=await store.load(),s=record?.state,time=clock(),age=!Number.isFinite(s?.observedAt)?null:time-s.observedAt;
    const fresh=typeof s?.sourceBootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.sourceBootId)&&Number.isFinite(age)&&age>=0&&age<2000&&typeof s.value==='boolean';
-   const hubLive=Boolean(typeof s?.bootId==='string'&&hex.test(s.bootId)&&Number.isFinite(s?.issuedAt)&&(time-s.issuedAt)<5000);
+   const hubLive=Boolean(typeof s?.bootId==='string'&&hex.test(s.bootId)&&Number.isFinite(s?.issuedAt)&&(time-s.issuedAt)<10000);
    const devices=[
     {deviceId:'hub',role:'hub',online:hubLive,bootId:hubLive?s.bootId:null,capabilities:['system','hub']},
     {deviceId:'camera-02',role:'camera',online:Boolean(fresh),bootId:fresh?s.sourceBootId:null,capabilities:['presence']}
    ];
-   if(Array.isArray(s?.devices)){for(const d of s.devices){if(d&&typeof d.deviceId==='string'&&!devices.some(x=>x.deviceId===d.deviceId))devices.push(d);}}
+   if(Array.isArray(s?.devices)){for(const d of s.devices){if(d&&typeof d.deviceId==='string'&&!devices.some(x=>x.deviceId===d.deviceId))devices.push({...d,online:hubLive?Boolean(d.online):false,bootId:hubLive&&d.online?(d.bootId||null):null});}}
    return {publisherId:'hub',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:Boolean(s),devices};
   }
  });
