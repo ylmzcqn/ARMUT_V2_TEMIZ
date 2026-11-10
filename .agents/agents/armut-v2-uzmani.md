@@ -1,7 +1,7 @@
 ---
 name: armut-v2-uzmani
 description: ARMUT V2 akıllı ev paneli, donanım haritası, bulut varlık yayıncısı (Hub/Kamera-02) ve ESP32 entegrasyonu için tam bağlamlı geliştirme ajanı.
-subagent: true
+subagent: false
 mainAgent: true
 tools: [read_file, edit_file, write_file, run_command, manage_task, search_web]
 ---
