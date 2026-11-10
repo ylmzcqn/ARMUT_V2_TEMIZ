@@ -12,7 +12,7 @@ function directory(path){for(const entry of readdirSync(join(root,path),{withFil
 directory('assets');
 const worker=readFileSync(join(root,'cloud-presence-worker.mjs'),'utf8').replace(/^import[^\n]+\n/gm,'');
 const ingest=readFileSync(join(root,'presence-ingest.mjs'),'utf8').replace(/export (async function|function) /g,'$1 ');
-const bundle=`const {createPresenceIngest,createD1PresenceStore,validPublisher}=(()=>{${ingest}\nreturn {createPresenceIngest,createD1PresenceStore,validPublisher};})();\nconst ARMUT_STATIC_ASSETS=${JSON.stringify(assets)};\n${worker}`;
+const bundle=`const {createPresenceIngest,createD1PresenceStore,createKVPresenceStore,validPublisher}=(()=>{${ingest}\nreturn {createPresenceIngest,createD1PresenceStore,createKVPresenceStore,validPublisher};})();\nconst ARMUT_STATIC_ASSETS=${JSON.stringify(assets)};\n${worker}`;
 mkdirSync(join(out,'dist/server'),{recursive:true});mkdirSync(join(out,'.openai'),{recursive:true});
 writeFileSync(join(out,'dist/server/index.js'),bundle);
 const manifest=JSON.parse(readFileSync(join(root,'.openai/hosting.json'),'utf8'));delete manifest.static;

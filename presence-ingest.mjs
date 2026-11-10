@@ -17,6 +17,14 @@ export function createD1PresenceStore(binding){
   const result=await statement.run();if(result.meta?.changes!==1)reject('lease-conflict',409);
  }};
 }
+export function createKVPresenceStore(kv){
+ const mem=new Map();
+ return {
+  async load(deviceId='camera-02'){if(mem.has(deviceId))return mem.get(deviceId);const row=await kv.get('presence:'+deviceId,'json');if(row)mem.set(deviceId,row);return row?{revision:row.revision,state:row.state}:null;},
+  async loadAll(){return Array.from(mem.values());},
+  async save(previous,state,deviceId='camera-02'){const revision=(previous?.revision||0)+1;const record={revision,state};mem.set(deviceId,record);await kv.put('presence:'+deviceId,JSON.stringify(record));}
+ };
+}
 export function createPresenceIngest({store,now=()=>Date.now()}={}){
  function clock(){const t=now();if(!Number.isSafeInteger(t)||t<0)reject('clock-unavailable',503);return t;}
  function identity(body){if(!body||typeof body!=='object'||body.version!==1||body.publisherId!=='hub'||body.deviceId!=='camera-02'||body.componentId!=='presence-radar'||typeof body.bootId!=='string'||!hex.test(body.bootId))reject('identity');}

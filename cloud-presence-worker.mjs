@@ -1,23 +1,26 @@
 // Prepared owner-private Sites Worker: device-initiated HTTPS, durable radar state.
 // No VPN, LAN fetch, commands or camera frames.
-import {createPresenceIngest,createD1PresenceStore,validPublisher} from './presence-ingest.mjs';
-const reply=(status,body)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+import {createPresenceIngest,createD1PresenceStore,createKVPresenceStore,validPublisher} from './presence-ingest.mjs';
+const corsHeaders={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-Requested-With'};
+const reply=(status,body)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...corsHeaders}});
+function getStore(env){if(env.DB)return createD1PresenceStore(env.DB);if(env.KV)return createKVPresenceStore(env.KV);return null;}
 export default {
  async fetch(request,env={}){
-  const url=new URL(request.url);
+  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders});
+  const url=new URL(request.url),store=getStore(env);
   if(url.pathname==='/api/presence/hello'||url.pathname==='/api/presence/report'){
    if(request.method!=='POST')return reply(405,{error:'POST required'});
-   if(!env.DB||!env.PRESENCE_PUBLISH_TOKEN)return reply(503,{error:'Publisher not configured'});
+   if(!store||!env.PRESENCE_PUBLISH_TOKEN)return reply(503,{error:'Publisher not configured'});
    if(!await validPublisher(request.headers.get('Authorization'),env.PRESENCE_PUBLISH_TOKEN))return reply(401,{error:'Publisher authorization required'});
    if(!request.headers.get('content-type')?.startsWith('application/json'))return reply(415,{error:'JSON required'});
-   try{const body=await smallJson(request),ingest=createPresenceIngest({store:createD1PresenceStore(env.DB)});return reply(200,await (url.pathname.endsWith('/hello')?ingest.hello(body):ingest.report(body)));}
+   try{const body=await smallJson(request),ingest=createPresenceIngest({store});return reply(200,await (url.pathname.endsWith('/hello')?ingest.hello(body):ingest.report(body)));}
    catch(e){return reply([400,409,413].includes(e.status)?e.status:503,{error:[400,409,413].includes(e.status)?e.message:'Publication unavailable'});}
   }
   if(url.pathname==='/api/presence'||url.pathname==='/api/devices/status'){
    if(env.PUBLIC_ACCESS!=='true'&&!request.headers.get('oai-authenticated-user-id'))return reply(401,{error:'Sign-in required'});
    if(request.method!=='GET')return reply(405,{error:'Read-only'});
    const unknown={publisherId:'hub',deviceId:'camera-02',componentId:'presence-radar',bootId:null,value:null,ageMs:null,maxAgeMs:2000,sourceReady:false,devices:[{deviceId:'hub',role:'hub',online:false},{deviceId:'camera-02',role:'camera',online:false}]};
-   if(env.DB){try{return reply(200,await createPresenceIngest({store:createD1PresenceStore(env.DB)}).snapshot());}catch{return reply(503,unknown);}}
+   if(store){try{return reply(200,await createPresenceIngest({store}).snapshot());}catch{return reply(503,unknown);}}
    return reply(200,unknown);
   }
   if(url.pathname.startsWith('/api/'))return reply(404,{error:'Not found'});
