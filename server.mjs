@@ -13,7 +13,7 @@ import {cameraProfiles} from './camera-stream.mjs';
 const root=dirname(fileURLToPath(import.meta.url));
 const digest=v=>createHash('sha256').update(v).digest();
 const error=(status,message)=>Object.assign(new Error(message),{status});
-function atomic(path,value){const temporary=path+'.tmp';writeFileSync(temporary,JSON.stringify(value,null,2),{mode:0o600});const fd=openSync(temporary,'r');try{fsyncSync(fd);}finally{closeSync(fd);}renameSync(temporary,path);try{const parent=openSync(dirname(path),'r');try{fsyncSync(parent);}finally{closeSync(parent);}}catch(e){if(!['EPERM','EISDIR','EINVAL','ENOTSUP'].includes(e.code))throw e;}}
+function atomic(path,value){const temporary=path+'.tmp';writeFileSync(temporary,JSON.stringify(value,null,2),{mode:0o600});const fd=openSync(temporary,'r+');try{fsyncSync(fd);}finally{closeSync(fd);}renameSync(temporary,path);try{const parent=openSync(dirname(path),'r');try{fsyncSync(parent);}finally{closeSync(parent);}}catch(e){if(!['EPERM','EISDIR','EINVAL','ENOTSUP'].includes(e.code))throw e;}}
 function stored(path,fallback){try{return JSON.parse(readFileSync(path,'utf8'));}catch(e){if(e.code==='ENOENT')return fallback;throw new Error('Yerel kayıt okunamadı; mevcut dosya korunuyor.');}}
 function lockDirectory(dataDir){
  const path=join(dataDir,'controller.lock'),token=randomBytes(24).toString('base64url'),owner=JSON.stringify({pid:process.pid,token});
