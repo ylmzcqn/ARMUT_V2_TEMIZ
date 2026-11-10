@@ -8,7 +8,16 @@ Hub merkezli akış onaylandı. Aşağıdaki doğrudan Kamera 2 bileşenini akti
 
 Hello mevcut alanlara `publisherId:"hub"` ekler. `bootId` Hub yayıncı oturumudur. Report ayrıca `sourceBootId` (Kamera 2 boot_health.boot_id), `sourceSampleAgeMs`, `hubResidenceMs`, `sourceTransitMs` taşır; bunların toplamı `sampleAgeMs` ile birebir eşleşmelidir. Kaynak geçersizse value/sampleAgeMs ve üç yaş alanı null; sourceBootId biliniyorsa korunabilir, bilinmiyorsa null. Token yalnız Hub’da provision edilir. Nonce/sequence/sinceLeaseMs mekanizması değişmedi. Receiver sabit source camera-02/presence-radar dışında cihazı henüz kabul etmez; ilk gerçek kabul sonrası diğer sağlık kaynakları eklenir.
 
-`normalizeHubPresence({system,systemAgeMs,sourceTransitMs},{expectedHostname,expectedRole})` saf referans normalleştiricisidir; yerel Hub uygulaması gerçek güncel registry yaşını ve ölçülmüş/bounded ağ payını sağlamalıdır. Eski snapshot yeniden okununca yaş sıfırlanmaz. 2000ms sync döngüsü nedeniyle kesintili görünüm beklenebilir; eşiği gevşetmek yerine gerekirse Hub’dan kontrollü kısa GET yapılır. Ayrıntılar mevcut [mimari](ARCHITECTURE.md#güncel-karar-hub-merkezli-akış) içindedir.
+`normalizeHubPresence({system,systemAgeMs,sourceTransitMs},{expectedHostname,expectedRole})` saf referans normalleştiricisidir; yerel Hub uygulaması gerçek güncel registry yaşını ve ölçülmüş/bounded ağ payını sağlamalıdır. Eski snapshot yeniden okununca yaş sıfırlanmaz.
+
+### Radar Tazelik Uyum Kararı (<2000ms)
+- **V1 Sync Kısıtı:** Kamera 2'nin Hub'a `/api/node/sync` push döngüsü 2000 ms, hata durumunda 4000/8000 ms'dir. Tek yönlü push'ta ağ gecikmesi (`sourceTransitMs`) saat senkronizasyonu olmadan tam ölçülemez. Hub'da bekleme (`hubResidenceMs`) 0–2000 ms arasında salınır; sensör UART yaşı (`sourceSampleAgeMs`) ve ağ payı eklendiğinde döngü sonlarında toplam yaş 2000 ms sınırını aşarak düzenli olarak `null` (bilinmiyor) durumuna düşer (flicker).
+- **Kesin Çözüm (Önerilen Birincil Yol):** Hub, Kamera 2'nin mevcut `GET /api/system` (Bearer token korumalı) ucuna 1000 ms aralıklı, 800 ms zaman aşımlı, tek eşzamanlı kısa GET isteği yapar.
+  1. `sourceTransitMs` bizzat Hub tarafından ölçülür (`requestDurationMs`).
+  2. Hub içi bekleme (`hubResidenceMs`) 0–1000 ms aralığında kalır.
+  3. Toplam yaş (`sourceSampleAgeMs` + `requestDurationMs` + `hubResidenceMs`) daima 100–1150 ms bandında kalarak 2000 ms sınırını tavizsiz ve kesintisiz karşılar.
+  4. Kamera 2'de firmware değişikliği veya OTA gerektirmez; mevcut V1 HTTP API'si korunur.
+- **Yedek (Pasif Sync) Davranışı:** Hub yerel olarak GET yapamıyorsa ve yalnız `/api/node/sync` registry verisini kullanıyorsa, ağ payı bilinmiyorsa veya toplam yaş ≥2000 ms ise veri kesinlikle `null` döner; <2000 ms güvenlik sınırı asla gevşetilmez. Ayrıntılar mevcut [mimari](ARCHITECTURE.md#güncel-karar-hub-merkezli-akış) içindedir.
 
 ## Kamera 2 doğrudan cloud yayın bileşeni — yedek aday
 
