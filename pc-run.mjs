@@ -11,7 +11,7 @@ if (!cmd) {
 }
 
 execFileSync('git', ['fetch', 'origin', 'pc-bridge', '-q'], { stdio: 'ignore' });
-const raw = execFileSync('git', ['show', 'origin/pc-bridge:bridge.json'], { encoding: 'utf8' });
+const raw = execFileSync('git', ['show', 'FETCH_HEAD:bridge.json'], { encoding: 'utf8' });
 const bridge = JSON.parse(raw);
 
 const response = await fetch(bridge.publicHttpsUrl, {
