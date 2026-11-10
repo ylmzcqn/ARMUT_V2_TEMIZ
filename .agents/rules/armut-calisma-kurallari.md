@@ -15,9 +15,10 @@ trigger: always_on
   - Küçük, düşük riskli değişikliklerde yalnız etkilenen davranışın odaklı testlerini çalıştır; her küçük düzenlemeden sonra tüm regresyon paketini tekrarlama.
   - Ortak veya riskli değişikliklerde ve iş tamamlandığında tam regresyon doğrulaması (`node --test` ve `node source-check.mjs`) yap.
   - Kısa sonuç, doğrulama ve kalan sınırları bildir; rutin uzun çıktı ve istenmeyen görsel sunma.
-- **Güvenli Değişiklik ve Durum Ayrımı:**
+- **Güvenli Değişiklik, Uçtan Uca Sınama ve Durum Ayrımı:**
   - Kaynak değişikliğinden önce mevcut değişiklikleri kontrol et (`git status`) ve geri dönüş noktası oluştur. Eşzamanlı düzenlemeyi ezme.
   - *Planlandı*, *uygulandı*, *test edildi*, *yayımlandı* ve *fiziksel olarak gözlendi* durumlarını birbirinden ayır. Simülasyon veya kaynak testi fiziksel cihaz başarısı değildir.
+  - **Test Edilmemiş İddia Yasağı:** Herhangi bir aracı, dosyayı, uzak bağlantıyı veya özelliği hedef ortamın gerçek ağ/erişim sınırları altında (`localhost` yerine gerçek dış uçtan, uzak Git dalı görünürlüğünü doğrulayarak) bizzat sınamadan "yaptım / çalışıyor" deme.
 - **Gizlilik ve Yetki Sınırları:**
   - Gizli anahtarları, kişisel veriyi, görüntüleri ve yerel model dosyalarını Git'e ekleme.
   - Proje oluşturma veya kod düzenleme izni; cihaza firmware/OTA yükleme, servis başlatma/durdurma, dış yayın veya eski projeleri (`ESP_ARMUT_V1.1`) değiştirme izni değildir. Zamanlanmış otomasyon oluşturma isteği ayrıca açık olmalıdır.

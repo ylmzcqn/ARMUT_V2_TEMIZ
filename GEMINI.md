@@ -12,8 +12,9 @@ Bu dosya Antigravity (Yerel ve Bulut) tarafından her oturumda otomatik olarak y
   - Küçük, düşük riskli değişikliklerde yalnız etkilenen davranışın odaklı testlerini çalıştır (`node --test <ilgili-test>.test.mjs`); her küçük düzenlemeden sonra tüm regresyon paketini tekrarlama.
   - Ortak veya riskli değişikliklerde ve paket tamamlandığında tam regresyon doğrulaması (`node --test` ve `node source-check.mjs`) yap.
   - Kısa sonuç, doğrulama ve kalan sınırları bildir; rutin uzun çıktı ve istenmeyen görsel sunma.
-- **Durum ve Yetki Sınırları:**
+- **Durum, Doğrulama ve Yetki Sınırları:**
   - *Planlandı*, *uygulandı*, *test edildi*, *yayımlandı* ve *fiziksel olarak gözlendi* durumlarını birbirinden ayır. Simülasyon veya kaynak testi fiziksel cihaz başarısı değildir.
+  - **Hedef Ortam ve Görünürlük Sınaması (Zorunlu):** Bir dosya, servis, tünel veya köprü aracını ("hazır / çalışıyor" diyerek) kullanıcıya veya başka bir ajana bildirmeden önce hedef ortamın ağ sınırlarını (Cloud VM'in yerel/Tailscale IP'ye erişememesi gibi) ve Git dalı görünürlüğünü uçtan uca gerçek istekle sına; doğrulanmamış hiçbir adımı tamamlanmış sayma.
   - Gizli anahtarları, kişisel veriyi, görüntüleri ve yerel model dosyalarını Git'e ekleme.
   - Kod düzenleme izni; cihaza firmware/OTA yükleme, servis başlatma/durdurma veya dış yayın izni değildir.
 
