@@ -230,3 +230,7 @@ Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak co
 10 Kasım 2026 — yerel ajan görev paketi devri:
 - Bilgisayarda yapılması gereken işler kullanıcıdan bağımsız olarak yerelde çalışan ajana devredildi (`docs/YEREL_AJAN_TALIMATLARI.md`).
 - Öncelikli işler: PC tüneli/köprüsünün (`pc-bridge`) yenilenmesi, yerel V1 referansındaki (`ESP_ARMUT_V1.1`) radar callback'inin V2 bileşeniyle ESP-IDF 5.5 derlemesi (`idf.py build`), ev ağındaki cihazların canlı HTTP doğrulaması.
+
+10 Kasım 2026 — cloud-yerel bağlantı ajanı (local-bridge-agent) uygulandı:
+- Buluttaki yapay zekâ ajanlarından gelen istekleri yerel ortamda çalıştırmak ve çıktıyı cloud'a aktarmak için `local-bridge-agent.mjs` ve `YEREL-AJAN-BASLAT.cmd` hazırlandı.
+- Otomatik localhost.run SSH tüneli, düşme durumunda 5 saniyelik watchdog ile yeniden bağlanma, `bridge.json` metaverisini otomatik olarak `origin/pc-bridge` dalına push etme ve PowerShell ile güvenli komut yürütme sağlandı.

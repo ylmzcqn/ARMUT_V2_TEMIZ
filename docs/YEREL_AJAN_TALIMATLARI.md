@@ -15,23 +15,18 @@ Bu belge, kullanıcının Windows bilgisayarında (`C:\Users\icanp\OneDrive\Belg
 
 ---
 
-## 2. PC Köprüsünü (PC Bridge / Tünel) Yeniden Başlatma
-Buluttaki ajanın yereldeki ortamı doğrudan denetleyebilmesi için kullanılan HTTPS köprüsü şu anda `HTTP 502: no tunnel` vermektedir (tünel oturumu sonlanmış).
-1. Yerel köprü servisini (PowerShell / Node.js HTTP dinleyici ve localhost.run / Cloudflare / Tailscale tüneli) çalıştırın.
-2. Canlı tünel URL'sini ve token'ı `bridge.json` içine yazıp `origin/pc-bridge` dalına push edin:
-   ```json
-   {
-     "updatedAt": "ISO_TIMESTAMP",
-     "machine": "armut-windows-pc",
-     "publicHttpsUrl": "https://<yeni-tunel-adresi>.lhr.life/run",
-     "pingUrl": "https://<yeni-tunel-adresi>.lhr.life/ping",
-     "tailscaleUrl": "http://100.82.246.76:8099/run",
-     "token": "<guvenli-token>",
-     "v2Path": "C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ARMUT_V2_TEMIZ",
-     "v1Path": "C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ESP_ARMUT_V1.1"
-   }
-   ```
-3. Böylece buluttaki ajan `node pc-run.mjs "<komut>"` ile yereldeki çıktıları okuyabilir.
+## 2. PC Bağlantı Ajanını (Bridge Agent & Watchdog) Başlatma
+Buluttaki ajanın yereldeki ortamı doğrudan denetleyebilmesi ve komut yürütebilmesi için otomatik tünel izleyicili yerel bağlantı ajanı hazırlanmıştır:
+- **Tek tıkla başlatma:** `YEREL-AJAN-BASLAT.cmd` dosyasını çift tıklayarak veya terminalden çalıştırın:
+  ```powershell
+  node local-bridge-agent.mjs
+  ```
+- **Bu ajan ne yapar:**
+  1. Yerel `http://127.0.0.1:8099` üzerinde güvenli komut çalıştırma API'si açar.
+  2. `localhost.run` SSH tünelini başlatır ve canlı HTTPS URL'sini yakalar.
+  3. `bridge.json` metaverisini otomatik oluşturup GitHub `origin/pc-bridge` dalına anında push eder.
+  4. Tünel koparsa veya düşerse (watchdog) 5 saniye içinde otomatik yeniden bağlanır ve yeni URL'yi buluta bildirir.
+  5. Cloud'daki ajanlar `node pc-run.mjs "<komut>"` çağırdığında istekleri yerel Windows ortamında çalıştırıp çıktıyı buluta aktarır.
 
 ---
 
