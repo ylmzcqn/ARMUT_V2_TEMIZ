@@ -78,7 +78,9 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
    return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age,devices:extraDevices,pendingCommands:[]},commandsToDeliver);
   },
   async command(body){
-   if(!body||body.version!==1||typeof body.commandId!=='string'||typeof body.entityId!=='string'||typeof body.value!=='boolean')reject('invalid-command',400);
+   const isDisplayCmd=Boolean(body&&typeof body.entityId==='string'&&['hub-display-layout','hub-display-orientation','hub-display-expression'].includes(body.entityId));
+   const validValue=isDisplayCmd?(typeof body.value==='string'&&/^[a-z0-9_-]{1,32}$/i.test(body.value)):typeof body?.value==='boolean';
+   if(!body||body.version!==1||typeof body.commandId!=='string'||typeof body.entityId!=='string'||!validValue)reject('invalid-command',400);
    const previous=await store.load(),s=previous?.state;
    const targetBoot=body.bootId||s?.bootId||'hub';
    const cmd={commandId:body.commandId,entityId:body.entityId,value:body.value,bootId:targetBoot,at:clock()};

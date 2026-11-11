@@ -4,15 +4,18 @@
 // - Ağ kesintisinde üstel geri çekilme (exponential backoff) uygular; WAN çöktüğünde CPU ve DNS boğulması yapmaz.
 // - Komut iletiminde zaman aşımı denetimi ve otomatik yeniden deneme (retry) içerir.
 import http from 'node:http';
+import crypto from 'node:crypto';
 
 const HUB_URL = process.env.ARMUT_HUB_URL || 'http://192.168.1.118';
 const CAM02_URL = process.env.ARMUT_CAM02_URL || 'http://192.168.1.116';
+const CAM01_URL = process.env.ARMUT_CAM01_URL || 'http://192.168.1.119';
 const CLOUD_URL = process.env.ARMUT_CLOUD_URL || 'https://armut.armut-home.workers.dev';
 const PUBLISH_TOKEN = process.env.PRESENCE_PUBLISH_TOKEN || 'armut-hub-publisher-key-20261110-000000000000';
 const SYNC_PORT = Number(process.env.SYNC_PORT || 8098);
+const HUB_API_TOKEN = process.env.ARMUT_HUB_TOKEN || '';
 
-// Cloudflare Workers Free Tier günlük bütçe koruma sabitleri
-const NORMAL_CYCLE_MS = 1300;
+// Cloudflare Workers Free Tier günlük bütçe koruma sabitleri (2000ms tazelik sözleşmesi içinde en verimli aralık)
+const NORMAL_CYCLE_MS = 1600;
 const BUDGET_SAVER_CYCLE_MS = 3200;
 const DAILY_SOFT_BUDGET = 85000;
 const ENDPOINT_404_BACKOFF_MS = 10 * 60 * 1000; // 10 dakika
@@ -22,6 +25,20 @@ let sequence = 0;
 let hubBootId = 'a1ff8237';
 let consecutiveErrors = 0;
 let wakeSyncResolve = null;
+let lastSnapshotHash = '';
+let lastDisplayHash = '';
+
+function sha256Hex(buffer) {
+  return crypto.createHash('sha256').update(Buffer.from(buffer)).digest('hex');
+}
+
+function mapDisplayLayout(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'home' || v === 'status') return 'home';
+  if (v === 'assistant' || v === 'presence' || v === 'sensors') return 'assistant';
+  if (v === 'network' || v === 'system') return 'network';
+  return 'home';
+}
 
 function currentUtcDay() {
   return new Date().toISOString().slice(0, 10);
@@ -345,29 +362,14 @@ async function syncOnce() {
   lanState.lastReportOkAt = Date.now();
   lanState.lastSequence = sequence;
 
-  // Komut İletimi (Zaman Aşımı Korumalı ve 1 Kere Yeniden Denemeli)
+  // Doğrulanmış Firmware Uç Noktalarına Komut İletimi (Server.cpp & CloudPublisher.cpp Uyumlu)
   if (Array.isArray(nextLease.commands) && nextLease.commands.length > 0) {
     for (const cmd of nextLease.commands) {
       if (cmd.at && (Date.now() - cmd.at) > 45000) {
         console.warn(`[Cloud-Sync] 45 sn'yi aşan bayat komut atlandı -> entityId=${cmd.entityId}`);
         continue;
       }
-      console.log(`[Cloud-Sync] Komut yönlendiriliyor -> entityId=${cmd.entityId}, value=${cmd.value}`);
-      let sent = false;
-      for (let retry = 0; retry < 2 && !sent; retry++) {
-        try {
-          const cRes = await fetch(`${HUB_URL}/api/device/command`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' },
-            body: JSON.stringify(cmd),
-            signal: AbortSignal.timeout(2000)
-          });
-          if (cRes.ok) sent = true;
-        } catch (e) {
-          if (retry === 0) await new Promise(r => setTimeout(r, 150));
-          else console.warn(`[Cloud-Sync] Hub komut iletimi: ${e.message}`);
-        }
-      }
+      await dispatchHardwareCommand(cmd);
     }
   }
 
@@ -376,17 +378,120 @@ async function syncOnce() {
   }
 }
 
+async function postLanEndpoint(baseUrls, path, payload) {
+  for (const base of baseUrls) {
+    if (!base) continue;
+    for (let retry = 0; retry < 2; retry++) {
+      try {
+        const res = await fetch(`${base}${path}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${HUB_API_TOKEN}`
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(2000)
+        });
+        if (res.ok) return true;
+      } catch {
+        if (retry === 0) await new Promise(r => setTimeout(r, 120));
+      }
+    }
+  }
+  return false;
+}
+
+async function dispatchHardwareCommand(cmd) {
+  const { entityId, value } = cmd;
+  const hubTargets = [HUB_URL, 'http://armut-hub.local'];
+  console.log(`[Cloud-Sync] Donanım komutu uygulanıyor -> entityId=${entityId}, value=${value}`);
+
+  if (entityId === 'hub-relay') {
+    const ok = await postLanEndpoint(hubTargets, '/api/hardware', {
+      action: 'set',
+      name: 'relay',
+      on: Boolean(value)
+    });
+    if (!ok) console.warn('[Cloud-Sync] Hub röle komutu iletilemedi (Hub çevrimdışı olabilir).');
+    return ok;
+  }
+
+  if (entityId === 'hub-display-layout') {
+    const layout = mapDisplayLayout(value);
+    const ok = await postLanEndpoint(hubTargets, '/api/display', { layout });
+    if (ok) setTimeout(() => { void pushDisplayPreview(true); }, 350);
+    return ok;
+  }
+
+  if (entityId === 'hub-display-orientation') {
+    const orientation = ['auto', '0', '90', '180', '270'].includes(String(value)) ? String(value) : 'auto';
+    const ok = await postLanEndpoint(hubTargets, '/api/display', { orientation });
+    if (ok) setTimeout(() => { void pushDisplayPreview(true); }, 350);
+    return ok;
+  }
+
+  if (entityId === 'hub-display-expression') {
+    const ok = await postLanEndpoint(hubTargets, '/api/display', {
+      expression: String(value),
+      ttl_ms: 3000
+    });
+    if (ok) setTimeout(() => { void pushDisplayPreview(true); }, 250);
+    return ok;
+  }
+
+  if (entityId === 'cam02-led') {
+    const boolVal = Boolean(value);
+    const directOk = await postLanEndpoint([CAM02_URL, 'http://armut-camera-02.local'], '/api/hardware', {
+      action: 'set',
+      name: 'led',
+      on: boolVal
+    });
+    if (directOk) return true;
+    return await postLanEndpoint(hubTargets, '/api/devices/camera-02/command', {
+      led: boolVal,
+      output: boolVal
+    });
+  }
+
+  if (entityId === 'cam01-led') {
+    const boolVal = Boolean(value);
+    const directOk = await postLanEndpoint([CAM01_URL, 'http://armut-camera-01.local'], '/api/hardware', {
+      action: 'set',
+      name: 'led',
+      on: boolVal
+    });
+    if (directOk) return true;
+    return await postLanEndpoint(hubTargets, '/api/devices/camera-01/command', {
+      led: boolVal,
+      output: boolVal
+    });
+  }
+
+  // Diğer ESP32 düğümleri için Hub üzerinden kuyruklama (/api/devices/<id>/command)
+  const targetDevice = String(entityId).replace(/-(led|relay|switch)$/, '');
+  return await postLanEndpoint(hubTargets, `/api/devices/${encodeURIComponent(targetDevice)}/command`, {
+    led: Boolean(value),
+    output: Boolean(value)
+  });
+}
+
 let nextSnapshotAllowedAt = 0;
-async function pushCameraSnapshot() {
+async function pushCameraSnapshot(force = false) {
   if (cloudMetrics.budgetSaverActive) return;
   const now = Date.now();
-  if (now < nextSnapshotAllowedAt) return;
-  const intervalMs = lanState.cam02Presence ? 15000 : 60000;
+  if (!force && now < nextSnapshotAllowedAt) return;
+  const intervalMs = lanState.cam02Presence ? 20000 : 90000;
   nextSnapshotAllowedAt = now + intervalMs;
   try {
     const camRes = await fetch(`${CAM02_URL}/snapshot.jpg`, { signal: AbortSignal.timeout(2000) });
-    if (!camRes.ok) return;
+    if (!camRes.ok) {
+      cloudMetrics.snapshotEndpointSupported = 'camera_endpoint_unavailable';
+      return;
+    }
     const buf = await camRes.arrayBuffer();
+    const hash = sha256Hex(buf);
+    if (!force && hash === lastSnapshotHash) return;
+    lastSnapshotHash = hash;
     recordCloudRequest();
     const cloudRes = await fetch(`${CLOUD_URL}/api/camera/snapshot?deviceId=camera-02`, {
       method: 'POST',
@@ -407,15 +512,28 @@ async function pushCameraSnapshot() {
 }
 
 let nextDisplayAllowedAt = 0;
-async function pushDisplayPreview() {
-  if (!lanState.hubOnline || cloudMetrics.budgetSaverActive) return;
+async function pushDisplayPreview(force = false) {
+  if (cloudMetrics.budgetSaverActive) return;
+  if (!lanState.hubOnline) {
+    cloudMetrics.displayEndpointSupported = 'standby_hub_offline';
+    return;
+  }
   const now = Date.now();
-  if (now < nextDisplayAllowedAt) return;
-  nextDisplayAllowedAt = now + 20000;
+  if (!force && now < nextDisplayAllowedAt) return;
+  nextDisplayAllowedAt = now + 30000;
   try {
-    const dispRes = await fetch(`${HUB_URL}/api/display/preview`, { signal: AbortSignal.timeout(2000) });
+    const dispRes = await fetch(`${HUB_URL}/api/display/preview`, {
+      headers: { Authorization: `Bearer ${HUB_API_TOKEN}` },
+      signal: AbortSignal.timeout(2000)
+    });
     if (!dispRes.ok) return;
     const buf = await dispRes.arrayBuffer();
+    const hash = sha256Hex(buf);
+    if (!force && hash === lastDisplayHash) {
+      cloudMetrics.displayEndpointSupported = true;
+      return;
+    }
+    lastDisplayHash = hash;
     recordCloudRequest();
     const cloudRes = await fetch(`${CLOUD_URL}/api/hub/display/preview`, {
       method: 'POST',

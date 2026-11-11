@@ -510,6 +510,7 @@ function openHubDisplayModal(device,trigger){
           ...h,
           settings:{...h.settings,hubDisplay:nextDisplay}
         }));
+        await homePanel.syncHubDisplayHardware?.(nextDisplay,display);
       }
       dismissDialog();
     }catch(e){
