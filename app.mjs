@@ -25,15 +25,6 @@ let dirty = false;
 let saveMessage = '';
 const undoStack = [];
 let deviceFilter='all';
-let deviceQuery='';
-$('device-search').addEventListener('input',event=>{
- deviceQuery=event.target.value;renderDeviceCards();updateListStatus(true);
- $('device-search-clear').disabled=!deviceQuery;
-});
-$('device-search-clear').addEventListener('click',()=>{
- deviceQuery='';$('device-search').value='';$('device-search-clear').disabled=true;
- renderDeviceCards();updateListStatus(true);$('device-search').focus();
-});
 const filterDialog=createChoiceDialog({title:'Cihazları filtrele',onSelect:value=>{deviceFilter=value;renderDeviceCards();renderDeviceFilter();},returnFocus:()=>$('device-filter').querySelector('button'),renderIcon:choice=>artwork(choice.icon)});
 document.body.append(filterDialog.element);
 function element(tag, text, className) {
@@ -270,7 +261,7 @@ function renderSelection(focus = false) {
   if(filterDialog.element.open)filterDialog.element.close();
   if (dialog.open) dialog.close();
   if(homePanel?.show(location.hash)){
-    for(const id of ['overview','inventory','retry','device-filter','device-search-tools','device-empty'])$(id).hidden=true;
+    for(const id of ['overview','inventory','retry','device-filter','device-empty'])$(id).hidden=true;
     document.querySelector('.page-heading').hidden=true;
     $('nav-back').disabled=(!location.hash||location.hash==='#home')&&navigationPosition===0;
     if(focus){$('content').focus({preventScroll:true});window.scrollTo(0,0);}
@@ -286,8 +277,7 @@ function renderSelection(focus = false) {
   if(home&&data.devices.length)$('home-topology').append(devicesOverview(data.devices,id=>{location.hash=encodeURIComponent(id);}));
   $('detail').hidden = listing;
   $('device-filter').hidden=!listing||home||empty;
-  $('device-search-tools').hidden=!listing||home||empty;
-  $('device-empty').hidden=home||!listing || !data.devices.length || filterDevices(listedDevices(),deviceFilter,deviceQuery).length>0;
+  $('device-empty').hidden=home||!listing || !data.devices.length || filterDevices(listedDevices(),deviceFilter).length>0;
   renderDeviceFilter(listing&&!home);
   $('nav-back').disabled=home && navigationPosition===0;
   $('page-title').textContent = home ? 'Genel bakış' : listing ? 'Cihazlar' : device?.name || 'Cihaz bulunamadı';
@@ -299,8 +289,8 @@ function renderSelection(focus = false) {
     else link.removeAttribute('aria-current');
   }
   renderBreadcrumb(home,listing,device);
-  document.querySelector('.page-heading').hidden=!listing||(home&&!empty);
-  $('status').hidden=!listing||(home&&!empty);
+  document.querySelector('.page-heading').hidden=!listing||!empty;
+  $('status').hidden=!listing||!empty;
   const detail = $('detail'); detail.replaceChildren();
   if (listing) {
     if (focus) { $('content').focus({preventScroll:true}); window.scrollTo(0,0); }
@@ -355,11 +345,9 @@ function renderDeviceFilter(listing=true) {
   const button=element('button',undefined,'device-filter-trigger');button.type='button';button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-label',`Cihazları filtrele: ${current.name}`);button.append(element('span',current.name));
   button.addEventListener('click',()=>{filterDialog.setChoices(filterChoices(listedDevices(),deviceFilter),deviceFilter);filterDialog.open();});host.append(button);updateListStatus(true);
 }
-function updateListStatus(listing) {
+function updateListStatus() {
   if(!listedDevices().length){$('status').textContent='Envanter boş. inventory.json içinde henüz cihaz kaydı yok.';return;}
-  const visible=filterDevices(listedDevices(),deviceFilter,deviceQuery).length;
-  const count=listing&&(deviceFilter!=='all'||deviceQuery.trim())?`${visible} / ${listedDevices().length}`:String(listedDevices().length);
-  $('status').textContent=`${count} cihaz kaydı`;
+  $('status').textContent='';
 }
 function openHubDisplayModal(device,trigger){
   const currentHome=homePanel?.runtime?.home()||{};
@@ -523,7 +511,7 @@ function openHubDisplayModal(device,trigger){
 }
 function renderDeviceCards() {
   $('devices').replaceChildren();
-  const filtered=filterDevices(listedDevices(),deviceFilter,deviceQuery);
+  const filtered=filterDevices(listedDevices(),deviceFilter);
   for(const device of filtered){
     const link=element('a',undefined,'device-card');link.href=device.connectedRecord?`#device/${encodeURIComponent(device.id)}`:`#${encodeURIComponent(device.id)}`;
     if(device.id==='hub'){
@@ -556,8 +544,8 @@ function populateInventory() {
   $('inventory').hidden=!listedDevices().length;
 }
 async function start() {
-  $('device-search-tools').hidden=true;
   $('retry').hidden = true; $('inventory').hidden = true; $('overview').hidden = true; $('device-filter').hidden=true;
+  document.querySelector('.page-heading').hidden=false;$('status').hidden=false;
   $('status').textContent = 'Envanter okunuyor…';
   try {
     data = await loadInventory();

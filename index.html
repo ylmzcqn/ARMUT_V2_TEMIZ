@@ -17,15 +17,15 @@
 <div class="sidebar-bottom"><span>ARMUT V2</span><p>Birlikte, adım adım.</p></div>
 </aside>
 <div class="workspace">
-<header class="topbar"><button id="nav-back" class="nav-back" type="button" aria-label="Geri" title="Geri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7M7 12h14"/></svg></button><nav id="breadcrumbs" aria-label="Gezinme yolu"><h1 id="page-title" aria-current="page">Genel bakış</h1></nav></header>
+<header class="topbar"><button id="nav-back" class="nav-back" type="button" aria-label="Geri" title="Geri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7M7 12h14"/></svg></button><nav id="breadcrumbs" aria-label="Gezinme yolu"><h1 id="page-title" aria-current="page">Genel bakış</h1></nav><div id="device-filter" hidden></div></header>
 <main id="content" tabindex="-1">
-<div class="page-heading"><div><p id="page-description">Evinizin donanımı, tek bir yerde.</p></div><p id="status" role="status" aria-live="polite">Envanter okunuyor…</p><div id="device-filter" hidden></div></div>
+<div class="page-heading"><div><p id="page-description">Evinizin donanımı, tek bir yerde.</p></div><p id="status" role="status" aria-live="polite">Envanter okunuyor…</p></div>
 <button id="retry" type="button" hidden>Yeniden dene</button>
 <section id="overview" hidden>
 <div class="welcome"><div><h2>ARMUT’a hoş geldiniz.</h2><p>Önce evimizi tanıyoruz. Cihazlarınızı inceleyin, bağlantıları ve bildiklerimizin kaynağını görün.</p></div><svg class="home-art" viewBox="0 0 180 150" aria-hidden="true"><path d="m24 69 66-49 66 49M40 59v70h100V59M74 129V91h32v38M55 73h14v14H55m56-14h14v14h-14"/><path d="M90 9v-5m65 21 4-4M21 21l4 4"/></svg></div>
 <div class="section-heading"><h2>Evinizin bağlantıları</h2><a href="#devices">Tümünü gör</a></div><div id="home-topology"></div>
 </section>
-<section id="inventory" hidden aria-label="Cihaz envanteri"><div id="device-search-tools" class="device-search-tools" hidden><label for="device-search">Cihaz veya modül ara</label><div class="device-search-row"><input id="device-search" type="search" placeholder="Cihaz, model veya modül adı" autocomplete="off" aria-controls="devices"><button id="device-search-clear" type="button" disabled>Temizle</button></div></div><div id="devices" class="device-grid"></div><p id="device-empty" class="device-empty" role="status" hidden>Arama ve filtreye uygun cihaz yok. Aramayı temizleyin veya başka bir filtre seçin.</p><section id="detail" aria-labelledby="page-title" tabindex="-1" hidden></section></section>
+<section id="inventory" hidden aria-label="Cihaz envanteri"><div id="devices" class="device-grid"></div><p id="device-empty" class="device-empty" role="status" hidden>Seçilen filtreye uygun cihaz yok. Başka bir filtre seçin.</p><section id="detail" aria-labelledby="page-title" tabindex="-1" hidden></section></section>
 <noscript>Envanteri görüntülemek için JavaScript’i etkinleştirin. Kayıtları inventory.json dosyasından da okuyabilirsiniz.</noscript>
 </main>
 <footer>ARMUT V2 <span>·</span> Ev otomasyonu <span>·</span> <a href="./inventory.json">Veri kaynağı</a></footer>
