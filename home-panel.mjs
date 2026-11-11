@@ -77,125 +77,13 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
  function entityCard(entity){const c=card(entity.name,roomName(entity.roomId),'device');const status=el('p','','hp-value');status.dataset.entityLive=entity.id;c.append(status);if(entity.test)c.append(el('span','TEST · fiziksel cihaz değil','hp-pill'));
  if(entity.kind==='switch')c.append(actions(button('Aç',()=>runtime.command(entity.id,true)),button('Kapat',()=>runtime.command(entity.id,false),'hp-button secondary')));else if(entity.test)c.append(button('Varlığı değiştir',()=>runtime.simulatePresence()));return c;}
  function liveLine(id){const p=el('p','','hp-live');p.dataset.deviceLive=id;return p;}
- function renderHome(){
-  const h=get();
-  const solar=getSolarTimes(new Date(),h.settings.timeZone);
-  const timeStr=new Intl.DateTimeFormat('tr-TR',{hour:'2-digit',minute:'2-digit'}).format(new Date());
-
-  const hero=el('div',undefined,'hp-personal-header');
-  const greeting=el('div',undefined,'hp-greeting');
-  greeting.append(
-    el('h2',`Evim · ${timeStr}`),
-    el('p',`${solar.isDay?'☀️ Gündüz':'🌙 Gece'} · Gün batımı ${solar.sunset}`,'hp-solar-line')
-  );
-
-  const radarState=runtime.entityState('presence-radar');
-  const radarBadge=el('div',undefined,`hp-status-pill ${radarState.value?'is-active':''}`);
-  radarBadge.dataset.entityLive='presence-radar';
-  radarBadge.append(el('span',radarState.value?'🟢 Koridorda Hareket Var':'⚪ Ev Sakin'));
-  hero.append(greeting,radarBadge);
-  host.append(hero);
-
-  const isHttps=typeof location!=='undefined'&&location.protocol==='https:';
-  const grid=el('div',undefined,'hp-direct-grid');
-
-  // 1. KAMERA 2 (KORİDOR & RADAR)
-  const cam02=el('article',undefined,'hp-device-console is-camera-radar');
-  const cam02Head=el('div',undefined,'hp-console-head');
-  cam02Head.append(icon('cameras'),el('h3','Kamera 2 · Koridor'));
-
-  const cam02Radar=el('div',undefined,'hp-radar-live-box');
-  cam02Radar.dataset.entityLive='presence-radar';
-  cam02Radar.textContent=radarState.value?'🟢 Hareket Algılandı':'⚪ Hareket Yok';
-
-  const cam02ImgUrl=isHttps?'https://armut.armut-home.workers.dev/api/camera/snapshot?deviceId=camera-02':'http://192.168.1.116/snapshot.jpg';
-  const cam02Frame=el('div',undefined,'hp-camera-live-frame');
-  const cam02Img=el('img');
-  cam02Img.src=`${cam02ImgUrl}&_t=${Date.now()}`;
-  cam02Img.alt='Kamera 2 Canlı Görünüm';
-  cam02Img.onerror=()=>{cam02Img.style.display='none';};
-  cam02Frame.append(cam02Img);
-
-  const cam02Actions=el('div',undefined,'hp-actions hp-console-actions');
-  const cam02Spot=get().entities.find(e=>e.id==='cam02-led');
-  if(cam02Spot){
-    cam02Actions.append(
-      button('💡 Spot Aç',()=>runtime.command('cam02-led',true)),
-      button('Spot Kapat',()=>runtime.command('cam02-led',false),'hp-button secondary')
-    );
-  }
-  cam02Actions.append(
-    button('📸 Yenile',()=>{cam02Img.style.display='block';cam02Img.src=`${cam02ImgUrl}&_t=${Date.now()}`;},'hp-button secondary'),
-    link('Canlı Akış →','#cameras/camera-02','hp-link-btn'),
-    link('🔌 Pin Şeması →','#camera-02','hp-link-btn')
-  );
-  cam02.append(cam02Head,cam02Radar,cam02Frame,cam02Actions);
-  grid.append(cam02);
-
-  // 2. HUB (EV MERKEZİ & ST7789 EKRAN)
-  const hub=el('article',undefined,'hp-device-console is-hub');
-  const hubHead=el('div',undefined,'hp-console-head');
-  hubHead.append(icon('home'),el('h3','Hub · Ev Merkezi'));
-
-  const hubPreviewUrl=isHttps?'https://armut.armut-home.workers.dev/api/hub/display/preview':'http://192.168.1.118/api/display/preview';
-  const hubFrame=el('div',undefined,'hp-hub-display-frame');
-  const hubImg=el('img');
-  hubImg.src=`${hubPreviewUrl}?_t=${Date.now()}`;
-  hubImg.alt='Hub ST7789 Ekranı';
-  hubImg.onerror=()=>{hubImg.style.display='none';};
-  hubFrame.append(hubImg);
-
-  const exprRow=el('div',undefined,'hp-expr-row');
-  const sendExpr=async(e)=>{try{feedback(`${e} ifadesi ekrana iletildi.`,'ok');}catch(err){feedback(err.message);}};
-  exprRow.append(
-    button('❤️',()=>sendExpr('heart'),'hp-emoji-btn'),
-    button('⭐',()=>sendExpr('star'),'hp-emoji-btn'),
-    button('🙂',()=>sendExpr('smile'),'hp-emoji-btn'),
-    button('🌸',()=>sendExpr('flower'),'hp-emoji-btn')
-  );
-
-  const hubActions=el('div',undefined,'hp-actions hp-console-actions');
-  const hubRelay=get().entities.find(e=>e.id==='hub-relay');
-  if(hubRelay){
-    hubActions.append(
-      button('💡 Salon Işığı Aç',()=>runtime.command('hub-relay',true)),
-      button('Işığı Kapat',()=>runtime.command('hub-relay',false),'hp-button secondary')
-    );
-  }
-  hubActions.append(link('🔌 Pin Şeması →','#hub','hp-link-btn'));
-  hub.append(hubHead,hubFrame,exprRow,hubActions);
-  grid.append(hub);
-
-  // 3. KAMERA 1 (SALON KAMERASI)
-  const cam01=el('article',undefined,'hp-device-console is-camera');
-  const cam01Head=el('div',undefined,'hp-console-head');
-  cam01Head.append(icon('cameras'),el('h3','Kamera 1 · Salon'));
-
-  const cam01ImgUrl=isHttps?'https://armut.armut-home.workers.dev/api/camera/snapshot?deviceId=camera-01':'http://192.168.1.119/snapshot.jpg';
-  const cam01Frame=el('div',undefined,'hp-camera-live-frame');
-  const cam01Img=el('img');
-  cam01Img.src=`${cam01ImgUrl}&_t=${Date.now()}`;
-  cam01Img.alt='Kamera 1 Canlı Görünüm';
-  cam01Img.onerror=()=>{cam01Img.style.display='none';};
-  cam01Frame.append(cam01Img);
-
-  const cam01Actions=el('div',undefined,'hp-actions hp-console-actions');
-  const cam01Spot=get().entities.find(e=>e.id==='cam01-led');
-  if(cam01Spot){
-    cam01Actions.append(
-      button('💡 Salon Spot Aç',()=>runtime.command('cam01-led',true)),
-      button('Spot Kapat',()=>runtime.command('cam01-led',false),'hp-button secondary')
-    );
-  }
-  cam01Actions.append(
-    button('📸 Yenile',()=>{cam01Img.style.display='block';cam01Img.src=`${cam01ImgUrl}&_t=${Date.now()}`;},'hp-button secondary'),
-    link('Canlı Akış →','#cameras/camera-01','hp-link-btn'),
-    link('🔌 Pin Şeması →','#camera-01','hp-link-btn')
-  );
-  cam01.append(cam01Head,cam01Frame,cam01Actions);
-  grid.append(cam01);
-
-  host.append(grid);
+ function renderHome(){const h=get();const hero=el('div',undefined,'welcome hp-welcome');const copy=el('div');copy.append(el('h2','Eviniz, tek bir yerde.'),el('p','Odalar, kameralar ve günlük kontroller.'));const solar=getSolarTimes(new Date(),h.settings.timeZone);copy.append(el('p',`${solar.isDay?'☀️ Gündüz':'🌙 Gece'} · Gün doğumu ${solar.sunrise} · Gün batımı ${solar.sunset}`,'hp-solar-line'));const mode=select(copy,'Ev modu',Object.entries(modes),h.mode);mode.addEventListener('change',()=>runtime.setMode(mode.value).catch(e=>feedback(e.message)));hero.append(copy,icon('home'));host.append(hero);
+ const stats=el('div',undefined,'hp-stats');for(const [title,count,key]of [['Odalar',h.rooms.length,'rooms'],['Kameralar',catalog().filter(d=>d.icon==='camera'||d.role==='camera').length,'cameras'],['Otomasyonlar',h.automations.filter(a=>a.enabled).length,'automations']]){const a=link('',`#${key}`,'hp-stat');a.append(icon(key),el('strong',String(count)),el('span',title));stats.append(a);}host.append(stats);
+ heading('Hızlı erişim',link('Sahneler →','#scenes'));const shortcuts=el('div',undefined,'hp-grid');for(const key of ['rooms','cameras','automations']){const a=link('',`#${key}`,'hp-card hp-shortcut');a.append(icon(key),el('h2',titles[key]),el('span','Aç →','hp-muted'));shortcuts.append(a);}host.append(shortcuts);
+ const all=runtime.entities();if(all.length){heading('Kontroller');const g=grid();for(const e of all)g.append(entityCard(e));}
+ if(h.scenes.length){heading('Sahneler');const g=grid();for(const s of h.scenes.slice(0,3)){const c=card(s.name,`${s.actions.length} işlem`,'scenes');sceneResult(s,c);c.append(actions(sceneButton(s.id,'Uygula'),sceneButton(s.id,'Sahneyi dene',true)));g.append(c);}}
+ heading('Cihaz durumu',link('Donanım haritası →','#devices'));const devices=grid();for(const d of catalog()){const c=card(d.name,d.summary,d.icon==='camera'?'cameras':'device');c.append(liveLine(d.id),actions(link('Kontroller ve Ekran',`#device/${d.id}`),link('Donanım şeması',`#${encodeURIComponent(d.id)}`,'hp-button secondary')));devices.append(c);}
+ if(!h.rooms.length)host.append(el('p','İlk adım: Odalar’dan bir oda ekleyip cihazlarınızı yerleştirin.','hp-footnote'));
  }
  function renderConnectedDevice(){const device=catalog().find(d=>d.id===detail);if(!device){empty('Cihaz bulunamadı','Kayıt kaldırılmış olabilir.',link('Cihazlara dön','#devices'));return;}const c=card(device.name,device.role==='camera'?'Kamera':device.role==='hub'?'Ev merkezi':'ESP32 düğümü','device');c.append(liveLine(device.id),el('code',device.id,'hp-identifier'));host.append(c);if(device.id==='hub'||device.role==='hub'){const display=get().settings.hubDisplay||defaultHubDisplay();const pageName=displayPages.find(([k])=>k===display.defaultPage)?.[1]||'Durum ve Saat';const rotName=displayRotations.find(([k])=>k===display.rotation)?.[1]||'0° Dikey';heading('ST7789V3 Ekran');const dCard=card('1.69 inç 240×280 TFT',`Parlaklık: %${display.brightness ?? 80} · Yön: ${rotName} · Sayfa: ${pageName}`,'device');const isHttps=typeof location!=='undefined'&&location.protocol==='https:';const previewUrl=isHttps?'https://armut.armut-home.workers.dev/api/hub/display/preview':'http://192.168.1.118/api/display/preview';const previewImg=el('img',undefined,'hp-display-preview');previewImg.src=`${previewUrl}?_armut=${Date.now()}`;previewImg.alt='Hub ST7789V3 Ekran Önizlemesi';previewImg.style='max-width:240px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);margin:10px 0;display:block;';previewImg.onerror=()=>{previewImg.style.display='none';};dCard.append(previewImg);const exprActions=el('div',undefined,'hp-actions');const sendExpr=async(expression)=>{try{feedback(`${expression} ifadesi ekrana iletildi.`,'ok');}catch(e){feedback(e.message);}};exprActions.append(button('❤️ Kalp',()=>sendExpr('heart'),'hp-button secondary'),button('⭐ Yıldız',()=>sendExpr('star'),'hp-button secondary'),button('🙂 Gülümse',()=>sendExpr('smile'),'hp-button secondary'),button('🌸 Çiçek',()=>sendExpr('flower'),'hp-button secondary'),button('📸 Ekranı Yenile',()=>{previewImg.style.display='block';previewImg.src=`${previewUrl}?_armut=${Date.now()}`;},'hp-button secondary'));dCard.append(exprActions,actions(link('Ekran ayarlarını düzenle →','#settings'),link('Donanım pin şeması →',`#${encodeURIComponent(device.id)}`,'hp-button secondary')));host.append(dCard);}heading('Kontroller');const items=get().entities.filter(e=>e.deviceId===device.id);if(!items.length)host.append(el('p','İlk cihaz raporu geldiğinde desteklenen işlevler burada görünür.','hp-muted'));const g=grid();for(const e of items)g.append(entityCard(e));if(device.role==='camera')host.append(link('Kamera görüntüsü →',`#cameras/${device.id}`));host.append(link('Bağlantı ve oda ayarları →','#settings'));}
  function renderRooms(){const h=get();heading(detail?roomName(detail):'Yaşam alanları',button('Oda ekle',()=>roomForm()));const rooms=detail?h.rooms.filter(r=>r.id===detail):h.rooms;if(!rooms.length){empty('Evinizi odalarla düzenleyin','Cihazları odalara ayırın; kontrolleri aynı yerde toplayın.',button('İlk odayı ekle',()=>roomForm()));return;}const g=grid();for(const r of rooms){const c=card(r.name,`${r.deviceIds.length} cihaz · ${h.entities.filter(e=>e.roomId===r.id).length} işlev`,'rooms');c.append(actions(link('Odayı aç',`#rooms/${r.id}`),button('Düzenle',()=>roomForm(r),'hp-button secondary'),button('Sil',()=>remove('rooms',r.id),'hp-text-button')));for(const id of r.deviceIds)c.append(el('p',deviceName(id),'hp-muted'),liveLine(id));g.append(c);}
@@ -295,21 +183,4 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
  const visibility=()=>{if(document.hidden)cameraPlayer?.stop();};document.addEventListener('visibilitychange',visibility);
  return {show,leave,refreshLive,runtime,dispose(){leave();unsubscribe();presenceBridge.disconnect();runtime.dispose();host.remove();modal.remove();notice.remove();document.removeEventListener('visibilitychange',visibility);}};
 }
-export function extendNavigation(){
-  const nav=document.querySelector('.main-nav');
-  if(!nav)return;
-  nav.replaceChildren();
-  const homeLink=link('Evim','#home');
-  homeLink.dataset.view='home';
-  homeLink.prepend(icon('home'));
-  const devicesLink=link('Cihazlar & Pinler','#devices');
-  devicesLink.dataset.view='devices';
-  devicesLink.prepend(icon('device'));
-  const autoLink=link('Otomasyonlar','#automations');
-  autoLink.dataset.view='automations';
-  autoLink.prepend(icon('automations'));
-  const settingsLink=link('Ayarlar','#settings');
-  settingsLink.dataset.view='settings';
-  settingsLink.prepend(icon('settings'));
-  nav.append(homeLink,devicesLink,autoLink,settingsLink);
-}
+export function extendNavigation(){const nav=document.querySelector('.main-nav');for(const [key,title]of Object.entries(titles)){if(key==='home')continue;const a=link(title,`#${key}`,'');a.dataset.view=key;a.prepend(icon(key));nav.append(a);}const devices=nav.querySelector('[data-view="devices"]');devices.textContent='Cihazlar';devices.prepend(icon('device'));nav.insertBefore(nav.querySelector('[data-view="rooms"]'),devices);}

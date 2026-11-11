@@ -194,26 +194,3 @@
 .hp-solar-line{font-size:12px;color:var(--accent);margin:0 0 12px;display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:6px;background:#202f26;border:1px solid #3c5443}
 .hp-card.presence-active{border-color:#5ba374;box-shadow:0 0 16px #41855b40;background:#233027}
 .hp-value.is-detected{color:#8fe0a5;font-weight:600}
-
-/* Minimal Kişisel Konsol Tasarımı */
-.hp-personal-header{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1b2520,#23342a);border:1px solid #36483c;border-radius:16px;padding:22px 26px;margin-bottom:24px;flex-wrap:wrap;gap:16px}
-.hp-personal-header h2{font-size:24px;margin:0 0 6px;color:#e4efe7}
-.hp-status-pill{font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;background:#25332a;border:1px solid #3d5244;color:#a6b3aa;transition:all .2s ease}
-.hp-status-pill.is-active{background:#173822;border-color:#388e55;color:#79e09b;box-shadow:0 0 15px rgba(56,142,85,.4)}
-.hp-direct-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:20px}
-.hp-device-console{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;transition:border-color .2s}
-.hp-device-console:hover{border-color:#52705d}
-.hp-console-head{display:flex;align-items:center;gap:12px}
-.hp-console-head svg{width:22px;height:22px;color:var(--accent)}
-.hp-console-head h3{margin:0;font-size:17px;font-weight:600}
-.hp-camera-live-frame,.hp-hub-display-frame{width:100%;height:190px;background:#111613;border-radius:12px;border:1px solid #28362d;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.hp-camera-live-frame img,.hp-hub-display-frame img{width:100%;height:100%;object-fit:cover;border-radius:10px}
-.hp-radar-live-box{padding:10px 14px;background:#18221c;border-radius:10px;border:1px solid #2d3e33;font-size:13px;font-weight:600;color:#c0d3c5}
-.hp-expr-row{display:flex;gap:8px;justify-content:center}
-.hp-emoji-btn{font-size:18px;min-height:38px;padding:6px 12px;margin:0;background:#24352a;border:1px solid #3c5243;border-radius:8px;cursor:pointer}
-.hp-emoji-btn:hover{background:#314a3a;transform:scale(1.06)}
-.hp-console-actions{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.hp-console-actions button{margin:0}
-.hp-link-btn{display:inline-flex;align-items:center;font-size:13px;color:var(--accent);text-decoration:none;padding:8px 12px}
-@media(max-width:650px){.hp-personal-header{padding:18px 20px}.hp-personal-header h2{font-size:20px}.hp-direct-grid{grid-template-columns:1fr}}
-
