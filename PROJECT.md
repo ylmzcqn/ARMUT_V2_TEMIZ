@@ -12,6 +12,12 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 ## Güncel durum
 
+10 Kasım 2026 — IoT ajan devri, cloud worker senkronizasyonu ve canlı yayın güncellemesi:
+- Önceki IoT ajanının yerel port tarama denemeleri sonrası donduğu oturum incelendi; `build-cloud.mjs` aracı kök dizindeki tek dosyalık `cloudflare-worker.js` derlemesini de güncelleyecek şekilde bağlandı.
+- `cloudflare-worker.js` içine `/api/camera/snapshot` ve `/api/hub/display/preview` medya/ekran aktarım uç noktaları dahil edildi.
+- GitHub Pages canlı yayın dalı (`gh-pages`), `main` dalındaki en güncel commit ile eşitlendi (https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/).
+- Doğrulama: 163 Node testi ve taşınabilir kaynak bütünlük kontrolü (`source-check.mjs`) sıfır hatayla geçti.
+
 10 Kasım 2026 — Güneş döngüsü, gecikmeli otomasyonlar ve canlı radar kart vurgusu:
 - Güneş döngüsü (`getSolarTimes`): Enlem/gün açısı hesabı ile gün doğumu ve gün batımı hesaplanır. `trigger: 'sun'` (`sunrise` / `sunset`) otomasyon tetikleyicisi `home-model.mjs` ve `home-runtime.tick()` içine entegre edildi.
 - Gecikmeli otomasyon (`delaySeconds`): Tetiklendikten sonra komut gönderilmeden önce (0–86400 sn) bekleme desteği runtime seviyesinde sağlandı. Gecikme sırasında kural değişirse işlem güvenle iptal edilir.
