@@ -26,6 +26,7 @@
 | 8 | Hub ST7789 Screen Mode Modal | Click on Hub card in devices tab opens modal to select display screen modes (`status`, `presence`, `sensors`, `system`), brightness, rotation, timeout, and persist via `runtime.update` | M2 | Survey 3, R3 | DONE |
 | 9 | Preserve Devices Page Design & Schematics | Keep `hardwareMapView`, interactive pin wiring, and schematic preview intact with zero visual/functional regressions | M3 | Survey 1 & 3, R4 | DONE |
 | 10 | Repository Verification & Cloud Build | Pass `node source-check.mjs`, all 163+ tests in `node --test`, and `node build-cloud.mjs` | M3 | Acceptance Criteria | DONE |
+| 11 | Event-Driven JSON MQTT Architecture | Standardized JSON MQTT protocol (`armut/devices/+/state`, `events`, `status`, `commands`), ESP-IDF C component (`armut_mqtt`), command ACK handling, and host tests | M3 | System Stability | DONE |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |

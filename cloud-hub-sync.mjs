@@ -292,6 +292,54 @@ export function createGatewayService({
       return;
     }
 
+    const ackMatch = topic.match(/^armut\/commands(?:\/([^/]+))?\/ack$/);
+    if (ackMatch) {
+      let parsed;
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        return;
+      }
+      if (!parsed || typeof parsed !== 'object') return;
+      const tNow = now();
+      broadcastSse('command-ack', { ...parsed, at: tNow });
+      return;
+    }
+
+    const eventMatch = topic.match(/^armut\/devices\/([^/]+)\/events$/);
+    if (eventMatch) {
+      const devId = eventMatch[1];
+      let parsed;
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        return;
+      }
+      if (!parsed || typeof parsed !== 'object') return;
+      const tNow = now();
+      if (typeof parsed.presence === 'boolean' && devId === 'camera-02') {
+        lanState.cam02Online = true;
+        lanState.cam02Presence = parsed.presence;
+        lanState.cam02RadarOnline = true;
+        lanState.cam02SampleAgeMs = 10;
+        lanState.cam02UpdatedAt = tNow;
+        if (Number.isFinite(parsed.distanceCm)) {
+          lanState.cam02DistanceCm = parsed.distanceCm;
+        }
+      }
+      registry.upsert(devId, {
+        online: true,
+        direct: true,
+        extra: {
+          presence: parsed.presence,
+          distance: parsed.distanceCm
+        }
+      });
+      broadcastSse('device-event', { deviceId: devId, ...parsed, at: tNow });
+      triggerImmediateSync(`mqtt-event:${devId}`);
+      return;
+    }
+
     const stateMatch = topic.match(/^armut\/(?:devices|presence)\/([^/]+)(?:\/state)?$/);
     if (!stateMatch) return;
     const devId = stateMatch[1];

@@ -9,6 +9,7 @@ cJSON *cJSON_AddNumberToObject(cJSON *,const char *,double);
 cJSON *cJSON_AddBoolToObject(cJSON *,const char *,int);
 cJSON *cJSON_AddArrayToObject(cJSON *,const char *);
 int cJSON_AddItemToArray(cJSON *,cJSON *);
+int cJSON_AddItemToObject(cJSON *,const char *,cJSON *);
 void cJSON_Delete(cJSON *);
 char *cJSON_PrintUnformatted(const cJSON *);
 cJSON *cJSON_ParseWithLength(const char *,size_t);

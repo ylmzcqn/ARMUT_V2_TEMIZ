@@ -6,3 +6,4 @@ typedef int esp_err_t;
 #define ESP_ERR_TIMEOUT 3
 #define ESP_FAIL (-1)
 #define ESP_ERR_INVALID_STATE 4
+#define ESP_ERR_INVALID_SIZE 5

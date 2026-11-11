@@ -282,3 +282,64 @@ test('komut yanıti hedef cihazin bootId degerini doner ve legacy-strict modda h
   assert.equal(body.applied, true);
   assert.equal(body.bootId, 'c4dc00bb');
 });
+
+test('MQTT event ve komut ACK paketleri anında işlenir ve SSE ile iletilir', async t => {
+  const net = await import('node:net');
+  const gw = createGatewayService({
+    syncPort: 0,
+    mqttPort: 0,
+    enableCloudPush: false,
+    fetcher: async () => { throw new Error('offline'); }
+  });
+  await gw.start();
+  t.after(() => gw.close());
+  const mqttPort = gw.mqttBroker.stats().port;
+  const gwPort = gw.server.address().port;
+
+  // SSE istemcisi bağlanır
+  const sseEvents = [];
+  const sseCtrl = new AbortController();
+  t.after(() => sseCtrl.abort());
+  const sseRes = await fetch(`http://127.0.0.1:${gwPort}/api/events`, { signal: sseCtrl.signal });
+  const reader = sseRes.body.getReader();
+  const decoder = new TextDecoder();
+  (async () => {
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value);
+        sseEvents.push(text);
+      }
+    } catch {}
+  })();
+
+  const str = s => { const b = Buffer.from(s, 'utf8'); const h = Buffer.allocUnsafe(2); h.writeUInt16BE(b.length, 0); return Buffer.concat([h, b]); };
+  const sock = net.connect(mqttPort, '127.0.0.1');
+  t.after(() => sock.destroy());
+  await new Promise(resolve => sock.once('connect', resolve));
+
+  const connBody = Buffer.concat([str('MQTT'), Buffer.from([4, 0x02, 0, 30]), str('cam02-event-client')]);
+  sock.write(Buffer.concat([Buffer.from([0x10, connBody.length]), connBody]));
+  await new Promise(r => setTimeout(r, 30));
+
+  // Olay yayını (armut/devices/camera-02/events)
+  const eventPayload = JSON.stringify({ event: 'motion_detected', presence: true, distanceCm: 88 });
+  const eventBody = Buffer.concat([str('armut/devices/camera-02/events'), Buffer.from(eventPayload)]);
+  sock.write(Buffer.concat([Buffer.from([0x30, eventBody.length]), eventBody]));
+  await new Promise(r => setTimeout(r, 40));
+
+  const presence = gw.getPresencePayload();
+  assert.equal(presence.value, true);
+  assert.equal(gw.lanState.cam02DistanceCm, 88);
+
+  // Komut ACK yayını (armut/commands/ack)
+  const ackPayload = JSON.stringify({ commandId: 'cmd-disp-test', applied: true, code: 200 });
+  const ackBody = Buffer.concat([str('armut/commands/ack'), Buffer.from(ackPayload)]);
+  sock.write(Buffer.concat([Buffer.from([0x30, ackBody.length]), ackBody]));
+  await new Promise(r => setTimeout(r, 50));
+
+  assert.ok(sseEvents.some(e => e.includes('device-event') && e.includes('motion_detected')));
+  assert.ok(sseEvents.some(e => e.includes('command-ack') && e.includes('cmd-disp-test')));
+});
+
