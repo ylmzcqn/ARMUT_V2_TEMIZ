@@ -1,69 +1,69 @@
-import net from 'node:net';
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 
-function checkPort(host, port, timeout = 500) {
+// Read API_TOKEN from V1 secrets if available
+function getApiToken() {
+  const secretsPaths = [
+    'C:/Users/icanp/OneDrive/Belgeler/ChatGPT/ESP_ARMUT_V1.1/armut-hub/include/secrets.h',
+    'C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ESP_ARMUT_V1.1\\armut-hub\\include\\secrets.h',
+  ];
+  for (const p of secretsPaths) {
+    if (fs.existsSync(p)) {
+      const content = fs.readFileSync(p, 'utf8');
+      const m = content.match(/#define\s+API_TOKEN\s+"([^"]+)"/);
+      if (m) return m[1];
+    }
+  }
+  return '';
+}
+
+async function checkApi(ip, token) {
   return new Promise((resolve) => {
-    const socket = new net.Socket();
-    let status = 'closed';
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    socket.setTimeout(timeout);
-    socket.once('connect', () => {
-      status = 'open';
-      socket.destroy();
-      resolve(port);
-    });
-    socket.once('timeout', () => {
-      socket.destroy();
-      resolve(null);
-    });
-    socket.once('error', () => {
-      resolve(null);
+    const req = http.get({
+      host: ip,
+      port: 80,
+      path: '/api/system',
+      headers,
+      timeout: 1200,
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve({ ip, status: res.statusCode, data: parsed });
+        } catch {
+          resolve({ ip, status: res.statusCode, text: data.slice(0, 80) });
+        }
+      });
     });
 
-    socket.connect(port, host);
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.on('error', () => { resolve(null); });
   });
 }
 
-async function probeHost(host) {
-  console.log(`\n--- Hedef Taranıyor: ${host} ---`);
-  const ports = [80, 81, 8080, 8090, 8000, 8888, 3000, 5000, 23, 21, 554, 8266];
-  const results = await Promise.all(ports.map(p => checkPort(host, p)));
-  const openPorts = results.filter(Boolean);
-  console.log(`${host} Açık portlar:`, openPorts);
-
-  for (const port of openPorts) {
-    await new Promise((resolve) => {
-      const req = http.get({
-        host,
-        port,
-        path: '/',
-        timeout: 1500,
-      }, (res) => {
-        let body = '';
-        res.on('data', chunk => { body += chunk; });
-        res.on('end', () => {
-          console.log(`${host}:${port}/ => HTTP ${res.statusCode}, len: ${body.length}`);
-          if (body.length < 200) console.log(`  İçerik: ${body.trim()}`);
-          resolve();
-        });
-      });
-      req.on('error', (e) => {
-        console.log(`${host}:${port}/ => HTTP Hata: ${e.message}`);
-        resolve();
-      });
-      req.on('timeout', () => {
-        req.destroy();
-        console.log(`${host}:${port}/ => HTTP Zaman Aşımı`);
-        resolve();
-      });
-    });
-  }
-}
-
 async function main() {
-  await probeHost('192.168.1.103');
-  await probeHost('192.168.1.116');
-  await probeHost('192.168.1.118');
+  const token = getApiToken();
+  console.log(`API Token bulundu mu: ${Boolean(token)}`);
+
+  console.log('Taranıyor: 192.168.1.1 - 192.168.1.150...');
+  const ips = [];
+  for (let i = 1; i <= 150; i++) {
+    ips.push(`192.168.1.${i}`);
+  }
+
+  const results = await Promise.all(ips.map(ip => checkApi(ip, token)));
+  const active = results.filter(Boolean);
+
+  console.log(`\nAktif HTTP yanıtları (${active.length}):`);
+  for (const a of active) {
+    console.log(`[${a.ip}] HTTP ${a.status}:`, JSON.stringify(a.data || a.text));
+  }
 }
 
 main().catch(console.error);
