@@ -61,7 +61,7 @@ function createPresenceIngest({store,now=()=>Date.now()}={}){
   async report(body){
    identity(body);if(typeof body.nonce!=='string'||!/^[a-f0-9]{64}$/i.test(body.nonce))reject('lease');
    if(!Number.isSafeInteger(body.sequence)||body.sequence<=0||!Number.isSafeInteger(body.sinceLeaseMs)||body.sinceLeaseMs<0||!(body.value===null||typeof body.value==='boolean')||(body.value===null?body.sampleAgeMs!==null:!Number.isFinite(body.sampleAgeMs)||body.sampleAgeMs<0||body.sampleAgeMs>=2000))reject('sample');
-   if(body.devices!==undefined&&(!Array.isArray(body.devices)||body.devices.length>16))reject('devices');
+   if(body.devices!==undefined&&(!Array.isArray(body.devices)||body.devices.length>64))reject('devices');
    const parts=[body.sourceSampleAgeMs,body.hubResidenceMs,body.sourceTransitMs];
    if(body.value===null){if(parts.some(p=>p!==null)||!(body.sourceBootId===null||typeof body.sourceBootId==='string'&&/^[a-f0-9]{1,64}$/i.test(body.sourceBootId)))reject('source');}
    else if(typeof body.sourceBootId!=='string'||!/^[a-f0-9]{1,64}$/i.test(body.sourceBootId)||parts.some(p=>!Number.isSafeInteger(p)||p<0)||parts.reduce((a,b)=>a+b,0)!==body.sampleAgeMs)reject('source-age');
@@ -96,7 +96,7 @@ function createPresenceIngest({store,now=()=>Date.now()}={}){
     {deviceId:'hub',role:'hub',online:hubLive,bootId:hubLive?s.bootId:null,capabilities:['system','hub']},
     {deviceId:'camera-02',role:'camera',online:Boolean(fresh),bootId:fresh?s.sourceBootId:null,capabilities:['presence']}
    ];
-   if(Array.isArray(s?.devices)){for(const d of s.devices){if(d&&typeof d.deviceId==='string'&&!devices.some(x=>x.deviceId===d.deviceId))devices.push({...d,online:hubLive?Boolean(d.online):false,bootId:hubLive&&d.online?(d.bootId||null):null});}}
+   if(Array.isArray(s?.devices)){for(const d of s.devices){if(d&&typeof d.deviceId==='string'&&!devices.some(x=>x.deviceId===d.deviceId)){const isOnline=Boolean(d.direct?d.online:(hubLive?d.online:false));devices.push({...d,online:isOnline,bootId:isOnline?(d.bootId||null):null});}}}
    return {publisherId:'hub',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:Boolean(s),devices};
   }
  });
@@ -186,7 +186,7 @@ async function smallJson(request){
  if(!request.body)throw Object.assign(new Error('empty'),{status:400});
  const reader=request.body.getReader(),parts=[];let size=0,expired=false;
  const timer=setTimeout(()=>{expired=true;void reader.cancel().catch(()=>{});},2000);
- try{for(;;){const {done,value}=await reader.read();if(expired)throw new Error('timeout');if(done)break;size+=value.byteLength;if(size>1024)throw Object.assign(new Error('body-size'),{status:413});parts.push(value);}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.byteLength;}try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw Object.assign(new Error('JSON invalid'),{status:400});}}
+ try{for(;;){const {done,value}=await reader.read();if(expired)throw new Error('timeout');if(done)break;size+=value.byteLength;if(size>1792)throw Object.assign(new Error('body-size'),{status:413});parts.push(value);}const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.byteLength;}try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw Object.assign(new Error('JSON invalid'),{status:400});}}
  finally{clearTimeout(timer);await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
 

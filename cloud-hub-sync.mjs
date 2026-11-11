@@ -1,7 +1,7 @@
-// Hub ve Kamera 2'nin yerel telemetrisini Cloudflare Worker'a kota-güvenli (Free Tier <100k/gün)
-// ve olay-güdümlü (durum değişiminde <50ms anında iletim) olarak basan köprü.
-// Hub (192.168.1.118) kapalı olduğunda doğrudan Kamera 2'den (192.168.1.116) canlı LD2410C radar
-// verisini okur; tek örnek kilidi (port 8098) ile çakışmaları önler.
+// ARMUT V2 — Kota Korumalı ve Genişletilebilir Çoklu Cihaz Ağ Geçidi (Hub-Aggregated Multi-Device Gateway).
+// Evdeki tüm IoT cihazlarını (Hub, kameralar, röleler, sensörler, prizler) yerel ağda (LAN) toplar.
+// İster 3 ister 50 cihaz olsun, buluta tek bir toplu paket (Batch Payload) gönderir; bulut istek sayısını 1'de tutar.
+// Durum değiştiğinde (delta) anında (<50ms) tetiklenir; sabit durumda kota-dostu heartbeat gönderir.
 import http from 'node:http';
 
 const HUB_URL = process.env.ARMUT_HUB_URL || 'http://192.168.1.118';
@@ -10,8 +10,7 @@ const CLOUD_URL = process.env.ARMUT_CLOUD_URL || 'https://armut.armut-home.worke
 const PUBLISH_TOKEN = process.env.PRESENCE_PUBLISH_TOKEN || 'armut-hub-publisher-key-20261110-000000000000';
 const SYNC_PORT = Number(process.env.SYNC_PORT || 8098);
 
-// Kota koruma sabitleri (Cloudflare Workers Free Tier: 100.000 istek/gün)
-// 1300 ms döngü süresi = ~66.460 istek/gün (%33,5 güvenlik payı bırakır ve <2000ms tazeliği korur)
+// Cloudflare Workers Free Tier günlük bütçe koruma sabitleri
 const NORMAL_CYCLE_MS = 1300;
 const BUDGET_SAVER_CYCLE_MS = 3200;
 const DAILY_SOFT_BUDGET = 85000;
@@ -58,7 +57,58 @@ function triggerImmediateSync() {
   }
 }
 
-// Arka planda yerel ağ cihazlarını (Kamera 2 ve Hub) bloklamadan sorgulayan önbellek
+// Çoklu Cihaz Kayıt Havuzu (Hub-Aggregated Device Registry)
+class DeviceRegistry {
+  constructor() {
+    this.devices = new Map();
+    // Başlangıç bilinen cihaz çekirdeği
+    this.upsert('hub', { role: 'hub', online: false, bootId: 'a1ff8237', capabilities: ['system', 'hub'], direct: false });
+    this.upsert('camera-02', { role: 'camera', online: false, bootId: 'c4dc00bb', capabilities: ['presence', 'camera'], direct: true });
+    this.upsert('camera-01', { role: 'camera', online: false, bootId: '71a48c12', capabilities: ['camera'], direct: false });
+  }
+
+  upsert(deviceId, props) {
+    const existing = this.devices.get(deviceId) || {};
+    this.devices.set(deviceId, {
+      deviceId,
+      role: props.role || existing.role || 'node',
+      online: Boolean(props.online),
+      bootId: props.bootId || existing.bootId || null,
+      capabilities: props.capabilities || existing.capabilities || ['sensor'],
+      direct: props.direct !== undefined ? props.direct : existing.direct || false,
+      extra: { ...existing.extra, ...props.extra },
+      updatedAt: Date.now()
+    });
+  }
+
+  get(deviceId) {
+    return this.devices.get(deviceId);
+  }
+
+  getAllForReport() {
+    return Array.from(this.devices.values()).map(d => ({
+      deviceId: d.deviceId,
+      role: d.role,
+      online: d.online,
+      bootId: d.bootId,
+      capabilities: d.capabilities,
+      direct: d.direct
+    }));
+  }
+
+  getSignature() {
+    // Tüm cihazların durumunu özetleyen delta imzası; değiştiğinde anında sync tetikler
+    const parts = [];
+    for (const d of this.devices.values()) {
+      parts.push(`${d.deviceId}:${d.online ? 1 : 0}:${d.bootId || ''}:${d.extra?.presence ?? ''}:${d.extra?.distance ?? ''}`);
+    }
+    return parts.sort().join('|');
+  }
+}
+
+const registry = new DeviceRegistry();
+let lastKnownSignature = '';
+
 const lanState = {
   hubOnline: false,
   hubBootId: 'a1ff8237',
@@ -69,18 +119,11 @@ const lanState = {
   cam02SampleAgeMs: 10,
   cam02DistanceCm: 0,
   cam02UpdatedAt: 0,
-  cam01Online: false,
-  cam01BootId: '71a48c12',
   lastReportOkAt: 0,
-  lastSequence: 0,
-  lastReportedPresence: undefined,
-  lastReportedHubOnline: undefined
+  lastSequence: 0
 };
 
 async function pollLanOnce() {
-  const prevPresence = lanState.cam02Presence;
-  const prevHubOnline = lanState.hubOnline;
-
   const [hubOutcome, cam02Outcome] = await Promise.allSettled([
     fetch(`${HUB_URL}/api/devices`, {
       headers: { Authorization: 'Bearer ' },
@@ -95,6 +138,7 @@ async function pollLanOnce() {
   const now = Date.now();
   let gotCam02Direct = false;
 
+  // 1. Doğrudan Kamera 2 ve Radar Sorgusu
   if (cam02Outcome.status === 'fulfilled' && cam02Outcome.value) {
     const camSys = cam02Outcome.value;
     const radar = camSys.radar || {};
@@ -108,49 +152,73 @@ async function pollLanOnce() {
       : 10;
     lanState.cam02DistanceCm = radar.detection_distance_cm || 0;
     lanState.cam02UpdatedAt = now;
+
+    registry.upsert('camera-02', {
+      role: 'camera',
+      online: true,
+      bootId: lanState.cam02BootId,
+      capabilities: ['presence', 'camera'],
+      direct: true,
+      extra: { presence: lanState.cam02Presence, distance: lanState.cam02DistanceCm }
+    });
   }
 
+  // 2. Hub ve Hub'a Bağlı Tüm Cihazlar (Dinamik Cihaz Keşfi)
   if (hubOutcome.status === 'fulfilled' && hubOutcome.value) {
     const hubData = hubOutcome.value;
     lanState.hubOnline = true;
     if (hubData.boot_id && /^[a-f0-9]{8,64}$/i.test(hubData.boot_id)) {
       lanState.hubBootId = hubData.boot_id;
     }
-    const cam01 = hubData.devices?.find(d => d.device_id === 'camera-01');
-    lanState.cam01Online = Boolean(cam01?.online);
-    lanState.cam01BootId = cam01?.system?.boot_health?.boot_id || lanState.cam01BootId;
+    hubBootId = lanState.hubBootId;
 
-    if (!gotCam02Direct) {
-      const cam02 = hubData.devices?.find(d => d.device_id === 'camera-02');
-      if (cam02?.online && cam02.system?.radar?.online) {
-        const radar = cam02.system.radar;
-        lanState.cam02Online = true;
-        lanState.cam02BootId = cam02.system?.boot_health?.boot_id || lanState.cam02BootId;
-        lanState.cam02RadarOnline = typeof radar.presence === 'boolean';
-        lanState.cam02Presence = lanState.cam02RadarOnline ? radar.presence : null;
-        lanState.cam02SampleAgeMs = Number.isFinite(radar.sample_age_ms)
-          ? Math.min(25, Math.max(0, Math.round(radar.sample_age_ms)))
-          : 15;
-        lanState.cam02DistanceCm = radar.detection_distance_cm || 0;
-        lanState.cam02UpdatedAt = now;
+    registry.upsert('hub', {
+      role: 'hub',
+      online: true,
+      bootId: lanState.hubBootId,
+      capabilities: ['system', 'hub'],
+      direct: false
+    });
+
+    // Hub üzerinden rapor veren tüm bağlı cihazları otomatik olarak cihaza kaydet
+    if (Array.isArray(hubData.devices)) {
+      for (const d of hubData.devices) {
+        if (!d || !d.device_id) continue;
+        if (d.device_id === 'camera-02' && gotCam02Direct) continue; // Doğrudan okunan kamera-02 önceliklidir
+        registry.upsert(d.device_id, {
+          role: d.role || (d.device_id.startsWith('cam') ? 'camera' : 'node'),
+          online: Boolean(d.online),
+          bootId: d.system?.boot_health?.boot_id || d.boot_id || null,
+          capabilities: d.capabilities || [d.role || 'switch'],
+          direct: false
+        });
       }
     }
   } else {
     lanState.hubOnline = false;
-    lanState.cam01Online = false;
+    registry.upsert('hub', { role: 'hub', online: false, bootId: lanState.hubBootId, direct: false });
+    // Hub kapalıyken direct olmayan bağlı cihazları pasife çek
+    for (const [devId, dev] of registry.devices.entries()) {
+      if (!dev.direct && devId !== 'hub') {
+        registry.upsert(devId, { online: false });
+      }
+    }
   }
 
-  // 6 saniyeden uzun süredir Kamera 2 yanıt vermediyse çevrimdışı işaretle
+  // Kamera 2 zaman aşımı denetimi (6 saniye)
   if (now - lanState.cam02UpdatedAt > 6000) {
     lanState.cam02Online = false;
     lanState.cam02RadarOnline = false;
     lanState.cam02Presence = null;
+    registry.upsert('camera-02', { online: false, extra: { presence: null, distance: 0 } });
   }
 
-  // Olay-güdümlü tetikleme: varlık veya Hub çevrimiçi durumu değiştiyse anında buluta bas
-  if (lanState.cam02Presence !== prevPresence || lanState.hubOnline !== prevHubOnline) {
+  // Delta (Durum Değişimi) Denetimi: Herhangi bir cihazın durumunda değişim varsa ANINDA tetikle
+  const currentSig = registry.getSignature();
+  if (lastKnownSignature && currentSig !== lastKnownSignature) {
     triggerImmediateSync();
   }
+  lastKnownSignature = currentSig;
 }
 
 async function startLanPoller() {
@@ -158,7 +226,7 @@ async function startLanPoller() {
     try {
       await pollLanOnce();
     } catch {
-      /* LAN sorgu hatası döngüyü durdurmaz */
+      /* LAN hatası ana döngüyü bozmaz */
     }
     await new Promise(r => setTimeout(r, 500));
   }
@@ -208,6 +276,9 @@ async function syncOnce() {
   const totalAge = presenceVal === null ? null : (sourceSample + residence + transit);
   const camBootId = presenceVal === null ? null : lanState.cam02BootId;
 
+  // Tüm kayıtlı cihazları TEK bir toplu (batch) payload olarak hazırla
+  const batchDevices = registry.getAllForReport();
+
   const report = {
     version: 1,
     publisherId: 'hub',
@@ -223,11 +294,7 @@ async function syncOnce() {
     sourceSampleAgeMs: sourceSample,
     hubResidenceMs: residence,
     sourceTransitMs: transit,
-    devices: [
-      { deviceId: 'hub', role: 'hub', online: Boolean(lanState.hubOnline), bootId: lanState.hubBootId, capabilities: ['system', 'hub'] },
-      { deviceId: 'camera-02', role: 'camera', online: Boolean(isFreshCam02), bootId: lanState.cam02BootId, capabilities: ['presence'] },
-      { deviceId: 'camera-01', role: 'camera', online: Boolean(lanState.cam01Online), bootId: lanState.cam01BootId, capabilities: ['camera'] }
-    ]
+    devices: batchDevices
   };
 
   recordCloudRequest();
@@ -254,13 +321,12 @@ async function syncOnce() {
   sequence = nextSeq;
   lanState.lastReportOkAt = Date.now();
   lanState.lastSequence = sequence;
-  lanState.lastReportedPresence = presenceVal;
-  lanState.lastReportedHubOnline = lanState.hubOnline;
   consecutiveErrors = 0;
 
+  // Çift Yönlü Komut Dağıtımı (Buluttan Gelen Komutları Doğru Cihaza Dağıt)
   if (Array.isArray(nextLease.commands) && nextLease.commands.length > 0) {
     for (const cmd of nextLease.commands) {
-      console.log(`[Cloud-Sync] Cihaza komut yönlendiriliyor -> entityId=${cmd.entityId}, value=${cmd.value}`);
+      console.log(`[Cloud-Sync] Komut yönlendiriliyor -> entityId=${cmd.entityId}, value=${cmd.value}`);
       try {
         await fetch(`${HUB_URL}/api/device/command`, {
           method: 'POST',
@@ -273,8 +339,9 @@ async function syncOnce() {
       }
     }
   }
+
   if (sequence === 1 || sequence % 10 === 0) {
-    console.log(`[Cloud-Sync] Sync OK -> Radar=${presenceVal ? 'VAR' : presenceVal === false ? 'YOK' : 'OFFLINE'} (${lanState.cam02DistanceCm}cm), seq=${sequence}, reqToday=${cloudMetrics.dailyRequests}`);
+    console.log(`[Cloud-Sync] Batch Sync OK -> Cihazlar: ${batchDevices.length} adet, Radar=${presenceVal ? 'VAR' : presenceVal === false ? 'YOK' : 'OFFLINE'} (${lanState.cam02DistanceCm}cm), seq=${sequence}`);
   }
 }
 
@@ -283,7 +350,6 @@ async function pushCameraSnapshot() {
   if (cloudMetrics.budgetSaverActive) return;
   const now = Date.now();
   if (now < nextSnapshotAllowedAt) return;
-  // Varlık varken 15 saniyede bir, yokken 60 saniyede bir kare yükle (kota dostu)
   const intervalMs = lanState.cam02Presence ? 15000 : 60000;
   nextSnapshotAllowedAt = now + intervalMs;
   try {
@@ -307,7 +373,7 @@ async function pushCameraSnapshot() {
       cloudMetrics.snapshotEndpointSupported = true;
     }
   } catch {
-    /* Kamera karesi geçici olarak meşgulse döngüyü aksatma */
+    /* Hata ana akışı kesmez */
   }
 }
 
@@ -338,7 +404,7 @@ async function pushDisplayPreview() {
       cloudMetrics.displayEndpointSupported = true;
     }
   } catch {
-    /* Hub ekranı geçici olarak meşgulse döngüyü aksatma */
+    /* Hata ana akışı kesmez */
   }
 }
 
@@ -379,7 +445,10 @@ const lockServer = http.createServer((req, res) => {
   res.end(JSON.stringify({
     ok: true,
     service: 'cloud-hub-sync',
+    architecture: 'Hub-Aggregated Multi-Device Gateway',
     uptime: Math.round(process.uptime()),
+    deviceCount: registry.devices.size,
+    registeredDevices: registry.getAllForReport(),
     cloudMetrics,
     lanState
   }));
@@ -394,6 +463,6 @@ lockServer.on('error', err => {
 });
 
 lockServer.listen(SYNC_PORT, '127.0.0.1', () => {
-  console.log(`[Cloud-Sync] Başlatılıyor (Port ${SYNC_PORT}, Kota Korumalı ${NORMAL_CYCLE_MS}ms döngü): Hub=${HUB_URL}, Cam02=${CAM02_URL} -> Cloud=${CLOUD_URL}`);
+  console.log(`[Cloud-Sync] Ağ Geçidi Başlatıldı (Port ${SYNC_PORT}, Çoklu Cihaz Batch Modu): Hub=${HUB_URL}, Cam02=${CAM02_URL} -> Cloud=${CLOUD_URL}`);
   void loop();
 });
