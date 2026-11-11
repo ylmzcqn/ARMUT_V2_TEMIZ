@@ -158,6 +158,17 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
+function killProcessTree(proc) {
+  if (!proc || !proc.pid) return;
+  try {
+    if (process.platform === 'win32') {
+      execSync(`taskkill /pid ${proc.pid} /f /t`, { stdio: 'ignore' });
+    } else {
+      proc.kill('SIGKILL');
+    }
+  } catch {}
+}
+
 // 2. Git Üzerinden bridge.json Güncelleme
 function publishBridgeMetadata(publicUrl) {
   activeTunnelUrl = publicUrl;
@@ -182,29 +193,36 @@ function publishBridgeMetadata(publicUrl) {
   const tempJson = path.join(RUNNER_DIR, `.bridge-temp-${process.pid}.json`);
   fs.writeFileSync(tempJson, jsonText, 'utf8');
 
-  try {
-    console.log('[YEREL AJAN] bridge.json pc-bridge dalına aktarılıyor...');
-    const blobHash = execSync(`git hash-object -w "${tempJson}"`, { cwd: V2_PATH, encoding: 'utf8' }).trim();
-    const treeEntry = `100644 blob ${blobHash}\tbridge.json\n`;
-    const treeHash = execSync('git mktree', { cwd: V2_PATH, input: treeEntry, encoding: 'utf8' }).trim();
-
-    let parentArg = '';
+  let pushSuccess = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      execSync('git fetch origin pc-bridge -q', { cwd: V2_PATH, stdio: 'ignore' });
-      const parentHash = execSync('git rev-parse FETCH_HEAD', { cwd: V2_PATH, encoding: 'utf8' }).trim();
-      if (parentHash) parentArg = `-p ${parentHash}`;
-    } catch {}
+      console.log(`[YEREL AJAN] bridge.json pc-bridge dalına aktarılıyor (deneme ${attempt}/3)...`);
+      const blobHash = execSync(`git hash-object -w "${tempJson}"`, { cwd: V2_PATH, encoding: 'utf8' }).trim();
+      const treeEntry = `100644 blob ${blobHash}\tbridge.json\n`;
+      const treeHash = execSync('git mktree', { cwd: V2_PATH, input: treeEntry, encoding: 'utf8' }).trim();
 
-    const commitMsg = `Update live PC bridge endpoint [${new Date().toISOString()}]`;
-    const commitHash = execSync(`git commit-tree ${treeHash} ${parentArg} -m "${commitMsg}"`, { cwd: V2_PATH, encoding: 'utf8' }).trim();
+      let parentArg = '';
+      try {
+        execSync('git fetch origin pc-bridge -q', { cwd: V2_PATH, stdio: 'ignore' });
+        const parentHash = execSync('git rev-parse FETCH_HEAD', { cwd: V2_PATH, encoding: 'utf8' }).trim();
+        if (parentHash) parentArg = `-p ${parentHash}`;
+      } catch {}
 
-    execSync(`git push origin ${commitHash}:refs/heads/pc-bridge --force -q`, { cwd: V2_PATH, stdio: 'inherit' });
-    console.log(`[YEREL AJAN] Başarılı! Canlı köprü URL'si GitHub pc-bridge dalına push edildi: ${publicUrl}`);
-  } catch (err) {
-    console.error('[YEREL AJAN] bridge.json push hatası:', err.message);
-  } finally {
-    try { fs.unlinkSync(tempJson); } catch {}
+      const commitMsg = `Update live PC bridge endpoint [${new Date().toISOString()}]`;
+      const commitHash = execSync(`git commit-tree ${treeHash} ${parentArg} -m "${commitMsg}"`, { cwd: V2_PATH, encoding: 'utf8' }).trim();
+
+      execSync(`git push origin ${commitHash}:refs/heads/pc-bridge --force -q`, { cwd: V2_PATH, stdio: 'ignore' });
+      console.log(`[YEREL AJAN] Başarılı! Canlı köprü URL'si GitHub pc-bridge dalına push edildi: ${publicUrl}`);
+      pushSuccess = true;
+      break;
+    } catch (err) {
+      console.error(`[YEREL AJAN] bridge.json push hatası (deneme ${attempt}):`, err.message);
+      if (attempt < 3) {
+        try { execSync('ping 127.0.0.1 -n 3', { stdio: 'ignore' }); } catch {}
+      }
+    }
   }
+  try { fs.unlinkSync(tempJson); } catch {}
 }
 
 // 3. Tünel İzleyici ve Otomatik Yeniden Bağlanma (Watchdog)
@@ -224,7 +242,7 @@ function startTunnel() {
   const startupTimer = setTimeout(() => {
     if (currentSsh === ssh && !activeTunnelUrl) {
       console.warn('[YEREL AJAN] 25 sn içinde tünel URL alınamadı, SSH yeniden başlatılıyor...');
-      try { ssh.kill(); } catch {}
+      killProcessTree(ssh);
     }
   }, 25000);
 
@@ -278,7 +296,7 @@ setInterval(async () => {
   if (tunnelHealthFailures >= 2 && currentSsh) {
     console.warn('[YEREL AJAN] Tünel dışarıdan yanıt vermiyor (502/kopuk). Tünel yenileniyor...');
     tunnelHealthFailures = 0;
-    try { currentSsh.kill(); } catch {}
+    killProcessTree(currentSsh);
   }
 }, 25000);
 

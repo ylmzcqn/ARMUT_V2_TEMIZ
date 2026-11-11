@@ -1,7 +1,8 @@
-// ARMUT V2 — Kota Korumalı ve Genişletilebilir Çoklu Cihaz Ağ Geçidi (Hub-Aggregated Multi-Device Gateway).
-// Evdeki tüm IoT cihazlarını (Hub, kameralar, röleler, sensörler, prizler) yerel ağda (LAN) toplar.
-// İster 3 ister 50 cihaz olsun, buluta tek bir toplu paket (Batch Payload) gönderir; bulut istek sayısını 1'de tutar.
-// Durum değiştiğinde (delta) anında (<50ms) tetiklenir; sabit durumda kota-dostu heartbeat gönderir.
+// ARMUT V2 — Kota Korumalı ve Dayanıklı Çoklu Cihaz Ağ Geçidi (Hub-Aggregated Resilient Gateway).
+// - Tüm IoT cihazlarını yerel ağda (LAN) toplar, tek bir toplu paket (Batch Payload) içinde Cloudflare'a basar.
+// - mDNS / IP yedekliliği (armut-camera-02.local, armut-hub.local) ile DHCP değişimlerine dayanıklıdır.
+// - Ağ kesintisinde üstel geri çekilme (exponential backoff) uygular; WAN çöktüğünde CPU ve DNS boğulması yapmaz.
+// - Komut iletiminde zaman aşımı denetimi ve otomatik yeniden deneme (retry) içerir.
 import http from 'node:http';
 
 const HUB_URL = process.env.ARMUT_HUB_URL || 'http://192.168.1.118';
@@ -86,6 +87,13 @@ class DeviceRegistry {
   }
 
   getAllForReport() {
+    const now = Date.now();
+    // 24 saatten eski geçici cihazları bellekten temizle
+    for (const [id, d] of this.devices.entries()) {
+      if (!['hub', 'camera-02', 'camera-01'].includes(id) && (now - d.updatedAt) > 86400000) {
+        this.devices.delete(id);
+      }
+    }
     return Array.from(this.devices.values()).map(d => ({
       deviceId: d.deviceId,
       role: d.role,
@@ -97,7 +105,6 @@ class DeviceRegistry {
   }
 
   getSignature() {
-    // Tüm cihazların durumunu özetleyen delta imzası; değiştiğinde anında sync tetikler
     const parts = [];
     for (const d of this.devices.values()) {
       parts.push(`${d.deviceId}:${d.online ? 1 : 0}:${d.bootId || ''}:${d.extra?.presence ?? ''}:${d.extra?.distance ?? ''}`);
@@ -108,6 +115,8 @@ class DeviceRegistry {
 
 const registry = new DeviceRegistry();
 let lastKnownSignature = '';
+let cam02Failures = 0;
+let hubFailures = 0;
 
 const lanState = {
   hubOnline: false,
@@ -123,24 +132,41 @@ const lanState = {
   lastSequence: 0
 };
 
+async function fetchWithFallback(primaryUrl, fallbackUrl, path, opts) {
+  try {
+    const res = await fetch(`${primaryUrl}${path}`, opts);
+    if (res.ok) return await res.json();
+  } catch {}
+  if (fallbackUrl) {
+    try {
+      const fbRes = await fetch(`${fallbackUrl}${path}`, opts);
+      if (fbRes.ok) return await fbRes.json();
+    } catch {}
+  }
+  return null;
+}
+
 async function pollLanOnce() {
-  const [hubOutcome, cam02Outcome] = await Promise.allSettled([
-    fetch(`${HUB_URL}/api/devices`, {
+  const activeHubUrl = hubFailures > 2 ? 'http://armut-hub.local' : HUB_URL;
+  const activeCam02Url = cam02Failures > 2 ? 'http://armut-camera-02.local' : CAM02_URL;
+
+  const [hubData, camSys] = await Promise.all([
+    fetchWithFallback(HUB_URL, 'http://armut-hub.local', '/api/devices', {
       headers: { Authorization: 'Bearer ' },
       signal: AbortSignal.timeout(1100)
-    }).then(async r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))),
-    fetch(`${CAM02_URL}/api/system`, {
+    }),
+    fetchWithFallback(CAM02_URL, 'http://armut-camera-02.local', '/api/system', {
       headers: { Authorization: 'Bearer ' },
       signal: AbortSignal.timeout(1100)
-    }).then(async r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    })
   ]);
 
   const now = Date.now();
   let gotCam02Direct = false;
 
-  // 1. Doğrudan Kamera 2 ve Radar Sorgusu
-  if (cam02Outcome.status === 'fulfilled' && cam02Outcome.value) {
-    const camSys = cam02Outcome.value;
+  // 1. Kamera 2 & Radar
+  if (camSys) {
+    cam02Failures = 0;
     const radar = camSys.radar || {};
     gotCam02Direct = true;
     lanState.cam02Online = true;
@@ -161,11 +187,13 @@ async function pollLanOnce() {
       direct: true,
       extra: { presence: lanState.cam02Presence, distance: lanState.cam02DistanceCm }
     });
+  } else {
+    cam02Failures++;
   }
 
-  // 2. Hub ve Hub'a Bağlı Tüm Cihazlar (Dinamik Cihaz Keşfi)
-  if (hubOutcome.status === 'fulfilled' && hubOutcome.value) {
-    const hubData = hubOutcome.value;
+  // 2. Hub & Bağlı Cihazlar
+  if (hubData) {
+    hubFailures = 0;
     lanState.hubOnline = true;
     if (hubData.boot_id && /^[a-f0-9]{8,64}$/i.test(hubData.boot_id)) {
       lanState.hubBootId = hubData.boot_id;
@@ -180,11 +208,10 @@ async function pollLanOnce() {
       direct: false
     });
 
-    // Hub üzerinden rapor veren tüm bağlı cihazları otomatik olarak cihaza kaydet
     if (Array.isArray(hubData.devices)) {
       for (const d of hubData.devices) {
         if (!d || !d.device_id) continue;
-        if (d.device_id === 'camera-02' && gotCam02Direct) continue; // Doğrudan okunan kamera-02 önceliklidir
+        if (d.device_id === 'camera-02' && gotCam02Direct) continue;
         registry.upsert(d.device_id, {
           role: d.role || (d.device_id.startsWith('cam') ? 'camera' : 'node'),
           online: Boolean(d.online),
@@ -195,9 +222,9 @@ async function pollLanOnce() {
       }
     }
   } else {
+    hubFailures++;
     lanState.hubOnline = false;
     registry.upsert('hub', { role: 'hub', online: false, bootId: lanState.hubBootId, direct: false });
-    // Hub kapalıyken direct olmayan bağlı cihazları pasife çek
     for (const [devId, dev] of registry.devices.entries()) {
       if (!dev.direct && devId !== 'hub') {
         registry.upsert(devId, { online: false });
@@ -205,7 +232,7 @@ async function pollLanOnce() {
     }
   }
 
-  // Kamera 2 zaman aşımı denetimi (6 saniye)
+  // 6 saniyeden eski ise Kamera 2 çevrimdışı
   if (now - lanState.cam02UpdatedAt > 6000) {
     lanState.cam02Online = false;
     lanState.cam02RadarOnline = false;
@@ -213,7 +240,6 @@ async function pollLanOnce() {
     registry.upsert('camera-02', { online: false, extra: { presence: null, distance: 0 } });
   }
 
-  // Delta (Durum Değişimi) Denetimi: Herhangi bir cihazın durumunda değişim varsa ANINDA tetikle
   const currentSig = registry.getSignature();
   if (lastKnownSignature && currentSig !== lastKnownSignature) {
     triggerImmediateSync();
@@ -225,9 +251,7 @@ async function startLanPoller() {
   while (true) {
     try {
       await pollLanOnce();
-    } catch {
-      /* LAN hatası ana döngüyü bozmaz */
-    }
+    } catch {}
     await new Promise(r => setTimeout(r, 500));
   }
 }
@@ -264,7 +288,7 @@ async function syncOnce() {
   }
 
   const now = Date.now();
-  const sinceLeaseMs = Math.max(0, now - lease.receivedAt - 15);
+  const sinceLeaseMs = Math.max(0, now - lease.receivedAt - 20);
   const nextSeq = sequence + 1;
 
   const isFreshCam02 = lanState.cam02Online && lanState.cam02RadarOnline && (now - lanState.cam02UpdatedAt <= 6000);
@@ -276,7 +300,6 @@ async function syncOnce() {
   const totalAge = presenceVal === null ? null : (sourceSample + residence + transit);
   const camBootId = presenceVal === null ? null : lanState.cam02BootId;
 
-  // Tüm kayıtlı cihazları TEK bir toplu (batch) payload olarak hazırla
   const batchDevices = registry.getAllForReport();
 
   const report = {
@@ -321,21 +344,29 @@ async function syncOnce() {
   sequence = nextSeq;
   lanState.lastReportOkAt = Date.now();
   lanState.lastSequence = sequence;
-  consecutiveErrors = 0;
 
-  // Çift Yönlü Komut Dağıtımı (Buluttan Gelen Komutları Doğru Cihaza Dağıt)
+  // Komut İletimi (Zaman Aşımı Korumalı ve 1 Kere Yeniden Denemeli)
   if (Array.isArray(nextLease.commands) && nextLease.commands.length > 0) {
     for (const cmd of nextLease.commands) {
+      if (cmd.at && (Date.now() - cmd.at) > 45000) {
+        console.warn(`[Cloud-Sync] 45 sn'yi aşan bayat komut atlandı -> entityId=${cmd.entityId}`);
+        continue;
+      }
       console.log(`[Cloud-Sync] Komut yönlendiriliyor -> entityId=${cmd.entityId}, value=${cmd.value}`);
-      try {
-        await fetch(`${HUB_URL}/api/device/command`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' },
-          body: JSON.stringify(cmd),
-          signal: AbortSignal.timeout(2000)
-        });
-      } catch (e) {
-        console.warn(`[Cloud-Sync] Hub komut iletimi: ${e.message}`);
+      let sent = false;
+      for (let retry = 0; retry < 2 && !sent; retry++) {
+        try {
+          const cRes = await fetch(`${HUB_URL}/api/device/command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' },
+            body: JSON.stringify(cmd),
+            signal: AbortSignal.timeout(2000)
+          });
+          if (cRes.ok) sent = true;
+        } catch (e) {
+          if (retry === 0) await new Promise(r => setTimeout(r, 150));
+          else console.warn(`[Cloud-Sync] Hub komut iletimi: ${e.message}`);
+        }
       }
     }
   }
@@ -372,9 +403,7 @@ async function pushCameraSnapshot() {
     } else if (cloudRes.ok) {
       cloudMetrics.snapshotEndpointSupported = true;
     }
-  } catch {
-    /* Hata ana akışı kesmez */
-  }
+  } catch {}
 }
 
 let nextDisplayAllowedAt = 0;
@@ -403,9 +432,7 @@ async function pushDisplayPreview() {
     } else if (cloudRes.ok) {
       cloudMetrics.displayEndpointSupported = true;
     }
-  } catch {
-    /* Hata ana akışı kesmez */
-  }
+  } catch {}
 }
 
 async function waitForNextCycleOrWake(waitMs) {
@@ -428,13 +455,18 @@ async function loop() {
       await syncOnce();
       void pushCameraSnapshot();
       void pushDisplayPreview();
+      consecutiveErrors = 0;
     } catch (e) {
       consecutiveErrors++;
       console.error(`[Cloud-Sync Error]: ${e.message}`);
       lease = null;
     }
     const elapsed = Date.now() - cycleStart;
-    const targetMs = cloudMetrics.cycleTargetMs;
+    let targetMs = cloudMetrics.cycleTargetMs;
+    // Ağ kesintisinde üstel geri çekilme (exponential backoff: 1.3s -> 2s -> 4.3s -> max 15s)
+    if (consecutiveErrors > 0) {
+      targetMs = Math.min(15000, Math.round(1300 * Math.pow(1.5, Math.min(consecutiveErrors, 6))));
+    }
     const sleepMs = Math.max(180, targetMs - elapsed);
     await waitForNextCycleOrWake(sleepMs);
   }
@@ -445,9 +477,10 @@ const lockServer = http.createServer((req, res) => {
   res.end(JSON.stringify({
     ok: true,
     service: 'cloud-hub-sync',
-    architecture: 'Hub-Aggregated Multi-Device Gateway',
+    architecture: 'Hub-Aggregated Resilient Gateway',
     uptime: Math.round(process.uptime()),
     deviceCount: registry.devices.size,
+    consecutiveErrors,
     registeredDevices: registry.getAllForReport(),
     cloudMetrics,
     lanState
@@ -463,6 +496,6 @@ lockServer.on('error', err => {
 });
 
 lockServer.listen(SYNC_PORT, '127.0.0.1', () => {
-  console.log(`[Cloud-Sync] Ağ Geçidi Başlatıldı (Port ${SYNC_PORT}, Çoklu Cihaz Batch Modu): Hub=${HUB_URL}, Cam02=${CAM02_URL} -> Cloud=${CLOUD_URL}`);
+  console.log(`[Cloud-Sync] Dayanıklı Ağ Geçidi Başlatıldı (Port ${SYNC_PORT}): Hub=${HUB_URL}, Cam02=${CAM02_URL} -> Cloud=${CLOUD_URL}`);
   void loop();
 });
