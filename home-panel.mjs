@@ -126,7 +126,8 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
   }
   cam02Actions.append(
     button('📸 Yenile',()=>{cam02Img.style.display='block';cam02Img.src=`${cam02ImgUrl}&_t=${Date.now()}`;},'hp-button secondary'),
-    link('Canlı Akış →','#cameras/camera-02','hp-link-btn')
+    link('Canlı Akış →','#cameras/camera-02','hp-link-btn'),
+    link('🔌 Pin Şeması →','#camera-02','hp-link-btn')
   );
   cam02.append(cam02Head,cam02Radar,cam02Frame,cam02Actions);
   grid.append(cam02);
@@ -161,6 +162,7 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
       button('Işığı Kapat',()=>runtime.command('hub-relay',false),'hp-button secondary')
     );
   }
+  hubActions.append(link('🔌 Pin Şeması →','#hub','hp-link-btn'));
   hub.append(hubHead,hubFrame,exprRow,hubActions);
   grid.append(hub);
 
@@ -187,7 +189,8 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
   }
   cam01Actions.append(
     button('📸 Yenile',()=>{cam01Img.style.display='block';cam01Img.src=`${cam01ImgUrl}&_t=${Date.now()}`;},'hp-button secondary'),
-    link('Canlı Akış →','#cameras/camera-01','hp-link-btn')
+    link('Canlı Akış →','#cameras/camera-01','hp-link-btn'),
+    link('🔌 Pin Şeması →','#camera-01','hp-link-btn')
   );
   cam01.append(cam01Head,cam01Frame,cam01Actions);
   grid.append(cam01);
@@ -299,11 +302,14 @@ export function extendNavigation(){
   const homeLink=link('Evim','#home');
   homeLink.dataset.view='home';
   homeLink.prepend(icon('home'));
+  const devicesLink=link('Cihazlar & Pinler','#devices');
+  devicesLink.dataset.view='devices';
+  devicesLink.prepend(icon('device'));
   const autoLink=link('Otomasyonlar','#automations');
   autoLink.dataset.view='automations';
   autoLink.prepend(icon('automations'));
   const settingsLink=link('Ayarlar','#settings');
   settingsLink.dataset.view='settings';
   settingsLink.prepend(icon('settings'));
-  nav.append(homeLink,autoLink,settingsLink);
+  nav.append(homeLink,devicesLink,autoLink,settingsLink);
 }
