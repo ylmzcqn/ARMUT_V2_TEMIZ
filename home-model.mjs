@@ -5,6 +5,15 @@ const text=x=>typeof x==='string'&&x.trim().length>0&&x.length<=160;
 const id=x=>typeof x==='string'&&/^[a-zA-Z0-9][\w.-]{0,95}$/.test(x);
 const fail=message=>{throw new Error(message);};
 export function validEndpoint(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password&&!u.hash;}catch{return false;}}
+export function cloudPanelOrigin(){
+ if(typeof location==='undefined')return '';
+ const {protocol,hostname}=location;
+ if(protocol==='https:'&&hostname&&!hostname.includes('workers.dev')&&!['localhost','127.0.0.1','[::1]'].includes(hostname)){
+  return 'https://armut.armut-home.workers.dev';
+ }
+ return '';
+}
+export function panelApiUrl(path){return cloudPanelOrigin()+path;}
 export const displayPages=[['status','Durum ve Saat'],['presence','Varlık ve Radar'],['sensors','Sensör Değerleri'],['system','Sistem Bilgileri']];
 export const displayRotations=[[0,'0° Dikey (Standart)'],[90,'90° Yatay (Saat yönü)'],[180,'180° Ters dikey'],[270,'270° Ters yatay']];
 export const displayTimeouts=[[0,'Sürekli Açık (Zaman aşımı yok)'],[15,'15 saniye'],[30,'30 saniye'],[60,'1 dakika (60 sn)'],[120,'2 dakika (120 sn)'],[300,'5 dakika (300 sn)']];
@@ -28,7 +37,7 @@ export function defaultHome(){
   ],
   cameras:[
    {id:'cam-01',deviceId:'camera-01',name:'Salon Kamerası',roomId:'room-living',url:'http://192.168.1.119/stream',transport:'mjpeg'},
-   {id:'cam-02',deviceId:'camera-02',name:'Koridor Kamerası',roomId:'room-entry',url:'http://192.168.1.120/stream',transport:'mjpeg'}
+   {id:'cam-02',deviceId:'camera-02',name:'Koridor Kamerası',roomId:'room-entry',url:'http://192.168.1.116:81/stream',transport:'mjpeg'}
   ],
   automations:[
    {id:'auto-welcome',name:'Varlık Algılandığında Aydınlat',trigger:'state',sourceId:'presence-radar',expected:true,mode:'',cooldownSeconds:30,action:{entityId:'cam02-led',value:true},observeOnly:false,enabled:true},

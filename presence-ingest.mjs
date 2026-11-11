@@ -31,23 +31,31 @@ export function createMemoryPresenceStore(customMap){
 }
 export function createKVPresenceStore(kv){
  const mem=new Map();
- let lastKvWriteAt=0,lastVal=undefined;
+ let lastKvWriteAt=0,lastSignature='';
+ function devSig(state){
+  const list=(state?.devices||[]).map(d=>`${d.deviceId}:${d.online?1:0}:${d.bootId||''}`).sort().join(',');
+  return `${state?.bootId||''}|${state?.sourceBootId||''}|${state?.value}|${state?.pendingCommands?.length||0}|${list}`;
+ }
  return {
   async load(deviceId='camera-02'){
-   if(mem.has(deviceId))return mem.get(deviceId);
-   try{const row=await kv.get('presence:'+deviceId,'json');if(row)mem.set(deviceId,row);return row?{revision:row.revision,state:row.state}:null;}catch{return null;}
+   const cached=mem.get(deviceId)||null;
+   try{
+    const row=await kv.get('presence:'+deviceId,'json');
+    if(row&&(!cached||row.revision>=cached.revision)){mem.set(deviceId,row);return {revision:row.revision,state:row.state};}
+   }catch{}
+   return cached?{revision:cached.revision,state:cached.state}:null;
   },
   async loadAll(){return Array.from(mem.values());},
   async save(previous,state,deviceId='camera-02'){
    const revision=(previous?.revision||0)+1;
    const record={revision,state};
    mem.set(deviceId,record);
-   const now=Date.now();
-   const shouldWrite=lastVal!==state.value||(now-lastKvWriteAt)>60000;
+   const now=Date.now(),sig=devSig(state);
+   const shouldWrite=sig!==lastSignature||(now-lastKvWriteAt)>35000;
    if(shouldWrite){
-    lastVal=state.value;
+    lastSignature=sig;
     lastKvWriteAt=now;
-    try{await kv.put('presence:'+deviceId,JSON.stringify(record));}catch(e){/* KV kota ve ag sinirlari canli bellek akisini bozmaz */}
+    try{await kv.put('presence:'+deviceId,JSON.stringify(record));}catch{/* KV kota ve ağ sınırları canlı bellek akışını bozmaz */}
    }
   }
  };
@@ -74,19 +82,22 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
    const age=body.value===null?null:elapsed-body.sinceLeaseMs+body.sampleAgeMs+10;
    if(age!==null&&age>=2000)reject('sample-stale',409);
    const extraDevices=Array.isArray(body.devices)?body.devices.filter(d=>d&&typeof d.deviceId==='string'&&typeof d.online==='boolean'):s.devices||[];
-   const commandsToDeliver=[...(s.pendingCommands||[])];
+   const commandsToDeliver=(s.pendingCommands||[]).filter(c=>c&&typeof c.commandId==='string'&&(!Number.isFinite(c.at)||(time-c.at)<=45000));
    return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age,devices:extraDevices,pendingCommands:[]},commandsToDeliver);
   },
   async command(body){
    const isDisplayCmd=Boolean(body&&typeof body.entityId==='string'&&['hub-display-layout','hub-display-orientation','hub-display-expression'].includes(body.entityId));
    const validValue=isDisplayCmd?(typeof body.value==='string'&&/^[a-z0-9_-]{1,32}$/i.test(body.value)):typeof body?.value==='boolean';
-   if(!body||body.version!==1||typeof body.commandId!=='string'||typeof body.entityId!=='string'||!validValue)reject('invalid-command',400);
-   const previous=await store.load(),s=previous?.state;
+   if(!body||body.version!==1||typeof body.commandId!=='string'||!/^[a-zA-Z0-9_-]{1,96}$/.test(body.commandId)||typeof body.entityId!=='string'||!validValue)reject('invalid-command',400);
+   const previous=await store.load(),s=previous?.state,nowTime=clock();
    const targetBoot=body.bootId||s?.bootId||'hub';
-   const cmd={commandId:body.commandId,entityId:body.entityId,value:body.value,bootId:targetBoot,at:clock()};
+   const cmd={commandId:body.commandId,entityId:body.entityId,value:body.value,bootId:targetBoot,at:nowTime};
    if(s){
-    const pending=[...(s.pendingCommands||[]).slice(-15),cmd];
-    await store.save(previous,{...s,pendingCommands:pending});
+    const freshPending=(s.pendingCommands||[]).filter(c=>c&&(!Number.isFinite(c.at)||(nowTime-c.at)<=45000));
+    if(!freshPending.some(c=>c.commandId===cmd.commandId)){
+     const pending=[...freshPending.slice(-15),cmd];
+     await store.save(previous,{...s,pendingCommands:pending});
+    }
    }
    return {commandId:body.commandId,applied:true,value:body.value,bootId:targetBoot};
   },

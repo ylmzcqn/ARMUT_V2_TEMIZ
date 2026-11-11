@@ -1,5 +1,5 @@
-import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-16';
-import {validateHome} from './home-model.mjs?v=cloud20261110-16';
+import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261111-17';
+import {validateHome} from './home-model.mjs?v=cloud20261111-17';
 const clone=value=>structuredClone(value);
 async function readJson(response){if(!response.ok){let message=`HTTP ${response.status}`;try{const body=await response.json();if(typeof body.error==='string')message=body.error;}catch{}throw Object.assign(new Error(response.status===401?'Yerel sunucuya giriş gerekli. /login adresini açın.':message),{status:response.status});}const text=await response.text();if(text.length>2097152)throw new Error('Sunucu yanıtı çok büyük.');return JSON.parse(text);}
 export async function createPanelRuntime({inventory,fetcher=globalThis.fetch,baseUrl='',storage}={}){
@@ -77,6 +77,7 @@ export async function createRemoteHomeRuntime({inventory,fetcher=globalThis.fetc
   listDevices:()=>request('/api/devices'),provisionDevice,removeDevice,
   cameraConfig(config){return {...config,url:base+'/api/cameras/'+encodeURIComponent(config.id)+'/stream',profileUrl:config.profileUrl?base+'/api/cameras/'+encodeURIComponent(config.id)+'/profile':''};},
   cameraFetcher:(url,options={})=>fetcher(url,{...options,credentials:'same-origin',headers:{...options.headers,...(options.method&&options.method!=='GET'?{'X-CSRF-Token':csrf}:{})}}),
+  presenceCommand:payload=>request('/api/presence/command',{method:'POST',body:payload,timeout:5000}),
   subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},get demo(){return local.demo;},get connected(){return !paused&&!error;},get sourceError(){return error||latest?.controller?.sourceError||'';},get storageError(){return latest?.controller?.storageError||local.storageError;},get persistenceError(){return latest?.controller?.storageError||local.persistenceError;},get controllerInfo(){return clone(latest.controller);},
   dispose(){disposed=true;connectionVersion++;readAbort?.abort();clearTimeout(timer);unsubscribe();local.dispose();listeners.clear();}
  };

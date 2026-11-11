@@ -1,4 +1,4 @@
-import {visibleConnections} from './connection-view.mjs?v=cloud20261110-16';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261111-17';
 export function moduleActivity(device,index) {
  const part=device.presentation.components[index],events=[];
  for(const c of visibleConnections(device,index)){

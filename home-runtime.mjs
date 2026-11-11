@@ -1,6 +1,6 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-16';
-import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261110-16';
-import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes,getSolarTimes} from './home-model.mjs?v=cloud20261110-16';
+import {newId} from './browser-crypto.mjs?v=cloud20261111-17';
+import {createDeviceRuntime} from './device-runtime.mjs?v=cloud20261111-17';
+import {emptyHome,defaultHome,validateHome,ruleMatches,ruleAppliesOnDay,modes,getSolarTimes} from './home-model.mjs?v=cloud20261111-17';
 export const HOME_STORAGE_KEY='armut.home.v1';
 const uid=()=>newId();
 export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.fetch,now=()=>Date.now(),mono=()=>performance.now(),provider,manageAutomations=true}={}){
@@ -124,12 +124,18 @@ export function createHomeRuntime(inventory,{initial,storage,fetcher=globalThis.
   for(const change of changes)void event(change).catch(backgroundError);
  }
  function backgroundError(error){sourceError=`İşlem tamamlanamadı: ${error.message}`;announce();}
+ const devIdRe=/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$/;
  function receiveState(batch){
   if(demo)return;
   if(!batch||!Array.isArray(batch.devices)||batch.devices.length>64)throw new Error('Durum sözleşmesi geçersiz.');
   validateEntityBatch(batch.entities||[]);
-  const validator=createDeviceRuntime(registry,{now:mono});validator.beginSession('validation');const ids=new Set();let seq=0;
-  for(const item of batch.devices){if(ids.has(item.deviceId))throw new Error('Yinelenen cihaz gözlemi.');ids.add(item.deviceId);validator.ingest({...item,schemaVersion:1,sessionId:'validation',sequence:++seq});}
+  const ids=new Set(),allowedCaps=new Map(registry.map(r=>[r.deviceId,r]));
+  for(const item of batch.devices){
+   if(!item||typeof item.deviceId!=='string'||ids.has(item.deviceId))throw new Error('Yinelenen cihaz gözlemi.');
+   ids.add(item.deviceId);
+   const record=allowedCaps.get(item.deviceId);
+   if(!record||item.role!==record.role||!devIdRe.test(String(item.bootId||''))||typeof item.online!=='boolean'||(item.observationAgeMs!==null&&(!Number.isFinite(item.observationAgeMs)||item.observationAgeMs<0))||!Array.isArray(item.capabilities)||item.capabilities.some(v=>!record.capabilities.includes(v))||!Array.isArray(item.components)||item.components.length>64)throw new Error('Cihaz durumu reddedildi.');
+  }
   if(!connected){reset();connected=true;}
   const previous=new Map(home.entities.map(e=>[e.id,entityState(e.id)]));
   for(const item of batch.devices){const before=devices.status(item.deviceId);devices.ingest({...item,schemaVersion:1,sessionId:session,sequence:++sequence});if(before.bootId&&before.bootId!==item.bootId)for(const e of home.entities)if(e.deviceId===item.deviceId){values.delete(e.id);previous.delete(e.id);}}

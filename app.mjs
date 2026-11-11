@@ -1,18 +1,18 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261110-16';
-import {createPanelRuntime} from './remote-home.mjs?v=cloud20261110-16';
-import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261110-16';
-import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261110-16';
-import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261110-16';
-import {devicePresence} from './live-evidence.mjs?v=cloud20261110-16';
-import {moduleActivity} from './module-history.mjs?v=cloud20261110-16';
-import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261110-16';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261110-16';
-import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261110-16';
-import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261110-16';
-import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261110-16';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261110-16';
-import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261110-16';
-import {displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay} from './home-model.mjs?v=cloud20261110-16';
+import {newId} from './browser-crypto.mjs?v=cloud20261111-17';
+import {createPanelRuntime} from './remote-home.mjs?v=cloud20261111-17';
+import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261111-17';
+import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261111-17';
+import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261111-17';
+import {devicePresence} from './live-evidence.mjs?v=cloud20261111-17';
+import {moduleActivity} from './module-history.mjs?v=cloud20261111-17';
+import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261111-17';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261111-17';
+import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261111-17';
+import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261111-17';
+import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261111-17';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261111-17';
+import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261111-17';
+import {displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay,panelApiUrl} from './home-model.mjs?v=cloud20261111-17';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
@@ -360,10 +360,13 @@ function openHubDisplayModal(device,trigger){
   const previewBox=element('div',undefined,'hw-camera-preview-frame hw-display-frame');
   previewBox.style.maxWidth='220px';
   previewBox.style.margin='10px auto';
-  const isHttps=typeof location!=='undefined'&&location.protocol==='https:';
-  const previewUrl=isHttps?'https://armut.armut-home.workers.dev/api/hub/display/preview':'http://192.168.1.118/api/display/preview';
+  const previewUrl=panelApiUrl('/api/hub/display/preview');
   const img=element('img');
-  img.src=`${previewUrl}?_armut=${Date.now()}`;
+  if(homePanel?.runtime?.deviceStatus('hub')?.state==='online'){
+   img.src=`${previewUrl}?_armut=${Date.now()}`;
+  }else{
+   previewBox.style.display='none';
+  }
   img.alt='Hub ST7789 Ekran Önizlemesi';
   img.onerror=()=>{previewBox.style.display='none';};
   previewBox.append(img);

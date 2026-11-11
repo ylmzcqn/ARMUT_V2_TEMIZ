@@ -34,3 +34,33 @@ test('kamera snapshot ve hub display preview yayınlanır, saklanır ve GET ile 
  assert.equal(getPrevRes.headers.get('content-type'),'image/bmp');
 });
 
+test('komut kapısı özel modda oturum ister ve bozuk medya yüklemesini reddeder',async()=>{
+ const env={PRESENCE_PUBLISH_TOKEN:'fixture-key-0000000000000000000000'};
+ const cmdPayload=JSON.stringify({version:1,commandId:'c-auth-1',entityId:'hub-relay',value:true});
+ const unauthCmd=await worker.fetch(new Request('https://fixture.invalid/api/presence/command',{method:'POST',headers:{'Content-Type':'application/json'},body:cmdPayload}),env);
+ assert.equal(unauthCmd.status,401);
+ const authedCmd=await worker.fetch(new Request('https://fixture.invalid/api/presence/command',{method:'POST',headers:{'Content-Type':'application/json','oai-authenticated-user-id':'owner'},body:cmdPayload}),env);
+ assert.equal(authedCmd.status,200);
+ const badImg=await worker.fetch(new Request('https://fixture.invalid/api/camera/snapshot?deviceId=camera-02',{method:'POST',headers:{'Content-Type':'image/jpeg',Authorization:'Bearer '+env.PRESENCE_PUBLISH_TOKEN},body:new Uint8Array([1,2,3,4])}),env);
+ assert.equal(badImg.status,400);
+ const badId=await worker.fetch(new Request('https://fixture.invalid/api/camera/snapshot?deviceId=../../secret',{method:'GET'}),env);
+ assert.equal(badId.status,400);
+});
+
+test('KV deposu farklı isolate yazmalarını bellek önbelleğini aşarak görür',async()=>{
+ const backing=new Map();
+ const kv={
+  async get(k,type){const v=backing.get(k);if(!v)return null;return type==='json'?JSON.parse(v):v;},
+  async put(k,v){backing.set(k,typeof v==='string'?v:Buffer.from(v).toString('utf8'));}
+ };
+ const env={KV:kv,PRESENCE_PUBLISH_TOKEN:'fixture-key-0000000000000000000000'};
+ const {createKVPresenceStore,createPresenceIngest}=await import('./presence-ingest.mjs');
+ const storeA=createKVPresenceStore(kv),storeB=createKVPresenceStore(kv);
+ const ingestA=createPresenceIngest({store:storeA}),ingestB=createPresenceIngest({store:storeB});
+ const lease=await ingestA.hello({version:1,publisherId:'hub',deviceId:'camera-02',componentId:'presence-radar',bootId:'aa010001'});
+ await ingestA.report({...lease,version:1,publisherId:'hub',deviceId:'camera-02',componentId:'presence-radar',bootId:'aa010001',sequence:1,sinceLeaseMs:0,sourceBootId:'bb020002',value:true,sampleAgeMs:20,sourceSampleAgeMs:20,hubResidenceMs:0,sourceTransitMs:0});
+ const snapB=await ingestB.snapshot();
+ assert.equal(snapB.value,true);
+ assert.equal(snapB.bootId,'bb020002');
+});
+

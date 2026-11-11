@@ -1,8 +1,8 @@
-import {createLocalPresenceBridge} from './local-presence.mjs?v=cloud20261110-16';
-import {newId} from './browser-crypto.mjs?v=cloud20261110-16';
-import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261110-16';
-import {saveRecord,deleteRecord,serializeBackup,parseBackup,modes,weekDays,filterHistory,deletionImpact,displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay,getSolarTimes} from './home-model.mjs?v=cloud20261110-16';
-import {createCameraPlayer,cameraProfiles} from './camera-stream.mjs?v=cloud20261110-16';
+import {createLocalPresenceBridge} from './local-presence.mjs?v=cloud20261111-17';
+import {newId} from './browser-crypto.mjs?v=cloud20261111-17';
+import {createHomeRuntime} from './home-runtime.mjs?v=cloud20261111-17';
+import {saveRecord,deleteRecord,serializeBackup,parseBackup,modes,weekDays,filterHistory,deletionImpact,displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay,getSolarTimes,panelApiUrl,cloudPanelOrigin} from './home-model.mjs?v=cloud20261111-17';
+import {createCameraPlayer,cameraProfiles} from './camera-stream.mjs?v=cloud20261111-17';
 const titles={home:'Genel bakış',rooms:'Odalar',cameras:'Kameralar',automations:'Otomasyonlar',scenes:'Sahneler',history:'Geçmiş',settings:'Ayarlar'};
 const paths={home:'m3 10 9-7 9 7v10H3Z M9 20v-7h6v7',rooms:'M3 21V3h18v18M3 11h8V3m0 8v10m0-6h10',cameras:'M3 6h18v14H3z M7 6l2-3h6l2 3 M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0',automations:'m13 2-9 12h7l-1 8 10-13h-7z',scenes:'m12 3 2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9L2.5 9.2l5.9-.9Z',history:'M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v6l4 2',settings:'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',device:'M5 4h14v16H5z M9 8h6v8H9z',plus:'M12 5v14M5 12h14',radar:'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-14a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4zm0-6a2 2 0 1 0 2 2 2 2 0 0 0-2-2z'};
 const labels={unknown:'Durum bilinmiyor',online:'Çevrimiçi',offline:'Çevrimdışı',delayed:'Veri gecikti',stale:'Veri güncel değil',disconnected:'Bağlantı kesildi',unregistered:'Kayıt dışı'};
@@ -67,23 +67,27 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
  function roomName(id){return get().rooms.find(r=>r.id===id)?.name||'Oda atanmamış';}
  function catalog(){const entries=new Map(inventory.devices.map(d=>[d.id,d]));for(const d of get().devices||[])entries.set(d.id,{...entries.get(d.id),...d,icon:d.role==='camera'?'camera':entries.get(d.id)?.icon});return [...entries.values()].filter(d=>d.id!=='uno-history');}
  function deviceName(id){return catalog().find(d=>d.id===id)?.name||id;}
- function cameraSnapshotUrl(deviceId){const isHttps=typeof location!=='undefined'&&location.protocol==='https:';const base=isHttps?'https://armut.armut-home.workers.dev':'';return `${base}/api/camera/snapshot?deviceId=${encodeURIComponent(deviceId)}&_armut=${Date.now()}`;}
- function hubDisplayPreviewUrl(){const isHttps=typeof location!=='undefined'&&location.protocol==='https:';const base=isHttps?'https://armut.armut-home.workers.dev':'';return `${base}/api/hub/display/preview?_armut=${Date.now()}`;}
- async function dispatchHubDisplayCommand(entityId,value,lanPayload){
+ function cameraSnapshotUrl(deviceId){return panelApiUrl(`/api/camera/snapshot?deviceId=${encodeURIComponent(deviceId)}&_armut=${Date.now()}`);}
+ function hubDisplayPreviewUrl(){return panelApiUrl(`/api/hub/display/preview?_armut=${Date.now()}`);}
+ async function dispatchHubDisplayCommand(entityId,value){
   if(runtime.demo)return {ok:true,mode:'demo'};
-  const isHttps=typeof location!=='undefined'&&location.protocol==='https:';
-  if(!isHttps&&typeof fetch==='function'){
+  const hubBoot=runtime.deviceStatus('hub')?.bootId||'hub';
+  const payload={version:1,commandId:newId(),entityId,value:String(value),bootId:hubBoot};
+  if(runtime.remote&&typeof runtime.presenceCommand==='function'){
    try{
-    const lanRes=await fetch('http://192.168.1.118/api/display',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lanPayload),signal:AbortSignal.timeout(2000)});
-    if(lanRes.ok)return {ok:true,mode:'lan'};
-   }catch{}
+    const res=await runtime.presenceCommand(payload);
+    return {ok:Boolean(res?.applied),mode:res?.applied?'lan':(res?.mode||'offline')};
+   }catch{return {ok:false,mode:'offline'};}
   }
-  const cmdUrl=get().settings?.commandUrl||(isHttps?'https://armut.armut-home.workers.dev/api/presence/command':'/api/presence/command');
+  const cmdUrl=get().settings?.commandUrl||panelApiUrl('/api/presence/command');
   if(typeof fetch==='function'&&cmdUrl){
    try{
-    const hubBoot=runtime.deviceStatus('hub')?.bootId||'hub';
-    const res=await fetch(cmdUrl,{method:'POST',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:1,commandId:newId(),entityId,value:String(value),bootId:hubBoot}),signal:AbortSignal.timeout(4000)});
-    if(res.ok)return {ok:true,mode:runtime.deviceStatus('hub')?.state==='online'?'cloud-live':'cloud-queued'};
+    const res=await fetch(cmdUrl,{method:'POST',cache:'no-store',credentials:cloudPanelOrigin()?'omit':'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(4000)});
+    if(res.ok){
+     const body=await res.json().catch(()=>({}));
+     if(body?.applied===false)return {ok:false,mode:body.mode||'offline'};
+     return {ok:true,mode:runtime.deviceStatus('hub')?.state==='online'?'cloud-live':'cloud-queued'};
+    }
    }catch{}
   }
   return {ok:false,mode:'offline'};
@@ -91,10 +95,10 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
  async function syncHubDisplayHardware(nextDisplay,prevDisplay){
   const pageMap={status:'home',presence:'assistant',sensors:'assistant',system:'network',home:'home',assistant:'assistant',network:'network'};
   const targetLayout=pageMap[nextDisplay?.defaultPage]||'home';
-  const r1=await dispatchHubDisplayCommand('hub-display-layout',targetLayout,{layout:targetLayout});
+  const r1=await dispatchHubDisplayCommand('hub-display-layout',targetLayout);
   if(prevDisplay===undefined||String(nextDisplay?.rotation)!==String(prevDisplay?.rotation)){
    const targetRot=String(nextDisplay?.rotation??0);
-   await dispatchHubDisplayCommand('hub-display-orientation',targetRot,{orientation:targetRot});
+   await dispatchHubDisplayCommand('hub-display-orientation',targetRot);
   }
   return r1;
  }
@@ -233,7 +237,7 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
    }
   }
  }
- function renderConnectedDevice(){const device=catalog().find(d=>d.id===detail);if(!device){empty('Cihaz bulunamadı','Kayıt kaldırılmış olabilir.',link('Cihazlara dön','#devices'));return;}const c=card(device.name,device.role==='camera'?'Kamera':device.role==='hub'?'Ev merkezi':'ESP32 düğümü','device');c.append(liveLine(device.id),el('code',device.id,'hp-identifier'));host.append(c);if(device.id==='hub'||device.role==='hub'){const display=get().settings.hubDisplay||defaultHubDisplay();const pageName=displayPages.find(([k])=>k===display.defaultPage)?.[1]||'Durum ve Saat';const rotName=displayRotations.find(([k])=>k===display.rotation)?.[1]||'0° Dikey';heading('ST7789V3 Ekran');const dCard=card('1.69 inç 240×280 TFT',`Parlaklık: %${display.brightness ?? 80} · Yön: ${rotName} · Sayfa: ${pageName}`,'device');const isHttps=typeof location!=='undefined'&&location.protocol==='https:';const previewUrl=isHttps?'https://armut.armut-home.workers.dev/api/hub/display/preview':'http://192.168.1.118/api/display/preview';const previewImg=el('img',undefined,'hp-display-preview');previewImg.src=`${previewUrl}?_armut=${Date.now()}`;previewImg.alt='Hub ST7789V3 Ekran Önizlemesi';previewImg.style='max-width:240px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);margin:10px 0;display:block;';previewImg.onerror=()=>{previewImg.style.display='none';};dCard.append(previewImg);const exprActions=el('div',undefined,'hp-actions');const sendExpr=async(expression)=>{try{const res=await dispatchHubDisplayCommand('hub-display-expression',expression,{expression,ttl_ms:3000});if(res.mode==='lan'||res.mode==='cloud-live'||res.mode==='demo'){feedback(`${expression} ifadesi Hub ST7789 ekranına iletildi.`,'ok');setTimeout(()=>{previewImg.style.display='block';previewImg.src=`${previewUrl}?_armut=${Date.now()}`;},600);}else if(res.mode==='cloud-queued'){feedback(`${expression} komutu bulut kuyruğuna alındı (Hub çevrimiçi olduğunda uygulanacak).`,'ok');}else{feedback('Hub ekranına ulaşılamadı; bağlantı kapalı.','error');}}catch(e){feedback(e.message);}};exprActions.append(button('❤️ Kalp',()=>sendExpr('heart'),'hp-button secondary'),button('⭐ Yıldız',()=>sendExpr('star'),'hp-button secondary'),button('🙂 Gülümse',()=>sendExpr('smile'),'hp-button secondary'),button('🌸 Çiçek',()=>sendExpr('flower'),'hp-button secondary'),button('📸 Ekranı Yenile',()=>{previewImg.style.display='block';previewImg.src=`${previewUrl}?_armut=${Date.now()}`;},'hp-button secondary'));dCard.append(exprActions,actions(link('Ekran ayarlarını düzenle →','#settings'),link('Donanım pin şeması →',`#${encodeURIComponent(device.id)}`,'hp-button secondary')));host.append(dCard);}heading('Kontroller');const items=get().entities.filter(e=>e.deviceId===device.id);if(!items.length)host.append(el('p','İlk cihaz raporu geldiğinde desteklenen işlevler burada görünür.','hp-muted'));const g=grid();for(const e of items)g.append(entityCard(e));if(device.role==='camera')host.append(link('Kamera görüntüsü →',`#cameras/${device.id}`));host.append(link('Bağlantı ve oda ayarları →','#settings'));}
+ function renderConnectedDevice(){const device=catalog().find(d=>d.id===detail);if(!device){empty('Cihaz bulunamadı','Kayıt kaldırılmış olabilir.',link('Cihazlara dön','#devices'));return;}const c=card(device.name,device.role==='camera'?'Kamera':device.role==='hub'?'Ev merkezi':'ESP32 düğümü','device');c.append(liveLine(device.id),el('code',device.id,'hp-identifier'));host.append(c);if(device.id==='hub'||device.role==='hub'){const display=get().settings.hubDisplay||defaultHubDisplay();const pageName=displayPages.find(([k])=>k===display.defaultPage)?.[1]||'Durum ve Saat';const rotName=displayRotations.find(([k])=>k===display.rotation)?.[1]||'0° Dikey';heading('ST7789V3 Ekran');const dCard=card('1.69 inç 240×280 TFT',`Parlaklık: %${display.brightness ?? 80} · Yön: ${rotName} · Sayfa: ${pageName}`,'device');const hubOnline=runtime.deviceStatus('hub')?.state==='online';const previewImg=el('img',undefined,'hp-display-preview');if(hubOnline)previewImg.src=hubDisplayPreviewUrl();previewImg.alt='Hub ST7789V3 Ekran Önizlemesi';previewImg.style=`max-width:240px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);margin:10px 0;display:${hubOnline?'block':'none'};`;previewImg.onerror=()=>{previewImg.style.display='none';};dCard.append(previewImg);const exprActions=el('div',undefined,'hp-actions');const sendExpr=async(expression)=>{try{const res=await dispatchHubDisplayCommand('hub-display-expression',expression,{expression,ttl_ms:3000});if(res.mode==='lan'||res.mode==='cloud-live'||res.mode==='demo'){feedback(`${expression} ifadesi Hub ST7789 ekranına iletildi.`,'ok');setTimeout(()=>{previewImg.style.display='block';previewImg.src=hubDisplayPreviewUrl();},600);}else if(res.mode==='cloud-queued'){feedback(`${expression} komutu bulut kuyruğuna alındı (Hub çevrimiçi olduğunda uygulanacak).`,'ok');}else{feedback('Hub ekranına ulaşılamadı; bağlantı kapalı.','error');}}catch(e){feedback(e.message);}};exprActions.append(button('❤️ Kalp',()=>sendExpr('heart'),'hp-button secondary'),button('⭐ Yıldız',()=>sendExpr('star'),'hp-button secondary'),button('🙂 Gülümse',()=>sendExpr('smile'),'hp-button secondary'),button('🌸 Çiçek',()=>sendExpr('flower'),'hp-button secondary'),button('📸 Ekranı Yenile',()=>{previewImg.style.display='block';previewImg.src=hubDisplayPreviewUrl();},'hp-button secondary'));dCard.append(exprActions,actions(link('Ekran ayarlarını düzenle →','#settings'),link('Donanım pin şeması →',`#${encodeURIComponent(device.id)}`,'hp-button secondary')));host.append(dCard);}heading('Kontroller');const items=get().entities.filter(e=>e.deviceId===device.id);if(!items.length)host.append(el('p','İlk cihaz raporu geldiğinde desteklenen işlevler burada görünür.','hp-muted'));const g=grid();for(const e of items)g.append(entityCard(e));if(device.role==='camera')host.append(link('Kamera görüntüsü →',`#cameras/${device.id}`));host.append(link('Bağlantı ve oda ayarları →','#settings'));}
  function renderRooms(){
   const h=get();
   heading(detail?`Bölge: ${roomName(detail)}`:'Fiziksel Donanım Bölgeleri');
@@ -257,10 +261,12 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
     c.append(top,el('h2',d.name),el('p',d.summary||'ESP32 Akıllı Ev Düğümü','hp-muted'));
 
     if(d.id==='hub'||d.role==='hub'){
-     const hubFrame=el('div',undefined,'hw-camera-preview-frame hw-display-frame');
-     const hubImg=el('img');hubImg.src=hubDisplayPreviewUrl();hubImg.alt='ST7789 Ekranı';
-     hubImg.onerror=()=>{hubFrame.style.display='none';};
-     hubFrame.append(hubImg);c.append(hubFrame);
+     if(runtime.deviceStatus(d.id)?.state==='online'){
+      const hubFrame=el('div',undefined,'hw-camera-preview-frame hw-display-frame');
+      const hubImg=el('img');hubImg.src=hubDisplayPreviewUrl();hubImg.alt='ST7789 Ekranı';
+      hubImg.onerror=()=>{hubFrame.style.display='none';};
+      hubFrame.append(hubImg);c.append(hubFrame);
+     }
      const relay=h.entities.find(e=>e.deviceId===d.id&&e.kind==='switch');
      if(relay){
       c.append(el('strong',relay.name,'hp-identifier'));
@@ -369,7 +375,7 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
   if(target){
    const config=get().cameras.find(c=>c.deviceId===target)||{
     id:`cam-${target}`,deviceId:target,name:deviceName(target),
-    url:`http://192.168.1.${target==='camera-01'?'119':'120'}/stream`,
+    url:target==='camera-01'?'http://192.168.1.119/stream':'http://192.168.1.116:81/stream',
     transport:'mjpeg'
    };
    cameraView(config);
@@ -379,7 +385,7 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
   const isHttps=typeof location!=='undefined'&&location.protocol==='https:';
   let playback=runtime.cameraConfig?.(config)||structuredClone(config);
   if(isHttps&&playback.url?.startsWith('http://')){
-   playback.url=`https://armut.armut-home.workers.dev/api/camera/snapshot?deviceId=${config.deviceId||'camera-02'}`;
+   playback.url=panelApiUrl(`/api/camera/snapshot?deviceId=${encodeURIComponent(config.deviceId||'camera-02')}`);
    playback.transport='jpeg';
   }
   heading(config.name);const viewer=el('div',undefined,'hp-viewer');const image=el('img');image.alt=`${config.name} canlı kamera görüntüsü`;image.hidden=true;const message=el('p','Yayın hazır. Başlat düğmesine basın.','hp-camera-message');const stage=el('div',undefined,'hp-camera-stage');stage.append(image,message);const toolbar=el('div',undefined,'hp-camera-toolbar');const profile=select(toolbar,'Görüntü profili',Object.entries(cameraProfiles).map(([key,p])=>[key,p.name]),cameraProfile);const fps=el('span','FPS ölçülmedi','hp-pill');fps.setAttribute('aria-live','off');const status=el('span','Durduruldu','hp-muted');status.setAttribute('role','status');
@@ -539,7 +545,7 @@ export function createHomePanel({inventory,runtime:injectedRuntime}){
   }
   c.append(el('p','Kalıcı cloud backend’i ve eve özel veri yolu doğrulanana kadar canlı durum bilinmiyor kalır. Sites yayını ile geliştirme bilgisayarı ayrı ortamlardır.','hp-footnote'));host.append(c);
  }
-  function renderSettings(){const h=get();heading('Evinizin ayarları');renderController();if(!runtime.remote)renderPresenceBridge();const panel=el('div',undefined,'hp-card');panel.append(el('h2','Kayıt ve yedekleme'),el('p',runtime.remote?'Ev ayarları yerel denetleyicide saklanır ve bu sunucuya bağlanan paneller arasında paylaşılır.':'Odalar, işlevler, kameralar ve kurallar bu tarayıcıda saklanır. Başka bir cihaza taşımak için yedek indirin.','hp-muted'));if(runtime.storageError)panel.append(el('p',runtime.storageError,'hp-form-error'));if(!runtime.remote&&!storage)panel.append(el('p','Tarayıcı depolaması kullanılamıyor. Kapatmadan önce yedek indirin.','hp-form-error'));const file=el('input');file.type='file';file.accept='.json,application/json';file.hidden=true;file.addEventListener('change',async()=>{try{if(!file.files?.[0])return;if(file.files[0].size>1000000)throw new Error('Dosya en fazla 1 MB olabilir.');const next=parseBackup(await file.files[0].text());confirmDialog('Yedeği yükle',[`Mevcut ev ayarları bu yedekle değiştirilecek: ${next.rooms.length} oda, ${next.entities.length} işlev, ${next.automations.length} otomasyon ve ${next.scenes.length} sahne.`],async()=>{await runtime.setDemo(false);await runtime.update(()=>next,{recover:true});},'Yedeği yükle');}catch(e){feedback(e.message);}finally{file.value='';}});panel.append(file,actions(button('Yedek indir',()=>download(serializeBackup(runtime.backup()),`armut-ev-${new Date().toISOString().slice(0,10)}.json`)),button('Yedek yükle',()=>file.click(),'hp-button secondary'),button('Örnek akıllı evi yükle',()=>confirmDialog('Örnek akıllı evi yükle',['Mevcut ev kaydı hazır odalar (Giriş, Salon), kameralar, varlık sensörü, aydınlatma otomasyonları ve sahnelerle yenilenecektir.'],async()=>{const {defaultHome}=await import('./home-model.mjs?v=cloud20261110-16');await runtime.setDemo(false);await runtime.update(()=>defaultHome(),{recover:true});}),'hp-button secondary')));host.append(panel);
+  function renderSettings(){const h=get();heading('Evinizin ayarları');renderController();if(!runtime.remote)renderPresenceBridge();const panel=el('div',undefined,'hp-card');panel.append(el('h2','Kayıt ve yedekleme'),el('p',runtime.remote?'Ev ayarları yerel denetleyicide saklanır ve bu sunucuya bağlanan paneller arasında paylaşılır.':'Odalar, işlevler, kameralar ve kurallar bu tarayıcıda saklanır. Başka bir cihaza taşımak için yedek indirin.','hp-muted'));if(runtime.storageError)panel.append(el('p',runtime.storageError,'hp-form-error'));if(!runtime.remote&&!storage)panel.append(el('p','Tarayıcı depolaması kullanılamıyor. Kapatmadan önce yedek indirin.','hp-form-error'));const file=el('input');file.type='file';file.accept='.json,application/json';file.hidden=true;file.addEventListener('change',async()=>{try{if(!file.files?.[0])return;if(file.files[0].size>1000000)throw new Error('Dosya en fazla 1 MB olabilir.');const next=parseBackup(await file.files[0].text());confirmDialog('Yedeği yükle',[`Mevcut ev ayarları bu yedekle değiştirilecek: ${next.rooms.length} oda, ${next.entities.length} işlev, ${next.automations.length} otomasyon ve ${next.scenes.length} sahne.`],async()=>{await runtime.setDemo(false);await runtime.update(()=>next,{recover:true});},'Yedeği yükle');}catch(e){feedback(e.message);}finally{file.value='';}});panel.append(file,actions(button('Yedek indir',()=>download(serializeBackup(runtime.backup()),`armut-ev-${new Date().toISOString().slice(0,10)}.json`)),button('Yedek yükle',()=>file.click(),'hp-button secondary'),button('Örnek akıllı evi yükle',()=>confirmDialog('Örnek akıllı evi yükle',['Mevcut ev kaydı hazır odalar (Giriş, Salon), kameralar, varlık sensörü, aydınlatma otomasyonları ve sahnelerle yenilenecektir.'],async()=>{const {defaultHome}=await import('./home-model.mjs?v=cloud20261111-17');await runtime.setDemo(false);await runtime.update(()=>defaultHome(),{recover:true});}),'hp-button secondary')));host.append(panel);
  heading('İşlevler',button('İşlev ekle',()=>entityForm()));host.append(el('p','Cihazın evdeki görevini adlandırın: örneğin “Salon ışığı”. İşlev eklemek donanımda bağlantı oluşturmaz.','hp-footnote'));const g=grid();for(const e of h.entities){const c=card(e.name,`${deviceName(e.deviceId)} · ${roomName(e.roomId)}`,'device');c.append(el('code',e.id,'hp-identifier'),actions(button('Düzenle',()=>entityForm(e),'hp-button secondary'),button('Sil',()=>remove('entities',e.id),'hp-text-button')));g.append(c);}if(!h.entities.length)g.append(card('Henüz işlev yok','Kontrol edilecek ışığı veya okunacak sensörü burada tanımlayın.','device'));
  heading('Bağlantı ve çalışma');const form=el('form',undefined,'hp-card hp-form');const details=el('details',undefined,'hp-details');details.append(el('summary','Yerel veri adaptörü'));details.append(el('p','Durum adresi JSON gözlemlerini, komut adresi cihaz uygulama onayını döndürmelidir. HTTPS panel, HTTP yerel cihaz adresini engelleyebilir. Adreslere parola/anahtar yazmayın.','hp-muted'));const statusUrl=input(details,'Durum adresi',h.settings.statusUrl,'url',false),commandUrl=input(details,'Komut adresi',h.settings.commandUrl,'url',false);if(!runtime.remote)form.append(details);const zone=select(form,'Saat dilimi',[['Europe/Istanbul','Türkiye · İstanbul'],['Etc/UTC','UTC'],['Europe/Berlin','Avrupa · Berlin']],h.settings.timeZone);const hold=input(form,'Manuel kontrol sonrası otomasyonu beklet (dakika)',h.settings.manualHoldMinutes,'number');hold.min=0;hold.max=1440;const save=el('button','Ayarları kaydet','hp-button');save.type='submit';const error=el('p','','hp-form-error');error.setAttribute('role','alert');form.append(error,save);form.addEventListener('submit',async event=>{event.preventDefault();save.disabled=true;try{if(!runtime.remote)await runtime.disconnect();await runtime.update(x=>({...x,settings:{...x.settings,statusUrl:statusUrl.value.trim(),commandUrl:commandUrl.value.trim(),timeZone:zone.value,manualHoldMinutes:Number(hold.value)}}));feedback('Ayarlar kaydedildi.','ok');}catch(e){error.textContent=e.message;}finally{save.disabled=false;}});host.append(form);if(!runtime.remote)host.append(actions(button('Veriye bağlan',()=>runtime.connect()),button('Bağlantıyı kes',()=>runtime.disconnect(),'hp-button secondary')));
  const source=el('p','','hp-muted');source.dataset.sourceStatus='';host.append(source);
