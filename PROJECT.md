@@ -12,6 +12,19 @@ Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek en
 
 ## Güncel durum
 
+11 Kasım 2026 — Kota korumalı olay-güdümlü bulut senkronizasyonu, doğrudan Kamera 2 fallback ve proje yol haritası revizyonu:
+- **Cloudflare Free Tier Kota Koruması (`cloud-hub-sync.mjs`):** Eski 650 ms sabit döngü + 3 sn medya yüklemesi günde ~161.800 istek üreterek Cloudflare Workers günlük ücretsiz sınırını (100.000 istek/gün) aşma riski taşıyordu. Senkronizasyon mimarisi **olay-güdümlü (event-driven) + kota bütçeli** yapıya geçirildi:
+  - Yerel ağ (`192.168.1.116` / `192.168.1.118`) 500 ms'de bir sıfır bulut maliyetiyle taranır; radar varlık durumu (`presence`) veya Hub çevrimiçi durumu değiştiği anda bekleme süresi atlanarak **<50 ms içinde** anında Cloudflare'a iletilir.
+  - Durum değişmediğinde heartbeat döngüsü **1300 ms** toplam süreye (`~66.460 istek/gün`, 100k sınırının **%33,5 altında**) sabitlendi ve `sampleAgeMs <= 35 ms` tutularak Worker üzerindeki `<2000 ms` tazelik şartı kesintisiz korundu.
+  - Günlük UTC istek sayacı ve **85.000 istek yumuşak bütçe freni (circuit-breaker)** eklendi; medya uçları (`/api/camera/snapshot`, `/api/hub/display/preview`) 404/503 döndüğünde 10 dakika geri çekilerek (backoff) günde 28.800 boşa giden istek tamamen sıfırlandı.
+- **Hub Kapalıyken Doğrudan Kamera 2 Fallback & Kendi Kendini İyileştiren PC Köprüsü:**
+  - Fiziksel Hub (`192.168.1.118`) kapalıyken `cloud-hub-sync.mjs` doğrudan `camera-02` (`192.168.1.116/api/system`, `Authorization: Bearer `) üzerinden HLK-LD2410C radar verisini okuyup buluta basar.
+  - `local-bridge-agent.mjs` tekil port kilidi (8099), 25 saniyelik dış `/ping` sağlık denetimi ve `localhost.run` tünel rotasyonlarında otomatik `origin/pc-bridge` dalı güncellemesiyle stabilize edildi.
+- **Güncellenen Proje İlerleme Haritası (Kota ve Ölçeklenebilirlik Odaklı):**
+  1. **Aşama 1 (Tamamlandı - Aktif):** Yerel LAN'da hızlı tarama (500 ms) + Cloudflare'a olay-güdümlü/bütçe-korumalı (`<67k/gün`) aktarım ve Hub kapalıyken doğrudan Kamera 2 yedekliliği.
+  2. **Aşama 2 (Sonraki Adım - Worker & Protokol Esnetme):** Cloudflare Worker (`presence-ingest.mjs`) üzerindeki sabit `<2000 ms` okuma penceresini durum değişimlerinde anlık (`0 ms`), sabit durumda ise `10–15 sn` kalp atışı (heartbeat) kabul edecek şekilde genişletmek; böylece günlük bulut isteği sayısını `~66.000`'den `~6.000` seviyesine (%94 tasarruf) indirmek.
+  3. **Aşama 3 (Donanım Bağımsızlığı):** Bu seyreltilmiş/olay-güdümlü protokolü doğrudan ESP32-S3 Hub / Kamera 2 firmware'ine (`armut_presence_push`) gömerek PC kapalıyken de sıfır kota riskiyle 7/24 bulut senkronizasyonu sağlamak.
+
 10 Kasım 2026 — IoT ajan devri, cloud worker senkronizasyonu ve canlı yayın güncellemesi:
 - Önceki IoT ajanının yerel port tarama denemeleri sonrası donduğu oturum incelendi; `build-cloud.mjs` aracı kök dizindeki tek dosyalık `cloudflare-worker.js` derlemesini de güncelleyecek şekilde bağlandı.
 - `cloudflare-worker.js` içine `/api/camera/snapshot` ve `/api/hub/display/preview` medya/ekran aktarım uç noktaları dahil edildi.
