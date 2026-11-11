@@ -1,5 +1,5 @@
-import {sha256Hex} from './browser-crypto.mjs?v=cloud20261111-17';
-import {validateHardwareInventory} from './hardware-schema.mjs?v=cloud20261111-17';
+import {sha256Hex} from './browser-crypto.mjs?v=cloud20261111-18';
+import {validateHardwareInventory} from './hardware-schema.mjs?v=cloud20261111-18';
 const kinds = new Set(['source', 'reported', 'physical', 'unknown', 'conflict']);
 const str = value => typeof value === 'string' && value.trim().length > 0;
 const object = value => value && typeof value === 'object' && !Array.isArray(value);

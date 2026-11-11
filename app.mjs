@@ -1,18 +1,18 @@
-import {newId} from './browser-crypto.mjs?v=cloud20261111-17';
-import {createPanelRuntime} from './remote-home.mjs?v=cloud20261111-17';
-import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261111-17';
-import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261111-17';
-import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261111-17';
-import {devicePresence} from './live-evidence.mjs?v=cloud20261111-17';
-import {moduleActivity} from './module-history.mjs?v=cloud20261111-17';
-import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261111-17';
-import {visibleConnections} from './connection-view.mjs?v=cloud20261111-17';
-import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261111-17';
-import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261111-17';
-import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261111-17';
-import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261111-17';
-import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261111-17';
-import {displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay,panelApiUrl} from './home-model.mjs?v=cloud20261111-17';
+import {newId} from './browser-crypto.mjs?v=cloud20261111-18';
+import {createPanelRuntime} from './remote-home.mjs?v=cloud20261111-18';
+import {createHomePanel,extendNavigation} from './home-panel.mjs?v=cloud20261111-18';
+import {hardwareMapView} from './hardware-map-view.mjs?v=cloud20261111-18';
+import {assignmentWarnings} from './hardware-map.mjs?v=cloud20261111-18';
+import {devicePresence} from './live-evidence.mjs?v=cloud20261111-18';
+import {moduleActivity} from './module-history.mjs?v=cloud20261111-18';
+import {initializeMotionEffects} from './motion-effects.mjs?v=cloud20261111-18';
+import {visibleConnections} from './connection-view.mjs?v=cloud20261111-18';
+import {loadInventory, inventoryRoute,verifySourceSnapshots} from './inventory-core.mjs?v=cloud20261111-18';
+import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} from './wiring-view.mjs?v=cloud20261111-18';
+import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261111-18';
+import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261111-18';
+import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261111-18';
+import {displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay,panelApiUrl} from './home-model.mjs?v=cloud20261111-18';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
@@ -354,7 +354,7 @@ function openHubDisplayModal(device,trigger){
   const display=currentHome.settings?.hubDisplay||defaultHubDisplay();
   const form=element('form',undefined,'hp-form');
 
-  const intro=element('p','ESP32-S3 Hub üzerindeki 1.69" 240×280 ST7789V3 IPS TFT ekranın çalışma modunu ve donanım parametrelerini yapılandırın.','module-note');
+  const intro=element('p','ESP32-S3 Hub üzerindeki ST7789V3 ekranda yalnızca Sayfa Modu ve Yön (/api/display) donanımda desteklenir; Parlaklık (3.3V sabit arka ışık) ve Zaman Aşımı yalnızca bu panelin yerel tercihidir.','module-note');
   form.append(intro);
 
   const previewBox=element('div',undefined,'hw-camera-preview-frame hw-display-frame');
@@ -416,7 +416,7 @@ function openHubDisplayModal(device,trigger){
 
   const bWrap=element('div');
   const bLabel=element('label',undefined,'hp-field');
-  bLabel.append(element('span','Parlaklık (%)'));
+  bLabel.append(element('span','Parlaklık % (yalnız panel · 3.3V sabit)'));
   const bInput=element('input');
   bInput.type='number';
   bInput.min='0';
@@ -439,7 +439,7 @@ function openHubDisplayModal(device,trigger){
 
   const tWrap=element('div');
   const tLabel=element('label',undefined,'hp-field');
-  tLabel.append(element('span','Zaman Aşımı'));
+  tLabel.append(element('span','Zaman Aşımı (yalnız panel)'));
   const tSelect=element('select');
   for(const [sec,name] of displayTimeouts){
     const opt=element('option',name);

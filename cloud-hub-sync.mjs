@@ -1,17 +1,19 @@
-// ARMUT V2 — Kota Korumalı ve Dayanıklı Çoklu Cihaz Ağ Geçidi (Hub-Aggregated Resilient Gateway).
-// - Tüm IoT cihazlarını yerel ağda (LAN) devre kesici (circuit breaker) ile verimli toplar.
-// - Gerçek sample_age_ms, transit ve residence ölçümü ile dürüst tazelik sözleşmesini korur.
-// - Tek uçuş (single-flight) medya önbelleği, komut tekilleştirme (idempotency) ve yerel denetleyici köprüsü sağlar.
+// ARMUT V2 — Olay Odaklı, Kota Korumalı & MQTT Destekli Ağ Geçidi (Event-Driven + Embedded MQTT Broker).
+// - Gömülü MQTT 3.1.1 broker (LWT destekli) + devre kesicili (circuit breaker) yerel ağ adaptörünü birleştirir.
+// - Worker desteklediğinde olay odaklı delta+kalp atışı (35 sn -> ~2.468 istek/gün) moduna geçer, aksi halde güvenli modda kalır.
+// - Kamera snapshot'larını arka planda sürekli basmaz; yalnızca isteğe bağlı (on-demand) çeker.
+// - Hub çevrimiçi iken bulut lease çakışmasında (409) ana yayıncılığı Hub'a devrederek PC bağımlılığını kaldırır.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createMqttBroker } from './mqtt-broker.mjs';
 
 const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const NORMAL_CYCLE_MS = 1500;
-const IDLE_CYCLE_MS = 3800;
-const BUDGET_SAVER_CYCLE_MS = 3200;
+const EVENT_HEARTBEAT_MS = 35000;
+const LEGACY_STRICT_CYCLE_MS = 3200;
+const BUDGET_SAVER_CYCLE_MS = 3800;
 const DAILY_SOFT_BUDGET = 85000;
 const ENDPOINT_404_BACKOFF_MS = 10 * 60 * 1000;
 const STALE_SAMPLE_LIMIT_MS = 1900;
@@ -134,11 +136,15 @@ export function createGatewayService({
   publishToken,
   hubApiToken = process.env.ARMUT_HUB_TOKEN || '',
   syncPort = Number(process.env.SYNC_PORT || 8098),
+  mqttPort = Number(process.env.MQTT_PORT ?? 1883),
+  enableMqttBroker = true,
+  yieldWhenHubOnline = true,
   host = '127.0.0.1',
   fetcher = globalThis.fetch,
   now = () => Date.now(),
-  pollDelayMs = 650,
-  enableCloudPush = true
+  pollDelayMs = 1400,
+  enableCloudPush = true,
+  enableCloudLoop = enableCloudPush
 } = {}) {
   const token = loadPublishToken(publishToken);
   const registry = new DeviceRegistry();
@@ -151,11 +157,16 @@ export function createGatewayService({
     dailyRequests: 0,
     dailySoftBudget: DAILY_SOFT_BUDGET,
     cloudflareFreeLimit: 100000,
-    cycleTargetMs: NORMAL_CYCLE_MS,
-    estimatedDailyRequests: Math.round(86400000 / NORMAL_CYCLE_MS),
+    workerMode: 'negotiating',
+    workerUpgradeRecommended: false,
+    yieldedToHub: false,
+    cycleTargetMs: EVENT_HEARTBEAT_MS,
+    estimatedDailyRequests: Math.round(86400000 / EVENT_HEARTBEAT_MS),
     budgetSaverActive: false,
     snapshotEndpointSupported: null,
-    displayEndpointSupported: null
+    displayEndpointSupported: null,
+    backgroundMediaUploads: false,
+    eventDrivenWakeups: 0
   };
 
   const lanState = {
@@ -170,17 +181,20 @@ export function createGatewayService({
     cam02DistanceCm: 0,
     cam02UpdatedAt: 0,
     lastReportOkAt: 0,
-    lastSequence: 0
+    lastSequence: 0,
+    lastEventReason: 'startup'
   };
 
   const mediaCache = new Map();
   const seenCommands = new Map();
+  const sseClients = new Set();
   let lease = null;
   let sequence = 0;
   let hubBootId = 'a1ff8237';
   let consecutiveErrors = 0;
   let lastKnownSignature = '';
   let wakeSyncResolve = null;
+  let hubYieldUntil = 0;
   let lastSnapshotHash = '';
   let lastDisplayHash = '';
   let nextSnapshotAllowedAt = 0;
@@ -191,6 +205,18 @@ export function createGatewayService({
   let pollTimer = null;
   let pollInFlight = false;
   let syncAbort = null;
+
+  function broadcastSse(eventName, payload) {
+    if (!sseClients.size) return;
+    const frame = `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+    for (const res of sseClients) {
+      try {
+        if (!res.writableEnded) res.write(frame);
+      } catch {
+        sseClients.delete(res);
+      }
+    }
+  }
 
   function recordCloudRequest() {
     const today = new Date(now()).toISOString().slice(0, 10);
@@ -203,21 +229,111 @@ export function createGatewayService({
   }
 
   function computeCycleMs() {
-    if (cloudMetrics.budgetSaverActive) return BUDGET_SAVER_CYCLE_MS;
-    const anyOnline = lanState.cam02Online || lanState.hubOnline;
-    const target = anyOnline ? NORMAL_CYCLE_MS : IDLE_CYCLE_MS;
+    if (cloudMetrics.yieldedToHub && lanState.hubOnline && now() < hubYieldUntil) {
+      cloudMetrics.cycleTargetMs = 15000;
+      cloudMetrics.estimatedDailyRequests = 0;
+      return 15000;
+    }
+    let target = lease?.mode === 'event'
+      ? Math.max(5000, Number(lease.reportIntervalMs) || EVENT_HEARTBEAT_MS)
+      : (lease?.leaseMs ? Math.max(1500, Math.min(LEGACY_STRICT_CYCLE_MS, lease.leaseMs - 1600)) : LEGACY_STRICT_CYCLE_MS);
+    if (cloudMetrics.budgetSaverActive) {
+      target = Math.max(target, BUDGET_SAVER_CYCLE_MS);
+    }
     cloudMetrics.cycleTargetMs = target;
     cloudMetrics.estimatedDailyRequests = Math.round(86400000 / target);
     return target;
   }
 
-  function triggerImmediateSync() {
+  function triggerImmediateSync(reason = 'state-change') {
+    lanState.lastEventReason = reason;
+    cloudMetrics.eventDrivenWakeups++;
+    broadcastSse('presence', getPresencePayload());
     if (wakeSyncResolve) {
       const resolve = wakeSyncResolve;
       wakeSyncResolve = null;
       resolve();
     }
   }
+
+  function handleMqttPublish({ topic, payload }) {
+    if (!topic.startsWith('armut/')) return;
+    const statusMatch = topic.match(/^armut\/devices\/([^/]+)\/status$/);
+    if (statusMatch) {
+      const devId = statusMatch[1];
+      const normalized = String(payload).trim().toLowerCase();
+      const online = normalized === 'online' || normalized === '1' || normalized === 'true';
+      registry.upsert(devId, { online, direct: true });
+      if (devId === 'camera-02' && !online) {
+        lanState.cam02Online = false;
+        lanState.cam02RadarOnline = false;
+        lanState.cam02Presence = null;
+        lanState.cam02SampleAgeMs = null;
+      }
+      if (devId === 'hub' && !online) {
+        lanState.hubOnline = false;
+        cloudMetrics.yieldedToHub = false;
+        hubYieldUntil = 0;
+      }
+      lastKnownSignature = registry.getSignature();
+      triggerImmediateSync(`mqtt-status:${devId}`);
+      return;
+    }
+
+    const stateMatch = topic.match(/^armut\/(?:devices|presence)\/([^/]+)(?:\/state)?$/);
+    if (!stateMatch) return;
+    const devId = stateMatch[1];
+    let parsed;
+    try {
+      parsed = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object') return;
+    const tNow = now();
+    if (devId === 'camera-02') {
+      lanState.cam02Online = parsed.online !== undefined ? Boolean(parsed.online) : true;
+      if (typeof parsed.bootId === 'string' && /^[a-f0-9]{1,64}$/i.test(parsed.bootId)) {
+        lanState.cam02BootId = parsed.bootId;
+      }
+      if (typeof parsed.presence === 'boolean') {
+        const age = Number.isFinite(parsed.sampleAgeMs) ? Math.max(0, Math.round(parsed.sampleAgeMs)) : 10;
+        lanState.cam02RadarOnline = age < STALE_SAMPLE_LIMIT_MS;
+        lanState.cam02Presence = lanState.cam02RadarOnline ? parsed.presence : null;
+        lanState.cam02SampleAgeMs = lanState.cam02RadarOnline ? age : null;
+        lanState.cam02TransitMs = 0;
+        lanState.cam02UpdatedAt = tNow;
+      } else if (parsed.presence === null) {
+        lanState.cam02Presence = null;
+        lanState.cam02SampleAgeMs = null;
+      }
+      if (Number.isFinite(parsed.distanceCm)) {
+        lanState.cam02DistanceCm = parsed.distanceCm;
+      }
+    }
+    registry.upsert(devId, {
+      role: parsed.role || (devId.startsWith('cam') ? 'camera' : devId === 'hub' ? 'hub' : 'node'),
+      online: parsed.online !== undefined ? Boolean(parsed.online) : true,
+      bootId: typeof parsed.bootId === 'string' ? parsed.bootId : undefined,
+      capabilities: Array.isArray(parsed.capabilities) ? parsed.capabilities : undefined,
+      direct: true,
+      extra: {
+        presence: parsed.presence,
+        distance: parsed.distanceCm
+      }
+    });
+    const nextSig = registry.getSignature();
+    if (nextSig !== lastKnownSignature) {
+      lastKnownSignature = nextSig;
+      triggerImmediateSync(`mqtt:${devId}`);
+    }
+  }
+
+  const mqttBroker = createMqttBroker({
+    host,
+    port: mqttPort,
+    onPublish: handleMqttPublish
+  });
 
   async function probeJson(target, pathSuffix, timeoutMs = 1100) {
     const tNow = now();
@@ -282,7 +398,7 @@ export function createGatewayService({
         direct: true,
         extra: { presence: lanState.cam02Presence, distance: lanState.cam02DistanceCm }
       });
-    } else if (!camProbe.skipped) {
+    } else if (!camProbe.skipped && (tNow - lanState.cam02UpdatedAt > 5000)) {
       lanState.cam02Online = false;
     }
 
@@ -430,8 +546,18 @@ export function createGatewayService({
     }
 
     let ok = false;
+    if (enableMqttBroker) {
+      mqttBroker.publish(`armut/commands/${entityId}`, { commandId, entityId, value, at: tNow });
+    }
     if (entityId === 'hub-relay') {
       ok = await postLanEndpoint(hubTarget, '/api/hardware', { action: 'set', name: 'relay', on: Boolean(value) });
+    } else if (entityId === 'camera-snapshot') {
+      const targetCam = /^[a-zA-Z0-9_-]{1,64}$/.test(String(value)) ? String(value) : 'camera-02';
+      await pushCameraSnapshot(true, targetCam);
+      ok = Boolean(mediaCache.get(`snapshot:${targetCam}`));
+    } else if (entityId === 'hub-display-preview') {
+      await pushDisplayPreview(true);
+      ok = Boolean(mediaCache.get('preview:hub'));
     } else if (entityId === 'hub-display-layout') {
       ok = await postLanEndpoint(hubTarget, '/api/display', { layout: mapDisplayLayout(value) });
       if (ok) void pushDisplayPreview(true);
@@ -510,22 +636,22 @@ export function createGatewayService({
     return existing || null;
   }
 
-  async function pushCameraSnapshot(force = false) {
+  async function pushCameraSnapshot(force = false, deviceId = 'camera-02') {
     if (snapshotInFlight) return snapshotInFlight;
     snapshotInFlight = (async () => {
       if (!enableCloudPush || !token || cloudMetrics.budgetSaverActive) return;
       const tNow = now();
       if (!force && tNow < nextSnapshotAllowedAt) return;
-      nextSnapshotAllowedAt = tNow + (lanState.cam02Presence ? 20000 : 90000);
+      nextSnapshotAllowedAt = tNow + 2000;
 
-      const entry = await fetchCameraSnapshot('camera-02', 1000);
+      const entry = await fetchCameraSnapshot(deviceId, force ? 0 : 1000);
       if (!entry) return;
       if (!force && entry.hash === lastSnapshotHash) return;
       lastSnapshotHash = entry.hash;
 
       try {
         recordCloudRequest();
-        const cloudRes = await fetcher(`${cloudUrl}/api/camera/snapshot?deviceId=camera-02`, {
+        const cloudRes = await fetcher(`${cloudUrl}/api/camera/snapshot?deviceId=${encodeURIComponent(deviceId)}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'image/jpeg' },
           body: entry.bytes,
@@ -590,6 +716,7 @@ export function createGatewayService({
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         version: 1,
+        mode: 'event',
         publisherId: 'hub',
         deviceId: 'camera-02',
         componentId: 'presence-radar',
@@ -602,11 +729,26 @@ export function createGatewayService({
     next.receivedAt = now();
     lease = next;
     sequence = 0;
+    const isEvent = next.mode === 'event';
+    cloudMetrics.workerMode = isEvent ? 'event-driven' : 'legacy-strict-poll';
+    cloudMetrics.workerUpgradeRecommended = !isEvent;
   }
 
   async function syncOnce() {
     if (!enableCloudPush || !token) return;
-    if (!lease || (now() - lease.receivedAt) >= 4400) {
+    const tCheck = now();
+    if (yieldWhenHubOnline && lanState.hubOnline && tCheck < hubYieldUntil) {
+      cloudMetrics.yieldedToHub = true;
+      return;
+    }
+    if (!lanState.hubOnline || tCheck >= hubYieldUntil) {
+      cloudMetrics.yieldedToHub = false;
+    }
+
+    const leaseRenewBeforeMs = lease?.mode === 'event'
+      ? Math.max(40000, (lease.leaseMs || 90000) - 10000)
+      : Math.max(2500, (lease?.leaseMs || 5000) - 800);
+    if (!lease || (now() - lease.receivedAt) >= leaseRenewBeforeMs) {
       await getLease();
     }
 
@@ -614,9 +756,11 @@ export function createGatewayService({
     const sinceLeaseMs = Math.max(0, tNow - lease.receivedAt - 20);
     const nextSeq = sequence + 1;
     const snap = buildTelemetrySnapshot();
+    const activeMode = lease.mode === 'event' ? 'event' : 'strict';
 
     const report = {
       version: 1,
+      mode: activeMode,
       publisherId: 'hub',
       deviceId: 'camera-02',
       componentId: 'presence-radar',
@@ -644,10 +788,15 @@ export function createGatewayService({
     if (!repRes.ok) {
       const errText = await repRes.text();
       console.warn(`[Cloud-Sync] Report rejected (${repRes.status}): ${errText}`);
+      if (yieldWhenHubOnline && lanState.hubOnline && repRes.status === 409 && errText.includes('boot-mismatch')) {
+        cloudMetrics.yieldedToHub = true;
+        hubYieldUntil = now() + 45000;
+      }
       lease = null;
       return;
     }
 
+    cloudMetrics.yieldedToHub = false;
     const nextLease = await repRes.json();
     nextLease.receivedAt = now();
     lease = nextLease;
@@ -693,8 +842,6 @@ export function createGatewayService({
       const cycleStart = now();
       try {
         await syncOnce();
-        void pushCameraSnapshot();
-        void pushDisplayPreview();
         consecutiveErrors = 0;
       } catch (e) {
         consecutiveErrors++;
@@ -743,15 +890,28 @@ export function createGatewayService({
         res.end(JSON.stringify({
           ok: true,
           service: 'cloud-hub-sync',
-          architecture: 'Hub-Aggregated Resilient Gateway',
+          architecture: 'Event-Driven Delta + Embedded MQTT Broker',
           uptime: Math.round(process.uptime()),
           deviceCount: registry.devices.size,
           consecutiveErrors,
           leaseActive: Boolean(lease),
           registeredDevices: registry.getAllForReport(),
           cloudMetrics,
+          mqtt: mqttBroker.stats(),
           lanState
         }));
+        return;
+      }
+
+      if (url.pathname === '/api/events' && req.method === 'GET') {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store',
+          Connection: 'keep-alive'
+        });
+        res.write(`event: presence\ndata: ${JSON.stringify(getPresencePayload())}\n\n`);
+        sseClients.add(res);
+        req.on('close', () => sseClients.delete(res));
         return;
       }
 
@@ -801,7 +961,7 @@ export function createGatewayService({
 
       if (url.pathname === '/api/presence/command' && req.method === 'POST') {
         const body = await readSmallJson(req);
-        const isDisplay = ['hub-display-layout', 'hub-display-orientation', 'hub-display-expression'].includes(body?.entityId);
+        const isDisplay = ['hub-display-layout', 'hub-display-orientation', 'hub-display-expression', 'camera-snapshot', 'hub-display-preview'].includes(body?.entityId);
         const validValue = isDisplay
           ? (typeof body?.value === 'string' && /^[a-z0-9_-]{1,32}$/i.test(body.value))
           : typeof body?.value === 'boolean';
@@ -833,6 +993,17 @@ export function createGatewayService({
   async function start() {
     if (running) return;
     running = true;
+    if (enableMqttBroker) {
+      try {
+        await mqttBroker.listen();
+      } catch (err) {
+        if (err.code === 'EADDRINUSE') {
+          console.warn(`[Cloud-Sync] MQTT port ${mqttPort} kullanımda; gömülü MQTT olmadan devam ediliyor.`);
+        } else {
+          throw err;
+        }
+      }
+    }
     await new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(syncPort, host, () => {
@@ -842,7 +1013,7 @@ export function createGatewayService({
     });
     await pollLanOnce().catch(() => {});
     scheduleLanPoll();
-    if (enableCloudPush && token) {
+    if (enableCloudLoop && enableCloudPush && token) {
       void cloudLoop();
     }
     return server.address();
@@ -851,8 +1022,13 @@ export function createGatewayService({
   async function close() {
     running = false;
     clearTimeout(pollTimer);
-    triggerImmediateSync();
+    triggerImmediateSync('shutdown');
     syncAbort?.abort();
+    for (const sseRes of sseClients) {
+      try { sseRes.end(); } catch {}
+    }
+    sseClients.clear();
+    await mqttBroker.close();
     server.closeAllConnections?.();
     if (server.listening) {
       await new Promise(resolve => server.close(resolve));
@@ -861,10 +1037,13 @@ export function createGatewayService({
 
   return {
     server,
+    mqttBroker,
     start,
     close,
     pollLanOnce,
     syncOnce,
+    pushCameraSnapshot,
+    pushDisplayPreview,
     getPresencePayload,
     dispatchHardwareCommand,
     cloudMetrics,

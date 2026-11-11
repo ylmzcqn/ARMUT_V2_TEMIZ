@@ -51,7 +51,7 @@ export function createKVPresenceStore(kv){
    const record={revision,state};
    mem.set(deviceId,record);
    const now=Date.now(),sig=devSig(state);
-   const shouldWrite=sig!==lastSignature||(now-lastKvWriteAt)>35000;
+   const shouldWrite=sig!==lastSignature||(now-lastKvWriteAt)>75000;
    if(shouldWrite){
     lastSignature=sig;
     lastKvWriteAt=now;
@@ -63,9 +63,21 @@ export function createKVPresenceStore(kv){
 export function createPresenceIngest({store,now=()=>Date.now()}={}){
  function clock(){const t=now();if(!Number.isSafeInteger(t)||t<0)reject('clock-unavailable',503);return t;}
  function identity(body){if(!body||typeof body!=='object'||body.version!==1||body.publisherId!=='hub'||body.deviceId!=='camera-02'||body.componentId!=='presence-radar'||typeof body.bootId!=='string'||!hex.test(body.bootId))reject('identity');}
- async function freshLease(previous,state,commands=[]){const token=nonce();await store.save(previous,{...state,nonceHash:await hash(token)});return {version:1,nonce:token,leaseMs:5000,reportIntervalMs:1000,commands};}
+ async function freshLease(previous,state,commands=[]){
+  const token=nonce();
+  const isEvent=state.mode==='event';
+  const leaseMs=isEvent?90000:5000;
+  const reportIntervalMs=isEvent?35000:1000;
+  await store.save(previous,{...state,nonceHash:await hash(token)});
+  return {version:1,mode:isEvent?'event':'strict',nonce:token,leaseMs,reportIntervalMs,commands};
+ }
  return Object.freeze({
-  async hello(body){identity(body);const previous=await store.load();return freshLease(previous,{bootId:body.bootId,issuedAt:clock(),sequence:0,value:null,observedAt:null,devices:[],pendingCommands:[]});},
+  async hello(body){
+   identity(body);
+   const mode=body.mode==='event'?'event':'strict';
+   const previous=await store.load();
+   return freshLease(previous,{mode,bootId:body.bootId,issuedAt:clock(),sequence:0,value:null,observedAt:null,sampleAgeMs:null,devices:[],pendingCommands:[]});
+  },
   async report(body){
    identity(body);if(typeof body.nonce!=='string'||!/^[a-f0-9]{64}$/i.test(body.nonce))reject('lease');
    if(!Number.isSafeInteger(body.sequence)||body.sequence<=0||!Number.isSafeInteger(body.sinceLeaseMs)||body.sinceLeaseMs<0||!(body.value===null||typeof body.value==='boolean')||(body.value===null?body.sampleAgeMs!==null:!Number.isFinite(body.sampleAgeMs)||body.sampleAgeMs<0||body.sampleAgeMs>=2000))reject('sample');
@@ -77,16 +89,20 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
    if(s.bootId!==body.bootId)reject('boot-mismatch',409);
    if(body.sequence!==s.sequence+1)reject('sequence',409);
    if(await hash(body.nonce)!==s.nonceHash)reject('lease-replayed',409);
+   const mode=(body.mode==='event'||body.mode==='strict')?body.mode:(s.mode==='event'?'event':'strict');
+   const isEvent=mode==='event';
+   const maxLeaseMs=isEvent?90000:5000;
    const time=clock(),elapsed=time-s.issuedAt;
-   if(!Number.isFinite(elapsed)||elapsed<0||elapsed>=5000||body.sinceLeaseMs>elapsed)reject('lease-expired',409);
-   const age=body.value===null?null:elapsed-body.sinceLeaseMs+body.sampleAgeMs+10;
+   if(!Number.isFinite(elapsed)||elapsed<0||elapsed>=maxLeaseMs||body.sinceLeaseMs>elapsed)reject('lease-expired',409);
+   const age=body.value===null?null:(isEvent?body.sampleAgeMs+10:elapsed-body.sinceLeaseMs+body.sampleAgeMs+10);
    if(age!==null&&age>=2000)reject('sample-stale',409);
    const extraDevices=Array.isArray(body.devices)?body.devices.filter(d=>d&&typeof d.deviceId==='string'&&typeof d.online==='boolean'):s.devices||[];
    const commandsToDeliver=(s.pendingCommands||[]).filter(c=>c&&typeof c.commandId==='string'&&(!Number.isFinite(c.at)||(time-c.at)<=45000));
-   return freshLease(previous,{bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age,devices:extraDevices,pendingCommands:[]},commandsToDeliver);
+   const changed=s.value!==body.value;
+   return freshLease(previous,{mode,bootId:s.bootId,issuedAt:time,sequence:body.sequence,sourceBootId:body.sourceBootId,value:body.value,observedAt:age===null?null:time-age,sampleAgeMs:age,lastChangeAt:changed?time:(s.lastChangeAt||time),devices:extraDevices,pendingCommands:[]},commandsToDeliver);
   },
   async command(body){
-   const isDisplayCmd=Boolean(body&&typeof body.entityId==='string'&&['hub-display-layout','hub-display-orientation','hub-display-expression'].includes(body.entityId));
+   const isDisplayCmd=Boolean(body&&typeof body.entityId==='string'&&['hub-display-layout','hub-display-orientation','hub-display-expression','camera-snapshot','hub-display-preview'].includes(body.entityId));
    const validValue=isDisplayCmd?(typeof body.value==='string'&&/^[a-z0-9_-]{1,32}$/i.test(body.value)):typeof body?.value==='boolean';
    if(!body||body.version!==1||typeof body.commandId!=='string'||!/^[a-zA-Z0-9_-]{1,96}$/.test(body.commandId)||typeof body.entityId!=='string'||!validValue)reject('invalid-command',400);
    const previous=await store.load(),s=previous?.state,nowTime=clock();
@@ -102,15 +118,22 @@ export function createPresenceIngest({store,now=()=>Date.now()}={}){
    return {commandId:body.commandId,applied:true,value:body.value,bootId:targetBoot};
   },
   async snapshot(){
-   const record=await store.load(),s=record?.state,time=clock(),age=!Number.isFinite(s?.observedAt)?null:time-s.observedAt;
-   const fresh=typeof s?.sourceBootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.sourceBootId)&&Number.isFinite(age)&&age>=0&&age<2000&&typeof s.value==='boolean';
-   const hubLive=Boolean(typeof s?.bootId==='string'&&hex.test(s.bootId)&&Number.isFinite(s?.issuedAt)&&(time-s.issuedAt)<10000);
+   const record=await store.load(),s=record?.state,time=clock();
+   const isEvent=s?.mode==='event';
+   const leaseAge=Number.isFinite(s?.issuedAt)?time-s.issuedAt:null;
+   const sampleAge=!Number.isFinite(s?.observedAt)?null:time-s.observedAt;
+   const hasSource=typeof s?.sourceBootId==='string'&&/^[a-f0-9]{1,64}$/i.test(s.sourceBootId)&&typeof s.value==='boolean';
+   const fresh=isEvent?(hasSource&&Number.isFinite(leaseAge)&&leaseAge>=0&&leaseAge<95000):(hasSource&&Number.isFinite(sampleAge)&&sampleAge>=0&&sampleAge<2000);
+   const effectiveAge=isEvent?(fresh?leaseAge:null):(fresh?sampleAge:null);
+   const maxAgeMs=isEvent?95000:2000;
+   const hubWindowMs=isEvent?95000:10000;
+   const hubLive=Boolean(typeof s?.bootId==='string'&&hex.test(s.bootId)&&Number.isFinite(leaseAge)&&leaseAge>=0&&leaseAge<hubWindowMs);
    const devices=[
     {deviceId:'hub',role:'hub',online:hubLive,bootId:hubLive?s.bootId:null,capabilities:['system','hub']},
     {deviceId:'camera-02',role:'camera',online:Boolean(fresh),bootId:fresh?s.sourceBootId:null,capabilities:['presence']}
    ];
    if(Array.isArray(s?.devices)){for(const d of s.devices){if(d&&typeof d.deviceId==='string'&&!devices.some(x=>x.deviceId===d.deviceId)){const isOnline=Boolean(d.direct?d.online:(hubLive?d.online:false));devices.push({...d,online:isOnline,bootId:isOnline?(d.bootId||null):null});}}}
-   return {publisherId:'hub',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:fresh?age:null,maxAgeMs:2000,sourceReady:Boolean(s),devices};
+   return {publisherId:'hub',mode:isEvent?'event':'strict',publisherBootId:typeof s?.bootId==='string'&&hex.test(s.bootId)?s.bootId:null,deviceId:'camera-02',componentId:'presence-radar',bootId:s?.sourceBootId||null,value:fresh?s.value:null,ageMs:effectiveAge,maxAgeMs,sampleAgeMs:Number.isFinite(s?.sampleAgeMs)?s.sampleAgeMs:null,sourceReady:Boolean(s),devices};
   }
  });
 }

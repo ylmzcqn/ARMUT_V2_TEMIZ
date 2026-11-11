@@ -152,3 +152,96 @@ test('yerel denetleyici ve ağ geçidi uçtan uca snapshot ve komut köprüsü s
   const unauthSnap = await fetch(ctrl.baseUrl + '/api/camera/snapshot?deviceId=camera-02');
   assert.equal(unauthSnap.status, 401);
 });
+
+test('MQTT yayın ve LWT ağ geçidi durumunu anlık günceller', async t => {
+  const net = await import('node:net');
+  const gw = createGatewayService({
+    syncPort: 0,
+    mqttPort: 0,
+    enableCloudPush: false,
+    fetcher: async () => { throw new Error('offline'); }
+  });
+  await gw.start();
+  t.after(() => gw.close());
+  const mqttPort = gw.mqttBroker.stats().port;
+
+  const str = s => { const b = Buffer.from(s, 'utf8'); const h = Buffer.allocUnsafe(2); h.writeUInt16BE(b.length, 0); return Buffer.concat([h, b]); };
+  const sock = net.connect(mqttPort, '127.0.0.1');
+  t.after(() => sock.destroy());
+  await new Promise(resolve => sock.once('connect', resolve));
+
+  const willTopic = str('armut/devices/camera-02/status');
+  const willMsg = str('offline');
+  const connBody = Buffer.concat([str('MQTT'), Buffer.from([4, 0x06, 0, 30]), str('cam02-mqtt'), willTopic, willMsg]);
+  sock.write(Buffer.concat([Buffer.from([0x10, connBody.length]), connBody]));
+  await new Promise(r => setTimeout(r, 30));
+
+  const pubBody = Buffer.concat([str('armut/devices/camera-02/state'), Buffer.from(JSON.stringify({ presence: true, bootId: 'deadbeef01', sampleAgeMs: 15 }))]);
+  sock.write(Buffer.concat([Buffer.from([0x30, pubBody.length]), pubBody]));
+  await new Promise(r => setTimeout(r, 40));
+
+  let payload = gw.getPresencePayload();
+  assert.equal(payload.value, true);
+  assert.equal(payload.bootId, 'deadbeef01');
+
+  sock.destroy();
+  await new Promise(r => setTimeout(r, 50));
+  payload = gw.getPresencePayload();
+  assert.equal(payload.value, null);
+});
+
+test('olay odaklı mod kotayı düşürür, arka planda snapshot basmaz ve Hub çevrimiçi olunca devreder', async t => {
+  const { createMemoryPresenceStore, createPresenceIngest } = await import('./presence-ingest.mjs');
+  const store = createMemoryPresenceStore();
+  const ingest = createPresenceIngest({ store });
+  let snapshotUploads = 0;
+  let nowMs = 100000;
+  let hubAlive = false;
+
+  const gw = createGatewayService({
+    syncPort: 0,
+    mqttPort: 0,
+    enableCloudPush: true,
+    enableCloudLoop: false,
+    publishToken: 'a'.repeat(40),
+    now: () => nowMs,
+    fetcher: async (url, init) => {
+      if (url.includes('116/api/system')) return Response.json(sampleCameraBody(20, true));
+      if (url.includes('118/api/devices')) {
+        if (!hubAlive) throw new Error('offline');
+        return Response.json({ boot_id: 'f00dbabe12', devices: [] });
+      }
+      if (url.includes('/api/presence/hello')) {
+        const body = JSON.parse(init.body);
+        return Response.json(await ingest.hello(body));
+      }
+      if (url.includes('/api/presence/report')) {
+        const body = JSON.parse(init.body);
+        try {
+          return Response.json(await ingest.report(body));
+        } catch (err) {
+          return Response.json({ error: err.message }, { status: err.status || 400 });
+        }
+      }
+      if (url.includes('/api/camera/snapshot')) {
+        snapshotUploads++;
+        return Response.json({ ok: true });
+      }
+      throw new Error('unexpected ' + url);
+    }
+  });
+  await gw.start();
+  t.after(() => gw.close());
+
+  await gw.syncOnce();
+  assert.equal(gw.cloudMetrics.workerMode, 'event-driven');
+  assert.equal(gw.cloudMetrics.backgroundMediaUploads, false);
+  assert.equal(snapshotUploads, 0);
+
+  hubAlive = true;
+  nowMs += 2000;
+  await gw.pollLanOnce();
+  await ingest.hello({ version: 1, publisherId: 'hub', deviceId: 'camera-02', componentId: 'presence-radar', bootId: 'beefcafe99' });
+  await gw.syncOnce();
+  assert.equal(gw.cloudMetrics.yieldedToHub, true);
+});

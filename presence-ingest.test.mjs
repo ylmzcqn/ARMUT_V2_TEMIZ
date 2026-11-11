@@ -12,4 +12,22 @@ test('eşzamanlı iki Worker aynı bileti yalnız bir kez tüketir; depolama hat
 test('eksik kimlik/yaş, bozuk sıra ve olmayan örnek taze veri oluşturmaz',async t=>{const {create}=setup(t),a=create(),lease=await a.hello(hello('aa010001'));for(const change of [{deviceId:'camera-01'},{sampleAgeMs:-1},{sampleAgeMs:2000},{sinceLeaseMs:100},{sequence:0},{nonce:'bad'}])await assert.rejects(a.report({...report(lease),...change}));await a.report(report(lease,null));assert.equal((await a.snapshot()).value,null);});
 test('yayıncı Hub, kaynak Kamera 2 olarak ayrı doğrulanır; yaş parçaları toplamı zorunludur',async t=>{const {create}=setup(t),a=create();await assert.rejects(a.hello({...hello('aa010001'),publisherId:'camera-02'}));const lease=await a.hello(hello('aa010001'));await assert.rejects(a.report({...report(lease),sourceBootId:null}));await assert.rejects(a.report({...report(lease),hubResidenceMs:100}));await a.report({...report(lease),sourceBootId:'cc03',sourceSampleAgeMs:20,hubResidenceMs:100,sourceTransitMs:50,sampleAgeMs:170});const result=await a.snapshot();assert.equal(result.publisherId,'hub');assert.equal(result.bootId,'cc03');assert.equal(result.ageMs,180);});
 test('panelden gelen komut kuyruğa alınır ve sonraki Hub raporunda teslim edilir',async t=>{const {create}=setup(t),a=create();const lease=await a.hello(hello('aa010001'));const cmdRes=await a.command({version:1,commandId:'cmd-relay-1',entityId:'hub-relay',value:true});assert.equal(cmdRes.applied,true);assert.equal(cmdRes.commandId,'cmd-relay-1');assert.equal(cmdRes.value,true);const dispRes=await a.command({version:1,commandId:'cmd-disp-1',entityId:'hub-display-layout',value:'home'});assert.equal(dispRes.applied,true);assert.equal(dispRes.value,'home');const exprRes=await a.command({version:1,commandId:'cmd-expr-1',entityId:'hub-display-expression',value:'heart'});assert.equal(exprRes.applied,true);await assert.rejects(a.command({version:1,commandId:'cmd-bad',entityId:'hub-relay',value:'not-bool'}),/invalid-command/);await assert.rejects(a.command({version:1,commandId:'cmd-bad2',entityId:'hub-display-layout',value:'invalid value with spaces!'}),/invalid-command/);const repRes=await a.report(report(lease,true,1));assert.equal(repRes.commands.length,3);assert.equal(repRes.commands[0].entityId,'hub-relay');assert.equal(repRes.commands[1].entityId,'hub-display-layout');assert.equal(repRes.commands[1].value,'home');assert.equal(repRes.commands[2].entityId,'hub-display-expression');assert.equal(repRes.commands[2].value,'heart');const repRes2=await a.report(report(repRes,true,2));assert.equal(repRes2.commands.length,0);});
+test('olay odaklı (event) mod 90 sn lease ile 35 sn kalp atışında durumu korur ve bayat sensörü yine reddeder',async t=>{
+ const {create,set}=setup(t),a=create();
+ const lease=await a.hello({...hello('aa010001'),mode:'event'});
+ assert.equal(lease.mode,'event');
+ assert.equal(lease.leaseMs,90000);
+ assert.equal(lease.reportIntervalMs,35000);
+ set(10500);
+ const next=await a.report({...report(lease,true,1),mode:'event',sinceLeaseMs:500});
+ assert.equal(next.mode,'event');
+ set(45000);
+ const snap=await a.snapshot();
+ assert.equal(snap.mode,'event');
+ assert.equal(snap.value,true);
+ assert.equal(snap.maxAgeMs,95000);
+ await assert.rejects(a.report({...report(next,true,2),mode:'event',sampleAgeMs:2000,sourceSampleAgeMs:2000}),/sample/);
+ set(150000);
+ assert.equal((await a.snapshot()).value,null);
+});
 
