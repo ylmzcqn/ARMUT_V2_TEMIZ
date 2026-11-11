@@ -245,3 +245,40 @@ test('olay odaklı mod kotayı düşürür, arka planda snapshot basmaz ve Hub �
   await gw.syncOnce();
   assert.equal(gw.cloudMetrics.yieldedToHub, true);
 });
+
+test('komut yanıti hedef cihazin bootId degerini doner ve legacy-strict modda hizli tazeler', async t => {
+  const gw = createGatewayService({
+    syncPort: 0,
+    mqttPort: 0,
+    enableCloudPush: true,
+    enableCloudLoop: false,
+    publishToken: 'b'.repeat(40),
+    fetcher: async (url, init) => {
+      if (url.includes('116/api/system')) return Response.json(sampleCameraBody(180, false));
+      if (url.includes('116/api/hardware')) return Response.json({ ok: true });
+      if (url.includes('/api/presence/hello')) {
+        return Response.json({ mode: 'strict', nonce: 'n-strict-1', leaseMs: 5000, reportIntervalMs: 1200 });
+      }
+      if (url.includes('/api/presence/report')) {
+        return Response.json({ mode: 'strict', nonce: 'n-strict-2', leaseMs: 5000, reportIntervalMs: 1200, commands: [] });
+      }
+      throw new Error('offline ' + url);
+    }
+  });
+  await gw.start();
+  t.after(() => gw.close());
+
+  await gw.syncOnce();
+  assert.equal(gw.cloudMetrics.workerMode, 'legacy-strict-poll');
+  assert.ok(gw.cloudMetrics.cycleTargetMs <= 1150);
+
+  const addr = gw.server.address();
+  const res = await fetch(`http://127.0.0.1:${addr.port}/api/presence/command`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ version: 1, commandId: 'cmd-cam02-boot', entityId: 'cam02-led', value: true })
+  });
+  const body = await res.json();
+  assert.equal(body.applied, true);
+  assert.equal(body.bootId, 'c4dc00bb');
+});

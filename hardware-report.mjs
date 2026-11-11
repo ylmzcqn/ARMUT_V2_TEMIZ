@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises';
-import {validateInventory} from './inventory-core.mjs?v=cloud20261111-18';
-import {analyzeHardware} from './hardware-map.mjs?v=cloud20261111-18';
+import {validateInventory} from './inventory-core.mjs?v=cloud20261111-19';
+import {analyzeHardware} from './hardware-map.mjs?v=cloud20261111-19';
 const args=process.argv.slice(2),value=flag=>args.includes(flag)?args[args.indexOf(flag)+1]:undefined;
 try{
  const data=validateInventory(JSON.parse(await readFile(new URL('./inventory.json',import.meta.url),'utf8')));

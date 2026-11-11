@@ -16,7 +16,9 @@ test('kamera snapshot ve hub display preview yayınlanır, saklanır ve GET ile 
  assert.equal(snapBody.ok,true);
  assert.equal(snapBody.size,fakeJpeg.byteLength);
 
- const getSnap=new Request('https://fixture.invalid/api/camera/snapshot?deviceId=camera-02',{method:'GET'});
+ const unauthSnap=await worker.fetch(new Request('https://fixture.invalid/api/camera/snapshot?deviceId=camera-02',{method:'GET'}),env);
+ assert.equal(unauthSnap.status,401);
+ const getSnap=new Request('https://fixture.invalid/api/camera/snapshot?deviceId=camera-02',{method:'GET',headers:{'oai-authenticated-user-id':'fixture-owner'}});
  const getSnapRes=await worker.fetch(getSnap,env);
  assert.equal(getSnapRes.status,200);
  assert.equal(getSnapRes.headers.get('content-type'),'image/jpeg');
@@ -28,7 +30,9 @@ test('kamera snapshot ve hub display preview yayınlanır, saklanır ve GET ile 
  const prevRes=await worker.fetch(postPrev,env);
  assert.equal(prevRes.status,200);
 
- const getPrev=new Request('https://fixture.invalid/api/hub/display/preview',{method:'GET'});
+ const unauthPrev=await worker.fetch(new Request('https://fixture.invalid/api/hub/display/preview',{method:'GET'}),env);
+ assert.equal(unauthPrev.status,401);
+ const getPrev=new Request('https://fixture.invalid/api/hub/display/preview',{method:'GET',headers:{'oai-authenticated-user-id':'fixture-owner'}});
  const getPrevRes=await worker.fetch(getPrev,env);
  assert.equal(getPrevRes.status,200);
  assert.equal(getPrevRes.headers.get('content-type'),'image/bmp');

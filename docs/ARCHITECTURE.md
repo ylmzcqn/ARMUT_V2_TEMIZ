@@ -1,6 +1,20 @@
 # ARMUT V2: gerçek cihazlara geçiş mimarisi
 
-Durum: 8 Kasım 2026, mimari önerisi ve uygulama kabul ölçütleri. Bu belge çalışan entegrasyon değildir. Cihazlara bağlantı, firmware yüklemesi, servis kurulumu veya otomasyon etkinleştirmesi yapılmadı.
+## 11 Kasım Güncel Durum: Olay Odaklı Mimari + Gömülü MQTT Broker + Kota Koruması
+
+1. **Tek Yerel Veri Yolu (`cloud-hub-sync.mjs` + `mqtt-broker.mjs`):**
+   - Gömülü bağımlılıksız MQTT 3.1.1 broker (`0.0.0.0:1883`, LWT destekli) ESP32'lerden gelen `armut/devices/<id>/status` ve `armut/devices/<id>/state` olaylarını anında yakalar; komutları `armut/commands/<entityId>` konusuna basar.
+   - HTTP adaptörü aynı anda devre kesicili (exponential backoff, mDNS fallback) olarak `:8098` üzerinden birleşik durum sunar; cihaz kimliği bazında doğru `bootId` eşlemesi (`hub`, `camera-02`, `camera-01`) döner.
+2. **Olay Odaklı Bulut Yayını & Kota Koruması (`presence-ingest.mjs` + `cloud-presence-worker.mjs`):**
+   - `mode: 'event'` ile Worker desteklediğinde kalp atışı 35 saniye (~2.468 istek/gün) olarak çalışır; değişiklik olunca anında delta yayını yapar ve KV yazımlarını yalnız imza değişimi veya 75 sn aralıkla kısıtlar.
+   - Worker henüz güncellenmemiş (`legacy-strict-poll`, 2000 ms tazelik penceresi) ortamlarda ise aktif cihaz varken otomatik 1150 ms + taze örnek ön okumasına geçer, tüm cihazlar kapalıyken 5000 ms bekleme ile kotayı korur. Hub çevrimiçi olduğunda 409 çakışmasında yayıncılık otomatik Hub'a devredilir (`yieldWhenHubOnline`).
+3. **İsteğe Bağlı Medya ve Gerçekçi Ekran Denetimi:**
+   - Kamera snapshot'ları ve Hub ST7789 ekran önizlemeleri arka planda sürekli gönderilmez; yalnız panel isteği veya durum değişikliğinde aktarılır. Worker tarafında tüm medya `GET` uçları `/api/presence` ile aynı oturum/yetki doğrulamasına tabidir.
+   - `server.mjs` (:8080) yerel panel için `/api/events` (SSE) yayınlar, ilk çalıştırmada `defaultHome()` ile hazır açılır; `remote-home.mjs` `EventSource` ile anlık güncellenir ve yalnızca bağlantı yoksa polling yedeğine düşer.
+
+---
+
+Durum: 8 Kasım 2026, ilk mimari önerisi ve uygulama kabul ölçütleri (tarihsel referans):
 
 ## Güncel karar: Hub merkezli akış
 

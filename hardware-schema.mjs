@@ -1,4 +1,4 @@
-import {normalizePin} from './hardware-map.mjs?v=cloud20261111-18';
+import {normalizePin} from './hardware-map.mjs?v=cloud20261111-19';
 const obj=x=>x&&typeof x==='object'&&!Array.isArray(x);
 const text=x=>typeof x==='string'&&x.trim().length>0;
 const date=x=>text(x)&&Number.isFinite(Date.parse(x));

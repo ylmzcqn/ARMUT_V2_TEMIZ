@@ -178,7 +178,7 @@ function publishBridgeMetadata(publicUrl) {
     machine: MACHINE,
     publicHttpsUrl: `${publicUrl}/run`,
     pingUrl: `${publicUrl}/ping`,
-    tailscaleUrl: `http://100.82.246.76:${PORT}/run`,
+    ...(process.env.ARMUT_TAILSCALE_URL ? { tailscaleUrl: process.env.ARMUT_TAILSCALE_URL } : {}),
     token: TOKEN,
     v2Path: V2_PATH,
     v1Path: V1_PATH,

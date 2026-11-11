@@ -26,3 +26,22 @@ test('mevcut kamera GET kaynağı ortak panelde ve yalnız izinli origin/anahtar
  value=false;c.runtime.connect();await new Promise(r=>setImmediate(r));await bridge.refresh();assert.equal(runtime.entityState('presence-radar').value,false);auth=false;c.runtime.connect();await new Promise(r=>setImmediate(r));await bridge.refresh();assert.equal(runtime.entityState('presence-radar').value,null);assert.equal(runtime.entityState('presence-radar').fresh,false);assert.ok(requests>=3);assert.ok(!JSON.stringify(c.runtime.home()).includes('fixture-camera-secret'));
 });
 test('yapılandırılan özel host loopback proxy arkasında kabul edilir; kaynakta sabit ad yok, bozuk ad reddedilir',async t=>{const dir=await mkdtemp(join(tmpdir(),'armut-trusted-'));await assert.rejects(createControllerServer({dataDir:dir,port:0,adminKey:'test-admin-key',trustedHosts:['evil.test:1/x']}),/host/);const c=await createControllerServer({dataDir:dir,host:'127.0.0.1',port:0,adminKey:'test-admin-key',trustedHosts:['Panel.Example.Test']});await c.listen();t.after(async()=>{await c.close();await rm(dir,{recursive:true,force:true});});const http=await import('node:http'),port=new URL(c.baseUrl).port;const status=host=>new Promise((resolve,reject)=>{const req=http.get(c.baseUrl+'/api/health',{headers:{host}},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);});assert.equal(await status(`panel.example.test:${port}`),200);assert.equal(await status(`other.example.test:${port}`),403);assert.equal(await status(`panel.example.test:1`),403);assert.doesNotMatch(await readFile(new URL('./server.mjs',import.meta.url),'utf8'),/ts\.net|100\.\d+\.\d+\.\d+/);});
+
+test('SSE olay akışı oturum ister, anında olay iletir ve useDefaultHomeIfMissing hazır ev açar',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'armut-sse-'));
+ const c=await createControllerServer({dataDir:dir,host:'127.0.0.1',port:0,adminKey:'sse-admin-key',useDefaultHomeIfMissing:true});
+ await c.listen();
+ t.after(async()=>{await c.close();await rm(dir,{recursive:true,force:true});});
+ assert.equal((await fetch(c.baseUrl+'/api/events')).status,401);
+ const login=await fetch(c.baseUrl+'/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:'sse-admin-key'})});
+ const cookie=login.headers.get('set-cookie').split(';')[0];
+ const ac=new AbortController();
+ t.after(()=>ac.abort());
+ const ev=await fetch(c.baseUrl+'/api/events',{headers:{cookie},signal:ac.signal});
+ assert.equal(ev.status,200);
+ assert.match(ev.headers.get('content-type'),/text\/event-stream/);
+ const chunk=new TextDecoder().decode((await ev.body.getReader().read()).value);
+ assert.match(chunk,/event: ping/);
+ const state=await(await fetch(c.baseUrl+'/api/state',{headers:{cookie}})).json();
+ assert.ok(state.home.rooms.length>0);
+});

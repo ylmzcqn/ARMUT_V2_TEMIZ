@@ -12,5 +12,6 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+start "ARMUT Cloud-Sync" /min cmd /c "node cloud-hub-sync.mjs"
 node server.mjs
 pause

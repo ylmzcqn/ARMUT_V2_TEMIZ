@@ -12,9 +12,10 @@ import { createMqttBroker } from './mqtt-broker.mjs';
 
 const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const EVENT_HEARTBEAT_MS = 35000;
-const LEGACY_STRICT_CYCLE_MS = 3200;
+const LEGACY_STRICT_CYCLE_MS = 940;
+const IDLE_OFFLINE_CYCLE_MS = 5000;
 const BUDGET_SAVER_CYCLE_MS = 3800;
-const DAILY_SOFT_BUDGET = 85000;
+const DAILY_SOFT_BUDGET = 94000;
 const ENDPOINT_404_BACKOFF_MS = 10 * 60 * 1000;
 const STALE_SAMPLE_LIMIT_MS = 1900;
 const COMMAND_TTL_MS = 45000;
@@ -140,9 +141,11 @@ export function createGatewayService({
   enableMqttBroker = true,
   yieldWhenHubOnline = true,
   host = '127.0.0.1',
+  mqttHost = host,
+  mqttAuthToken = process.env.MQTT_TOKEN || '',
   fetcher = globalThis.fetch,
   now = () => Date.now(),
-  pollDelayMs = 1400,
+  pollDelayMs = 700,
   enableCloudPush = true,
   enableCloudLoop = enableCloudPush
 } = {}) {
@@ -204,6 +207,7 @@ export function createGatewayService({
   let running = false;
   let pollTimer = null;
   let pollInFlight = false;
+  let camProbeInFlight = null;
   let syncAbort = null;
 
   function broadcastSse(eventName, payload) {
@@ -234,9 +238,17 @@ export function createGatewayService({
       cloudMetrics.estimatedDailyRequests = 0;
       return 15000;
     }
-    let target = lease?.mode === 'event'
-      ? Math.max(5000, Number(lease.reportIntervalMs) || EVENT_HEARTBEAT_MS)
-      : (lease?.leaseMs ? Math.max(1500, Math.min(LEGACY_STRICT_CYCLE_MS, lease.leaseMs - 1600)) : LEGACY_STRICT_CYCLE_MS);
+    const anyOnline = lanState.cam02Online || lanState.hubOnline || registry.get('camera-01')?.online;
+    let target;
+    if (lease?.mode === 'event') {
+      target = Math.max(5000, Number(lease.reportIntervalMs) || EVENT_HEARTBEAT_MS);
+    } else if (!anyOnline) {
+      target = IDLE_OFFLINE_CYCLE_MS;
+    } else {
+      target = lease?.leaseMs
+        ? Math.max(940, Math.min(LEGACY_STRICT_CYCLE_MS, lease.leaseMs - 1600))
+        : LEGACY_STRICT_CYCLE_MS;
+    }
     if (cloudMetrics.budgetSaverActive) {
       target = Math.max(target, BUDGET_SAVER_CYCLE_MS);
     }
@@ -330,8 +342,9 @@ export function createGatewayService({
   }
 
   const mqttBroker = createMqttBroker({
-    host,
+    host: mqttHost,
     port: mqttPort,
+    authToken: mqttAuthToken,
     onPublish: handleMqttPublish
   });
 
@@ -360,47 +373,56 @@ export function createGatewayService({
     return { skipped: false, data: null, rttMs: 0 };
   }
 
+  async function probeCam02Direct() {
+    if (camProbeInFlight) return camProbeInFlight;
+    camProbeInFlight = (async () => {
+      const camProbe = await probeJson(cam02Target, '/api/system', 1100);
+      const tNow = now();
+      if (!camProbe.skipped && camProbe.data) {
+        const camSys = camProbe.data;
+        const radar = camSys.radar || {};
+        lanState.cam02Online = true;
+        lanState.cam02BootId = camSys.boot_health?.boot_id || lanState.cam02BootId;
+        lanState.cam02RadarOnline = Boolean(radar.online && typeof radar.presence === 'boolean');
+        const rawAge = Number.isFinite(radar.sample_age_ms) ? Math.max(0, Math.round(radar.sample_age_ms)) : 15;
+        const transit = Math.min(200, Math.max(0, Math.round(camProbe.rttMs / 2)));
+        if (lanState.cam02RadarOnline && (rawAge + transit) < STALE_SAMPLE_LIMIT_MS) {
+          lanState.cam02Presence = radar.presence;
+          lanState.cam02SampleAgeMs = rawAge;
+          lanState.cam02TransitMs = transit;
+        } else {
+          lanState.cam02Presence = null;
+          lanState.cam02SampleAgeMs = null;
+          lanState.cam02TransitMs = 0;
+        }
+        lanState.cam02DistanceCm = radar.detection_distance_cm || 0;
+        lanState.cam02UpdatedAt = tNow;
+
+        registry.upsert('camera-02', {
+          role: 'camera',
+          online: true,
+          bootId: lanState.cam02BootId,
+          capabilities: ['presence', 'camera'],
+          direct: true,
+          extra: { presence: lanState.cam02Presence, distance: lanState.cam02DistanceCm }
+        });
+        return true;
+      }
+      if (!camProbe.skipped && (tNow - lanState.cam02UpdatedAt > 5000)) {
+        lanState.cam02Online = false;
+      }
+      return false;
+    })().finally(() => { camProbeInFlight = null; });
+    return camProbeInFlight;
+  }
+
   async function pollLanOnce() {
-    const [hubProbe, camProbe] = await Promise.all([
+    const [hubProbe, gotCam02Direct] = await Promise.all([
       probeJson(hubTarget, '/api/devices', 1100),
-      probeJson(cam02Target, '/api/system', 1100)
+      probeCam02Direct()
     ]);
 
     const tNow = now();
-    let gotCam02Direct = false;
-
-    if (!camProbe.skipped && camProbe.data) {
-      const camSys = camProbe.data;
-      const radar = camSys.radar || {};
-      gotCam02Direct = true;
-      lanState.cam02Online = true;
-      lanState.cam02BootId = camSys.boot_health?.boot_id || lanState.cam02BootId;
-      lanState.cam02RadarOnline = Boolean(radar.online && typeof radar.presence === 'boolean');
-      const rawAge = Number.isFinite(radar.sample_age_ms) ? Math.max(0, Math.round(radar.sample_age_ms)) : 15;
-      const transit = Math.min(200, Math.max(0, Math.round(camProbe.rttMs / 2)));
-      if (lanState.cam02RadarOnline && (rawAge + transit) < STALE_SAMPLE_LIMIT_MS) {
-        lanState.cam02Presence = radar.presence;
-        lanState.cam02SampleAgeMs = rawAge;
-        lanState.cam02TransitMs = transit;
-      } else {
-        lanState.cam02Presence = null;
-        lanState.cam02SampleAgeMs = null;
-        lanState.cam02TransitMs = 0;
-      }
-      lanState.cam02DistanceCm = radar.detection_distance_cm || 0;
-      lanState.cam02UpdatedAt = tNow;
-
-      registry.upsert('camera-02', {
-        role: 'camera',
-        online: true,
-        bootId: lanState.cam02BootId,
-        capabilities: ['presence', 'camera'],
-        direct: true,
-        extra: { presence: lanState.cam02Presence, distance: lanState.cam02DistanceCm }
-      });
-    } else if (!camProbe.skipped && (tNow - lanState.cam02UpdatedAt > 5000)) {
-      lanState.cam02Online = false;
-    }
 
     if (!hubProbe.skipped && hubProbe.data) {
       const hubData = hubProbe.data;
@@ -732,6 +754,7 @@ export function createGatewayService({
     const isEvent = next.mode === 'event';
     cloudMetrics.workerMode = isEvent ? 'event-driven' : 'legacy-strict-poll';
     cloudMetrics.workerUpgradeRecommended = !isEvent;
+    computeCycleMs();
   }
 
   async function syncOnce() {
@@ -752,6 +775,9 @@ export function createGatewayService({
       await getLease();
     }
 
+    if (lease.mode !== 'event' && lanState.cam02Online && (now() - lanState.cam02UpdatedAt) > 150) {
+      await probeCam02Direct().catch(() => {});
+    }
     const tNow = now();
     const sinceLeaseMs = Math.max(0, tNow - lease.receivedAt - 20);
     const nextSeq = sequence + 1;
@@ -803,6 +829,10 @@ export function createGatewayService({
     sequence = nextSeq;
     lanState.lastReportOkAt = now();
     lanState.lastSequence = sequence;
+    const isEvent = nextLease.mode === 'event';
+    cloudMetrics.workerMode = isEvent ? 'event-driven' : 'legacy-strict-poll';
+    cloudMetrics.workerUpgradeRecommended = !isEvent;
+    computeCycleMs();
 
     if (Array.isArray(nextLease.commands) && nextLease.commands.length > 0) {
       for (const cmd of nextLease.commands) {
@@ -971,12 +1001,26 @@ export function createGatewayService({
           return;
         }
         const execResult = await dispatchHardwareCommand(body);
+        const resolvedBootId = (() => {
+          const id = String(body.entityId || '');
+          if (id === 'cam02-led' || id === 'camera-snapshot' || id.startsWith('cam02-') || id.startsWith('camera-02')) {
+            return registry.get('camera-02')?.bootId || lanState.cam02BootId;
+          }
+          if (id === 'cam01-led' || id.startsWith('cam01-') || id.startsWith('camera-01')) {
+            return registry.get('camera-01')?.bootId || body.bootId || lanState.hubBootId;
+          }
+          if (id === 'hub-relay' || id.startsWith('hub-')) {
+            return registry.get('hub')?.bootId || lanState.hubBootId;
+          }
+          const devId = id.replace(/-(led|relay|switch)$/, '');
+          return registry.get(devId)?.bootId || body.bootId || lanState.hubBootId;
+        })();
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({
           commandId: body.commandId,
           applied: Boolean(execResult.applied),
           value: body.value,
-          bootId: lanState.hubBootId,
+          bootId: resolvedBootId,
           mode: execResult.applied ? 'lan' : 'offline'
         }));
         return;
@@ -1056,7 +1100,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   if (!token) {
     console.warn('[Cloud-Sync] Uyarı: PRESENCE_PUBLISH_TOKEN veya local-data/publisher-token.txt yok; yalnızca yerel LAN köprüsü (8098) çalışacak, Cloud push devre dışı.');
   }
-  const gw = createGatewayService({ publishToken: token, enableCloudPush: Boolean(token) });
+  const gw = createGatewayService({
+    publishToken: token,
+    enableCloudPush: Boolean(token),
+    host: process.env.SYNC_HOST || '127.0.0.1',
+    mqttHost: process.env.MQTT_HOST || '0.0.0.0'
+  });
   gw.server.on('error', err => {
     if (err.code === 'EADDRINUSE') {
       console.log(`[Cloud-Sync] Port ${process.env.SYNC_PORT || 8098} zaten kullanımda. Çıkılıyor.`);

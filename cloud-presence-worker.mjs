@@ -79,6 +79,7 @@ export default {
     }catch(e){return reply([400,413].includes(e.status)?e.status:500,{error:e.message});}
    }
    if(request.method==='GET'){
+    if(env.PUBLIC_ACCESS!=='true'&&!request.headers.get('oai-authenticated-user-id'))return reply(401,{error:'Sign-in required'});
     const item=await getMedia(env,'snapshot:'+devId);
     if(!item)return new Response(null,{status:204,headers:corsHeaders});
     return new Response(item.bytes,{headers:{'Content-Type':item.contentType,'Cache-Control':'no-cache, max-age=1','X-Updated-At':String(item.updatedAt),...corsHeaders}});
@@ -98,6 +99,7 @@ export default {
     }catch(e){return reply([400,413].includes(e.status)?e.status:500,{error:e.message});}
    }
    if(request.method==='GET'){
+    if(env.PUBLIC_ACCESS!=='true'&&!request.headers.get('oai-authenticated-user-id'))return reply(401,{error:'Sign-in required'});
     const item=await getMedia(env,'preview:hub');
     if(!item)return new Response(null,{status:204,headers:corsHeaders});
     return new Response(item.bytes,{headers:{'Content-Type':item.contentType,'Cache-Control':'no-cache, max-age=1','X-Updated-At':String(item.updatedAt),...corsHeaders}});
