@@ -1,11 +1,11 @@
 {
-  "updatedAt": "2026-11-11T01:59:44.527Z",
+  "updatedAt": "2026-11-11T02:19:44.856Z",
   "machine": "armut-windows-pc",
-  "publicHttpsUrl": "https://668002f015fc29.lhr.life/run",
-  "pingUrl": "https://668002f015fc29.lhr.life/ping",
+  "publicHttpsUrl": "https://9ae38574debcb7.lhr.life/run",
+  "pingUrl": "https://9ae38574debcb7.lhr.life/ping",
   "tailscaleUrl": "http://100.82.246.76:8099/run",
   "token": "4989ecafc19a7ea0a14ae62044f5779d0c9804ea2767b102",
   "v2Path": "C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ARMUT_V2_TEMIZ",
   "v1Path": "C:\\Users\\icanp\\OneDrive\\Belgeler\\ChatGPT\\ESP_ARMUT_V1.1",
-  "exampleCurl": "curl -sS -X POST \"https://668002f015fc29.lhr.life/run\" -H \"Authorization: Bearer 4989ecafc19a7ea0a14ae62044f5779d0c9804ea2767b102\" -H \"Content-Type: application/json\" -d '{\"cmd\":\"git status\"}'"
+  "exampleCurl": "curl -sS -X POST \"https://9ae38574debcb7.lhr.life/run\" -H \"Authorization: Bearer 4989ecafc19a7ea0a14ae62044f5779d0c9804ea2767b102\" -H \"Content-Type: application/json\" -d '{\"cmd\":\"git status\"}'"
 }
