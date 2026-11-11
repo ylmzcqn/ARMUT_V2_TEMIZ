@@ -12,6 +12,7 @@ import {artwork,wiringWorkspace,moduleToolbar,connectionScene,devicesOverview} f
 import {editConnection,addConnection,removeComponent,serializeInventory,parseInventory} from './wiring-model.mjs?v=cloud20261110-16';
 import {createChoiceDialog} from './choice-dialog.mjs?v=cloud20261110-16';
 import {deviceFilters,filterDevices,filterChoices} from './device-filters.mjs?v=cloud20261110-16';
+import {displayPages,displayRotations,displayTimeouts,displayThemes,defaultHubDisplay} from './home-model.mjs?v=cloud20261110-16';
 
 const $ = id => document.getElementById(id);
 const labels = {source:'Kaynak kodda tanımlı', reported:'Kullanıcı bildirimi / belge', physical:'Tarihsel fiziksel gözlem kaydı', unknown:'Bilinmiyor', conflict:'Çelişki / tarihsel fark'};
@@ -360,11 +361,176 @@ function updateListStatus(listing) {
   const count=listing&&(deviceFilter!=='all'||deviceQuery.trim())?`${visible} / ${listedDevices().length}`:String(listedDevices().length);
   $('status').textContent=`${count} cihaz kaydı`;
 }
+function openHubDisplayModal(device,trigger){
+  const currentHome=homePanel?.runtime?.home()||{};
+  const display=currentHome.settings?.hubDisplay||defaultHubDisplay();
+  const form=element('form',undefined,'hp-form');
+
+  const intro=element('p','ESP32-S3 Hub üzerindeki 1.69" 240×280 ST7789V3 IPS TFT ekranın çalışma modunu ve donanım parametrelerini yapılandırın.','module-note');
+  form.append(intro);
+
+  const previewBox=element('div',undefined,'hw-camera-preview-frame hw-display-frame');
+  previewBox.style.maxWidth='220px';
+  previewBox.style.margin='10px auto';
+  const isHttps=typeof location!=='undefined'&&location.protocol==='https:';
+  const previewUrl=isHttps?'https://armut.armut-home.workers.dev/api/hub/display/preview':'http://192.168.1.118/api/display/preview';
+  const img=element('img');
+  img.src=`${previewUrl}?_armut=${Date.now()}`;
+  img.alt='Hub ST7789 Ekran Önizlemesi';
+  img.onerror=()=>{previewBox.style.display='none';};
+  previewBox.append(img);
+  form.append(previewBox);
+
+  const modeTitle=element('p','Aktif Ekran Modu:','device-summary');
+  modeTitle.style.marginBottom='6px';
+  form.append(modeTitle);
+
+  let selectedMode=display.defaultPage||'status';
+  const modeGrid=element('div',undefined,'hw-mode-grid');
+
+  const modeDescriptions={
+    status:'Saat, hava durumu ve sistem durumu özeti',
+    presence:'LD2410C radar mesafesi ve canlı hareket takibi',
+    sensors:'SHT41 sıcaklık, nem ve ortam sensörleri',
+    system:'IP adresi, Heap RAM, WiFi RSSI ve çalışma süresi'
+  };
+  const modeIcons={
+    status:'🕒',
+    presence:'📡',
+    sensors:'🌡️',
+    system:'⚙️'
+  };
+
+  const modeButtons=[];
+  for(const [key,label] of displayPages){
+    const btn=element('button',undefined,`hw-mode-card ${key===selectedMode?'is-selected':''}`);
+    btn.type='button';
+    const iconSpan=element('span',modeIcons[key]||'🖥️','hw-mode-icon');
+    const strong=element('strong',label);
+    const desc=element('span',modeDescriptions[key]||'','hp-muted');
+    btn.append(iconSpan,strong,desc);
+    btn.addEventListener('click',()=>{
+      selectedMode=key;
+      for(const b of modeButtons)b.classList.remove('is-selected');
+      btn.classList.add('is-selected');
+    });
+    modeButtons.push(btn);
+    modeGrid.append(btn);
+  }
+  form.append(modeGrid);
+
+  const settingsGrid=element('div',undefined,'module-record-facts');
+  settingsGrid.style.gridTemplateColumns='repeat(auto-fit, minmax(160px, 1fr))';
+  settingsGrid.style.margin='14px 0';
+
+  const bWrap=element('div');
+  const bLabel=element('label',undefined,'hp-field');
+  bLabel.append(element('span','Parlaklık (%)'));
+  const bInput=element('input');
+  bInput.type='number';
+  bInput.min='0';
+  bInput.max='100';
+  bInput.step='1';
+  bInput.value=String(display.brightness??80);
+  bWrap.append(bLabel,bInput);
+
+  const rWrap=element('div');
+  const rLabel=element('label',undefined,'hp-field');
+  rLabel.append(element('span','Ekran Yönü'));
+  const rSelect=element('select');
+  for(const [deg,name] of displayRotations){
+    const opt=element('option',name);
+    opt.value=String(deg);
+    rSelect.append(opt);
+  }
+  rSelect.value=String(display.rotation??0);
+  rWrap.append(rLabel,rSelect);
+
+  const tWrap=element('div');
+  const tLabel=element('label',undefined,'hp-field');
+  tLabel.append(element('span','Zaman Aşımı'));
+  const tSelect=element('select');
+  for(const [sec,name] of displayTimeouts){
+    const opt=element('option',name);
+    opt.value=String(sec);
+    tSelect.append(opt);
+  }
+  tSelect.value=String(display.timeoutSeconds??60);
+  tWrap.append(tLabel,tSelect);
+
+  settingsGrid.append(bWrap,rWrap,tWrap);
+  form.append(settingsGrid);
+
+  const error=element('p',undefined,'form-error');
+  error.setAttribute('role','alert');
+  form.append(error);
+
+  const actions=element('div',undefined,'form-actions');
+  actions.style.display='flex';
+  actions.style.justifyContent='space-between';
+  actions.style.alignItems='center';
+  actions.style.flexWrap='wrap';
+  actions.style.gap='10px';
+  actions.style.marginTop='18px';
+
+  const pinLink=element('a','Donanım Pin Şeması ve Detayları Gör →','hp-button secondary');
+  pinLink.href='#hub';
+  pinLink.addEventListener('click',()=>dismissDialog());
+
+  const buttonGroup=element('div');
+  buttonGroup.style.display='flex';
+  buttonGroup.style.gap='8px';
+
+  const cancel=element('button','Vazgeç');
+  cancel.type='button';
+  cancel.addEventListener('click',dismissDialog);
+
+  const apply=element('button','Modu Uygula');
+  apply.type='submit';
+
+  buttonGroup.append(cancel,apply);
+  actions.append(pinLink,buttonGroup);
+  form.append(actions);
+
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    apply.disabled=true;
+    try{
+      const rawB=Number(bInput.value);
+      const rawT=Number(tSelect.value);
+      const nextDisplay={
+        brightness:Number.isFinite(rawB)?Math.max(0,Math.min(100,Math.round(rawB))):80,
+        rotation:Number(rSelect.value)||0,
+        timeoutSeconds:Number.isFinite(rawT)?Math.max(0,Math.min(3600,Math.round(rawT))):60,
+        defaultPage:selectedMode,
+        theme:display.theme||'dark'
+      };
+      if(homePanel?.runtime){
+        await homePanel.runtime.update(h=>({
+          ...h,
+          settings:{...h.settings,hubDisplay:nextDisplay}
+        }));
+      }
+      dismissDialog();
+    }catch(e){
+      error.textContent=e.message;
+      apply.disabled=false;
+    }
+  });
+
+  openDialog('Hub ST7789 Ekran Modu ve Ayarları',form,trigger);
+}
 function renderDeviceCards() {
   $('devices').replaceChildren();
   const filtered=filterDevices(listedDevices(),deviceFilter,deviceQuery);
   for(const device of filtered){
     const link=element('a',undefined,'device-card');link.href=device.connectedRecord?`#device/${encodeURIComponent(device.id)}`:`#${encodeURIComponent(device.id)}`;
+    if(device.id==='hub'){
+      link.addEventListener('click',event=>{
+        event.preventDefault();
+        openHubDisplayModal(device,link);
+      });
+    }
     const copy=element('div',undefined,'device-card-copy');
     if(device.id==='uno-history')copy.append(element('span','Tarihsel kayıt','card-tag'));
     copy.append(element('h3',device.name),element('p',device.summary));

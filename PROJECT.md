@@ -1,262 +1,47 @@
-# ARMUT V2
+# Project: ARMUT V2 Web Dashboard DIY Hardware Redesign
 
-## Amaç
+## Architecture
+- **Canvas & Surface Layer (`style.css`)**: Dark DIY modular hardware theme (#171b1a background, #202623 surface, #343e37 trace border, #5ba374 active emerald glow, #aad6b5 text accents) with corner solder jumper pseudo-elements (`:after`) and telemetry grids (`.module-record-facts`).
+- **Domain Views Layer (`home-panel.mjs`)**: Dedicated modular views for Physical Deployment Zones (`odalar`), Hardware Logic Engine (`otomasyonlar`), Multi-Pin Batch Actuation (`sahneler`), Direct Camera Units (`kameralar`), and Streamlined 3-Device Physical Status (`genel bakış` / `home`).
+- **Device Interaction & Modal Layer (`app.mjs`)**: Native dialog modal intercepting Hub card clicks in the devices tab (`#devices`) to configure ST7789 TFT display screen modes (`status`, `presence`, `sensors`, `system`) and brightness/rotation/timeout with safe finite number parsing and integer rounding via `runtime.update()`. Direct access to `#hub` schematic preview and pinout preserved.
+- **Hardware Map & Schematic Layer (`hardware-map-view.mjs`, `wiring-view.mjs`)**: Preserved without modification, verified by interactive navigation tests.
 
-ARMUT'u temiz bir başlangıçla, daha sade ve kararlı adımlarla geliştirmek. Geliştirme kullanımını azaltırken doğruluk, güvenlik ve gerekli doğrulama korunur.
+## Code Layout
+- `style.css`: Dashboard CSS tokens, solder jumper decorations, `.hp-card`, `.presence-active`, responsive device grid.
+- `home-panel.mjs`: `renderHome()`, `renderCameras()`, `renderAutomations()`, `renderScenes()`, `renderRooms()`, live event tracking.
+- `app.mjs`: `renderDeviceCards()`, hub click modal trigger (`openHubDisplayModal`), navigation route handling.
+- `build-cloud.mjs` & `cloudflare-worker.js`: Cloud worker bundling.
+- `test/`: 163+ automated node test suites.
 
-Minimal kişisel ev otomasyonu paneli ilk aşamadır; uzun vadeli ürün hedefi V1’in Türkçe konuşan, kullanıcının amacını takip eden kişisel ev asistanı kimliğini korumaktır. Bu pakette asistan uygulanmaz. Donanım haritası panelin yardımcı bölümüdür. Donanım bölümünün amacı: hangi cihaz/modülün nereye bağlı olduğunu, hangi GPIO’nun ne için kullanıldığını ve yeni donanım eklenirken hangi kısıtların dikkate alınacağını göstermek. Manuel pin düzenleme, sorun ve özel değişikliklerde kullanıcı müdahalesi için yardımcı araçtır.
+## Feature Inventory
+| # | Feature | Description | Milestone | Source | Status |
+|---|---------|-------------|-----------|--------|--------|
+| 1 | Dark DIY Hardware Theme Styling | Add solder jumper `:after` styling, #171b1a bg, #5ba374 presence glow, and hardware telemetry styling to home panel cards | M1 | Survey 1, R1 | DONE |
+| 2 | Omit Generic Consumer Smart-Home Flows | Remove `roomForm`, `cameraForm`, room CRUD, manual URL prompts, and consumer lifestyle marketing copy | M1 | Survey 1, R1 | DONE |
+| 3 | Redesign Kameralar View | Direct snapshot/stream frames for Camera-01 and Camera-02, radar telemetry, spot LED controls | M1 | Survey 1, R1 | DONE |
+| 4 | Redesign Otomasyonlar View | Hardware logic engine view displaying trigger-to-actuator signal paths | M1 | Survey 1, R1 | DONE |
+| 5 | Redesign Sahneler View | Multi-pin batch actuation panel with instant execution triggers | M1 | Survey 1, R1 | DONE |
+| 6 | Redesign Odalar View | Physical deployment zones (Salon, Giriş / Koridor) showing fixed ESP32 hardware node status and direct controls | M1 | Survey 1, R1 | DONE |
+| 7 | Streamline Overview (Genel Bakış) | 3-device physical hardware layout (ESP32-S3 Hub + ST7789 display preview, Camera-02 + live snapshot + LD2410C radar aura, Camera-01 + live snapshot + spot switch) | M2 | Survey 2, R2 | DONE |
+| 8 | Hub ST7789 Screen Mode Modal | Click on Hub card in devices tab opens modal to select display screen modes (`status`, `presence`, `sensors`, `system`), brightness, rotation, timeout, and persist via `runtime.update` | M2 | Survey 3, R3 | DONE |
+| 9 | Preserve Devices Page Design & Schematics | Keep `hardwareMapView`, interactive pin wiring, and schematic preview intact with zero visual/functional regressions | M3 | Survey 1 & 3, R4 | DONE |
+| 10 | Repository Verification & Cloud Build | Pass `node source-check.mjs`, all 163+ tests in `node --test`, and `node build-cloud.mjs` | M3 | Acceptance Criteria | DONE |
 
-Bir pinin envanterde kullanılmaması, fiziksel olarak boş veya yeni iş için kullanılabilir olduğunun kanıtı değildir. Kullanım/ayrılma, kart kısıtları ve doğrulama kaynağı ayrı gösterilmelidir. Kart modeli/revizyonu bilinmiyorsa kullanılabilir pin listesi kesinmiş gibi sunulmaz. Kaynak, kullanıcı bildirimi, fiziksel gözlem, tarihsel kayıt ve belirsizlik ayrımı görsel sadeleştirme sırasında kaybolmamalıdır.
+## Milestones
+| # | Name | Scope | Dependencies | Status |
+|---|------|-------|-------------|--------|
+| 1 | DIY Hardware Views Redesign & CSS Tokens | `style.css` styling, `home-panel.mjs` (kameralar, otomasyonlar, sahneler, odalar redesign, consumer flow omission) | none | DONE |
+| 2 | Overview Streamlining & Hub Display Screen Modal | `home-panel.mjs` (`renderHome`), `app.mjs` (`renderDeviceCards` hub modal trigger) | M1 | DONE |
+| 3 | Full Verification, Cloud Build & Regression Gate | Comprehensive verification (`source-check.mjs`, `node --test`, `build-cloud.mjs`) | M1, M2 | DONE |
 
-Animasyonlar bağlantıları okumayı kolaylaştırır; demo akışı gerçek enerji, çevrimiçi durum veya çalışır sensör kanıtı değildir. Kullanıcı ve asistan aynı envanter/doğrulama kaynağına başvurmalı; kod geliştirme kararı doğrulanmamış boş pin varsayımına dayanmamalıdır.
+## Interface Contracts
+### `app.mjs` ↔ Hub Display Modal
+- Input: Device `device.id === 'hub'`, active `runtime.home.settings.hubDisplay` (or `defaultHubDisplay()`).
+- Output: Invokes `runtime.update(h => ({ ...h, settings: { ...h.settings, hubDisplay: nextDisplay } }))`.
+- Valid screen modes: `'status'`, `'presence'`, `'sensors'`, `'system'`.
+- Fallback navigation: modal contains button/link to `#hub` for full pinout/schematic view.
+- Number sanitation: `Number.isFinite(rawB) ? Math.max(0, Math.min(100, Math.round(rawB))) : 80`.
 
-## Güncel durum
-
-11 Kasım 2026 — Kota korumalı olay-güdümlü bulut senkronizasyonu, doğrudan Kamera 2 fallback ve proje yol haritası revizyonu:
-- **Cloudflare Free Tier Kota Koruması (`cloud-hub-sync.mjs`):** Eski 650 ms sabit döngü + 3 sn medya yüklemesi günde ~161.800 istek üreterek Cloudflare Workers günlük ücretsiz sınırını (100.000 istek/gün) aşma riski taşıyordu. Senkronizasyon mimarisi **olay-güdümlü (event-driven) + kota bütçeli** yapıya geçirildi:
-  - Yerel ağ (`192.168.1.116` / `192.168.1.118`) 500 ms'de bir sıfır bulut maliyetiyle taranır; radar varlık durumu (`presence`) veya Hub çevrimiçi durumu değiştiği anda bekleme süresi atlanarak **<50 ms içinde** anında Cloudflare'a iletilir.
-  - Durum değişmediğinde heartbeat döngüsü **1300 ms** toplam süreye (`~66.460 istek/gün`, 100k sınırının **%33,5 altında**) sabitlendi ve `sampleAgeMs <= 35 ms` tutularak Worker üzerindeki `<2000 ms` tazelik şartı kesintisiz korundu.
-  - Günlük UTC istek sayacı ve **85.000 istek yumuşak bütçe freni (circuit-breaker)** eklendi; medya uçları (`/api/camera/snapshot`, `/api/hub/display/preview`) 404/503 döndüğünde 10 dakika geri çekilerek (backoff) günde 28.800 boşa giden istek tamamen sıfırlandı.
-- **Hub Kapalıyken Doğrudan Kamera 2 Fallback & Kendi Kendini İyileştiren PC Köprüsü:**
-  - Fiziksel Hub (`192.168.1.118`) kapalıyken `cloud-hub-sync.mjs` doğrudan `camera-02` (`192.168.1.116/api/system`, `Authorization: Bearer `) üzerinden HLK-LD2410C radar verisini okuyup buluta basar.
-  - `local-bridge-agent.mjs` tekil port kilidi (8099), 25 saniyelik dış `/ping` sağlık denetimi ve `localhost.run` tünel rotasyonlarında otomatik `origin/pc-bridge` dalı güncellemesiyle stabilize edildi.
-- **Güncellenen Proje İlerleme Haritası (Kota ve Ölçeklenebilirlik Odaklı):**
-  1. **Aşama 1 (Tamamlandı - Aktif):** Yerel LAN'da hızlı tarama (500 ms) + Cloudflare'a olay-güdümlü/bütçe-korumalı (`<67k/gün`) aktarım ve Hub kapalıyken doğrudan Kamera 2 yedekliliği.
-  2. **Aşama 2 (Sonraki Adım - Worker & Protokol Esnetme):** Cloudflare Worker (`presence-ingest.mjs`) üzerindeki sabit `<2000 ms` okuma penceresini durum değişimlerinde anlık (`0 ms`), sabit durumda ise `10–15 sn` kalp atışı (heartbeat) kabul edecek şekilde genişletmek; böylece günlük bulut isteği sayısını `~66.000`'den `~6.000` seviyesine (%94 tasarruf) indirmek.
-  3. **Aşama 3 (Donanım Bağımsızlığı):** Bu seyreltilmiş/olay-güdümlü protokolü doğrudan ESP32-S3 Hub / Kamera 2 firmware'ine (`armut_presence_push`) gömerek PC kapalıyken de sıfır kota riskiyle 7/24 bulut senkronizasyonu sağlamak.
-
-10 Kasım 2026 — IoT ajan devri, cloud worker senkronizasyonu ve canlı yayın güncellemesi:
-- Önceki IoT ajanının yerel port tarama denemeleri sonrası donduğu oturum incelendi; `build-cloud.mjs` aracı kök dizindeki tek dosyalık `cloudflare-worker.js` derlemesini de güncelleyecek şekilde bağlandı.
-- `cloudflare-worker.js` içine `/api/camera/snapshot` ve `/api/hub/display/preview` medya/ekran aktarım uç noktaları dahil edildi.
-- GitHub Pages canlı yayın dalı (`gh-pages`), `main` dalındaki en güncel commit ile eşitlendi (https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/).
-- Doğrulama: 163 Node testi ve taşınabilir kaynak bütünlük kontrolü (`source-check.mjs`) sıfır hatayla geçti.
-
-10 Kasım 2026 — Güneş döngüsü, gecikmeli otomasyonlar ve canlı radar kart vurgusu:
-- Güneş döngüsü (`getSolarTimes`): Enlem/gün açısı hesabı ile gün doğumu ve gün batımı hesaplanır. `trigger: 'sun'` (`sunrise` / `sunset`) otomasyon tetikleyicisi `home-model.mjs` ve `home-runtime.tick()` içine entegre edildi.
-- Gecikmeli otomasyon (`delaySeconds`): Tetiklendikten sonra komut gönderilmeden önce (0–86400 sn) bekleme desteği runtime seviyesinde sağlandı. Gecikme sırasında kural değişirse işlem güvenle iptal edilir.
-- Panel arayüz iyileştirmeleri (`home-panel.mjs` & `style.css`):
-  - Genel bakış ekranına anlık gündüz/gece ve gün doğumu/batımı saatlerini gösteren `hp-solar-line` bilgi satırı eklendi.
-  - Otomasyon formuna (`ruleForm`) "Güneş döngüsünde" seçeneği ve "Gecikme süresi (saniye)" alanları eklendi; kart üzerinde gecikme süresi gösterildi.
-  - Varlık algılandığında (`kind === 'presence'`) kart üzerinde canlı `presence-active` yeşil vurgu efekti ve `🟢 Varlık algılandı` durumu eklendi.
-- Doğrulama: 161 Node testi, taşınabilir kaynak kontrolü (`source-check.mjs`) ve 3 C firmware host testi sıfır hatayla geçti. `cloudflare-worker.js` derlendi.
-
-10 Kasım 2026 — Hub ST7789 ekran ayarları, kamera profilleri ve canlı durum senkronizasyonu:
-- Hub ST7789V3 1.69 inç 240×280 ekranı için V1 benzeri parlaklık (%0–100), yön (0°, 90°, 180°, 270°), zaman aşımı (0–300 sn), varsayılan sayfa ve tema ayarları `home-model.mjs`, `home-panel.mjs` Ayarlar ve Hub cihaz ayrıntı görünümüne eklendi.
-- ESP-IDF 5.5 `firmware/armut_camera_http` bileşeniyle Akıcı (VGA, 25 FPS), Az Işık (VGA, 16 kalite, AE+2) ve Ayrıntılı (SXGA 1280×1024, 10 kalite) profilleri, kamera ekleme formunda varsayılan `/stream` ve `/profile` adresleri ve rehber ipuçlarıyla doğrulandı.
-- Varlık radarı (`presence-radar`) durum değişikliklerinin otomasyonları tetiklemesini engelleyen `observeOnly: true` kilidi kaldırıldı; radar canlı varlık algıladığında otomasyonlar anında tetiklenir.
-- Buluttan iki yönlü cihaz kontrolü: `presence-ingest.mjs` ve `cloud-presence-worker.mjs` üzerine `/api/presence/command` uç noktası ve komut kuyruğu entegre edildi.
-- `defaultHome()` akıllı ev şablonu eklendi: Odalar, hazır anahtarlar, kameralar, varlık sensörü, aydınlatma otomasyonları ve sahneler hazır gelir; Ayarlar paneline tek tıkla yükleme butonu eklendi.
-- `#devices` ve `#hub` sayfalarında canlı durum rozetleri ve runtime telemetrisi `refreshLive()` ile anında senkronize edildi; offline cihazların kayıt dışı kalmaması sağlandı.
-- 158 Node testi ve `node source-check.mjs` eksiksiz geçti; `cloudflare-worker.js` hazırlandı.
-
-10 Kasım 2026 — Hub ve Kamera 1 çevrimiçi durumu düzeltmesi: Bulut telemetrisinde Hub rapor vermediğinde bağlı cihazların (`camera-01`) süresiz çevrimiçi ("hayalet durum") kalması engellendi. Hub çevrimdışı olduğunda tüm bağımlı telemetri çevrimdışıya düşürülür; Hub canlılık toleransı 10 saniyeye çıkarıldı.
-10 Kasım 2026 — çoklu ESP32 cihaz bulut senkronizasyonu ve canlı yayın: Cloudflare Worker (https://armut.armut-home.workers.dev) üzerinde `hub`, `camera-02` ve `camera-01` çoklu cihaz telemetrisi ve radar durumu uçtan uca gerçek HTTP istekleriyle doğrulandı. `cloud-hub-sync.mjs` scripti üç cihazı da kapsayacak şekilde güncellendi. GitHub Pages canlı yayını (`gh-pages` dalı) güncel kodla eşitlendi (https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/). 155 test ve kaynak bütünlüğü geçti.
-10 Kasım 2026 — GitHub Pages canlı yayında: Depo kullanıcı onayıyla Public yapıldı ve GitHub Pages gh-pages dalı üzerinden https://ylmzcqn.github.io/ARMUT_V2_TEMIZ/ adresinde 7/24 yayına alındı. Bilgisayar kapalıyken de erişilebilir.
-10 Kasım 2026 — son yön: Hub tek cloud yayıncısı, kamera-02/presence-radar ayrı kaynak. Hub/kamera boot’ları ayrıldı; üç yaş parçası ve toplamı alıcıda doğrulanıyor, <2000ms sınırı korunuyor. Saf Hub normalleştirici + mock Hub→Worker→panel testleri uygulandı. Hub ↔ Kamera 2 radar tazeliği için karar: V1'in 2 sn sync aralığı nedeniyle Hub'ın Kamera 2'ye 1 sn kısa GET yapması birincil yol seçildi (Kamera 2 firmware değişikliği yok); Hub kodu yazılmadı, fiziksel olarak ölçülmedi. Önce gerçek radar kabulü, sonra Kamera 1/Hub sağlık ve ayrı video. Kamera 2 doğrudan C yayıncı yedek adaydır; henüz Hub contract’ı göndermez, OTA yapılmaz. Schema standart drizzle/ yoluna taşındı; tam Sites D1 declaration/üretilmiş migration metadata doğrulaması hâlâ açık.
-
-
-10 Kasım 2026 — güncel öncelik: PC’den bağımsız Kamera 2 → dışarı HTTPS → sahibi-özel cloud panel. Yayıncı firmware bileşeni, tek kullanımlık lease/CAS doğrulaması, D1 kalıcı son durum ve Worker paketi hazırlandı. 150 Node testi ve 3 C host testi geçti. **Canlı devrede değil:** hosted DB/migration/servis provisioning’i, gerçek V1 snapshot callback’i, IDF derlemesi ve fiziksel kabul açık; yeni yayın veya OTA yapılmadı. Ayrıntı aşağıdaki son kayıt ve docs/ARCHITECTURE.md içindedir.
-
-
-9 Kasım 2026 — yerel denetleyici ve ESP32 hazırlık paketi uygulandı ve yazılım testleri tamamlandı:
-- Node.js 22 bağımlılıksız denetleyici: atomik kalıcı ev verisi, tek süreç kilidi, giriş/CSRF, panel kapalıyken aynı otomasyon çekirdeği. Statik Cloud yayını önizleme olarak kalır. Evde üretim servisi kurulmadı.
-- Tekil cihaz kaydı ve iptal, anahtarlı raporlar, boot/sequence tekrar koruması, kararlı kanal kimliği, tek teslim komut + fiziksel ACK, timeout sonucunda bilinmiyor; kör tekrar yok. Yeniden açılışta eski canlı değer/komut tekrar oynatılmaz.
-- Çok istemcili sunucu paneli, kayıt/kurulum ekranı, dinamik cihaz ayrıntısı, sensör birimi/eşik otomasyonu; fiziksel işlev kaldırma tercihi kalıcı, açık geri getirme var. Kamera bağı kaldırılabilir. LAN HTTP üzerinde secure-context gerektirmeyen güvenli kimlik/özet desteği eklendi.
-- ESP-IDF 5.5 için tekrar kullanılabilir armut_link ve JPEG/MJPEG/profil HTTP kamera bileşenleri; servo ve pin varsayımı yok. Görüntü proxy'si cihaz anahtarını tarayıcıya açmaz. Başlatıcılar ve BASLA.md kurulum rehberi eklendi.
-- Doğrulama: 121 Node testi geçti; gerçek yerel HTTP ile cihaz kayıt/telemetri/komut/ACK, tarayıcısız otomasyon ve iki istemci çakışması test edildi. Her iki C bileşeni host stub testlerinde -Wall/-Wextra/-Werror ile geçti. DOM akışları ve LAN crypto kısıtlı başlangıç geçti. Gerçek görsel tarayıcı kontrolü mevcut CUA sandbox hatası yüzünden tamamlanamadı.
-- Sınır: ESP-IDF araç zinciri ve gerçek cihaz yok; IDF derlemesi/yüklemesi, GPIO, kamera görüntüsü ve 25 FPS fiziksel olarak doğrulanmadı. Tek seferlik gerçek firmware/pin/sensör callback ve cihaz anahtarı kurulumu gereklidir.
-
-
-6 Kasım 2026 — güvenilir donanım haritası paketi uygulandı ve doğrulandı:
-- Tek inventory.json: kaynaklı ESP32-S3/UNO referans pin kapsamı, yonga kısıtları, firmware rezervasyonları, modül kapsamı (kaynak/belge/tarihsel) ve ortak ses saatleri eklendi. Önceki claims ve tüm bağlantı değerleri korundu.
-- GPIO / pin haritası arama/filtre, bağlantı sahibi ve kanıt/kısıt ayrıntılarıyla çalışır. Kayıtsız pin boş sayılmaz; profil header yerleşimi değildir. GPIO41/42 gibi kaynakta atanmamış pinlerin JTAG işlevi ayrıca gösterilir. Hiçbir mevcut pin kullanılabilirliği doğrulanmış olarak işaretlenmedi.
-- Manuel değişiklikte geçersiz GPIO reddi, açık çakışma/kısıt onayı, kaynak rezervasyonlarının modül silmede korunması ve geri al doğrulandı. Salt okunur analiz yanlışlıkla veri değiştirmeyecek şekilde düzeltildi ve regresyonla korundu.
-- Panel JSON raporu ve hardware-report.mjs CLI aynı analyzeHardware çıktısını üretir. Kart doğrulamasının tarih/kaynakları da raporda korunur. Bütün modül dosyaları tek sürüm kimliğiyle yüklenir; eski/yeni önbellek karışımı denetlenir.
-- Doğrulama: tüm Node testleri ve modül sözdizimi kontrolleri geçti. Tarayıcıda masaüstü (1280/920), mobil (390/320) taşma, harita arama/filtre/kaynak, kart/sensör modalı, geçersiz ve çakışan GPIO, onaylı düzenleme/geri al, JSON rapor indirme ve bozuk/boş JSON ile yeniden yükleme kontrol edildi. Son indirilen Hub raporu CLI analiziyle birebir karşılaştırıldı. Konsolda hata/uyarı görülmedi. Test değişiklikleri yalnız test sekmesinde yapılıp temizlendi; inventory.json içine test verisi yazılmadı.
-- Sınır: gerçek kart üretici/revizyonu, header erişimi, fiziksel boş pinler, güç bütçesi ve güncel çalışma durumu doğrulanmadı. Cihaz erişimi/yükleme/servis işlemi/dış yayın yapılmadı. Animasyon kullanıcı isteğiyle temsili demo olarak kalır.
-- Geri dönüş kopyası: yerel geri dönüş kaydı (cloud deposuna aktarılmaz).
-
-
-## Arayüz ve çalışma sözleşmesi
-- Bağımlılıksız HTML/CSS/ES modülleri; tek inventory.json. Tarayıcı arayüzü framework gerektirmez; yerel denetleyici bağımlılıksız Node.js ile aynı otomasyon çekirdeğini kullanır.
-- Genel bakışta temsili Hub merkezli animasyonlu cihaz şeması, Cihazlar sayfasında arama/filtre ve cihaz kartları. Cihaz ayrıntısında pin haritası ve modül topolojisi; merkez cihaz kart/besleme modalını açar.
-- Sensör düzenleme yalnız ortak modalda. Pinler kapalı Pin bağlantıları bölümünde; bağlantı sayısı başlıkta, Pin ekle içeride. Silme onaylıdır, geri al vardır. Düzenleme önce bellekte; kalıcılık kullanıcı seçtiği JSON dosyasınadır.
-- Kaynak/bildirim/tarihsel gözlem/çelişki ayrımı korunur. Kamera 1 servo/IMU derleme profili kapalı; Uno köprüsü tarihsel. Hub amfi SD VIN/3V3 ile GND kayıtları çelişkilidir. Bunları varsayımla çözme.
-- Gizli anahtar, kişisel veri, görüntü veya model dosyası ekleme. Cihaz erişimi, pin denemesi, test tonu, firmware/OTA, telefon yükleme, eski projede değişiklik ve dış yayın ayrıca yetkilendirilmiş değildir.
-- Kullanıcı bu donanım haritası paketinde ekran testlerini yetkilendirdi. Odaklı kontroller, önemli ortak değişikliklerde uygun regresyon; tek sorumlu ve az tekrarla çalışma tercih edilir.
-
-## Cloud aktarımı
-Kullanıcı Codex Cloud’da geliştirmeye devam etmek için aktarımı istedi. Yeni proje eski ARMUT deposundan ve cloud ortamından ayrı tutulur; GitHub deposu gizli olmalıdır. Kaynak kod, statik varlıklar, inventory.json ve gerekli test/talimatlar aktarılır; yerel yedekler, kimlik bilgileri ve eski projenin tamamı aktarılmaz.
-
-Kaynak referansları proje-göreli kimliklerle ve yalnız kullanılan satırların LF-normalize SHA-256 kontrollü snapshot metniyle taşınabilirdir. source.sha256 özgün dosyanın geçmiş inceleme hashidir; snapshot.sha256 yalnız özet metninin hashidir. Bu kayıtlar özgün dosyanın bugün hâlâ aynı olduğunu veya donanımın çalıştığını ispatlamaz. Cloud’da eski dosyaların varlığına ihtiyaç yoktur. Yerelde source-check.mjs --root ile özgün dosyalar ayrıca karşılaştırılabilir.
-
-6 Kasım 2026 — aktarım tamamlandı:
-- Gizli GitHub deposu: https://github.com/ylmzcqn/ARMUT_V2_TEMIZ, dal: main. Bağımsız klonda tüm testler ve source-check.mjs geçti.
-- Ayrı Codex Cloud ortamı: ARMUT_V2_TEMIZ. Yalnız bu depoya bağlı, erişim Yalnızca ben; yayımlandı ve çalıştırılabilir durumu doğrulandı. Ortam kimliği: 56d8d2ac-c6d4-4ae5-a885-0207c46ff92f~asenvcfg_08c9dcf655d08191896702a82513e5d7.
-- Cloud kurulum raporu: Node.js 24/Python 3 ile 40 test, kaynak bütünlüğü ve HTTP envanter yükleme başarılı. Yeniden kullanılabilir başlangıç talimatları ortama kaydedildi. Yeni geliştirme görevinin yayımlanmış snapshot üzerinden başlatılması henüz ayrıca denenmedi.
-- Eski proje/ortam değiştirilmedi. Bu işlem geliştirme ortamı aktarımıdır; site hosting yayını veya fiziksel donanım doğrulaması değildir. Yeni Cloud sohbetinde bu ortamı seçip AGENTS.md ve PROJECT.md üzerinden devam et.
-
-## Açık işler ve sınırlar
-Yazılım/sunuma ilişkin donanım haritası ve testler hazırdır. Takılı kartların tam üretici/model/revizyonları, fiziksel header erişimi, bellek varyantları, besleme/GND ve kullanılacak pinin gerçek durumunu yeni kanıtla tamamlamak gerekir. Canlı veri sağlayıcı bağlı değildir; animasyon temsili demodur.
-
-## Özel panel yayını — 7 Kasım 2026
-Kullanıcı telefonundan incelemek için özel web yayınını yetkilendirdi. Sites üzerinde yalnız sahibine açık sürüm 1 yayımlandı: https://armut-v2-panel.jadeelm.chatgpt.site
-Site kimliği: appgprj_6aef44c1c4bc8191897d459edbbea5ff. Yayın çalışma kopyası: /workspace/sites/armut-v2-panel; manifest .openai/hosting.json içindedir. Sonraki yayınlarda aynı Site kimliğini ve özel erişimi koru. Kaynak commit: c2dd962d5e4a0c9936f7bbc26f3d451911042052. 40 test ve kaynak bütünlük kontrolü geçti; yayın servisi başarı bildirdi. Tarayıcı aracı kullanılamadığı için bu oturumda görsel kontrol yapılmadı. JSON düzenlemeleri mevcut dosya kaydetme/indirme sözleşmesini korur; cihazlar arasında otomatik eşitleme yoktur.
-
-7 Kasım 2026 — özel panel sürüm 2: Cihazlar listesine cihaz kimliği/adı/özeti ve modül adı araması, Türkçe karakter normalizasyonu, tür filtresiyle birleşik sonuç sayacı ve temizleme eklendi. Ayrıntıdan dönüşte sorgu bellekte korunur. 41 test, kaynak bütünlüğü ve app sözdizimi geçti. Sites yayını başarıyla tamamlandı; erişim yalnız sahipte korundu. Yayın commit: c3e55a444efa88f06e52e764c76acf94c5d59bd0. Mobil görsel/etkileşim kontrolü henüz yapılmadı.
-
-## Gerçek cihaz mimarisi — 8 Kasım 2026
-Kullanıcı gerçek cihazlara kontrollü geçiş için mimari hazırlığını istedi. docs/ARCHITECTURE.md mimari önerisini, kaynak kanıtlarını, canlı durum sözleşmesini, başlangıç sırasını ve fiziksel kabul ölçütlerini içerir. İlk aşama salt okunur Hub/Kamera-01 sağlığı; envanter ile telemetri ayrılır, yeniden bağlantı fiziksel komut üretmez. Mevcut statik panel ve yayın değiştirilmedi; entegrasyon uygulanmadı. Eski GitHub commit 4bc3e5a8812e5349b9802ea4120247b4e5befb0e Hub pin/ekran tanımlarında V2 snapshotlarından farklıdır. Sıradaki bağımlılık: yereldeki güncel kaynak ve çalışan firmware kimliklerini eşleştirmek; ev ağ geçidi sürekliliği ve özel bulut API yetkilendirmesini belirlemek.
-
-## Cihazdan bağımsız çalışma zamanı — 8 Kasım 2026
-Kullanıcı sürüm farkını mimari geliştirmenin ön koşulu olmaktan çıkardı. device-runtime.mjs uygulandı: açık cihaz/rol/yetenek kaydı, kararlı bileşen kimliği, adaptör oturumu ve sıra doğrulama, kaynak yaşını koruyan monotonik tazelik, bağlantı kaybı ve yeniden başlatmada eski gözlemi devralmama. Envanter/telemetri ayrı; komut ve donanım yan etkisi yok. docs/DEVICE-RUNTIME.md uygulanan API ve adaptör sorumluluklarını, docs/superpowers/plans/2026-11-08-device-runtime.md planı açıklar. 50 test ve source-check geçti. Canlı ağ adaptörü, sunucu API yetkilendirmesi ve panel bağlantısı henüz uygulanmadı; özel yayın görünümü değişmedi. Sıradaki adım, bu çekirdeğe tek veri sağlayıcısı bağlayacak adaptör ve panel entegrasyonudur; firmware farkını çözmek bağımsız geliştirme için engel değildir.
-
-## Sıradaki hedef — 8 Kasım 2026
-Kullanıcı bu hedefi birazdan geliştirmek üzere not almamızı istedi; henüz uygulama talep etmedi. Durum çekirdeği tek veri sağlayıcısıyla panele bağlanacak. Hub/Kamera-01 için son haberleşme, bağlantı ve veri gecikmesi gösterilecek. Önce açıkça test olarak işaretlenen sağlayıcıyla veri gelişi, kesinti, sırasız/gecikmiş yanıt ve yeniden bağlantı doğrulanacak; test verisi gerçek inventory.json içine yazılmayacak. Kabul: veri eskidiğinde çevrimiçi etiketi kalkar; yeniden bağlantıda eski oturum yanıtı kabul edilmez; gerçek adaptör aynı arayüze takılabilir. Kullanıcı bu hedefi koruyarak diğer akıllı ev geliştirme fikirlerini değerlendirmek istiyor.
-
-## Değerlendirilecek akıllı ev fikirleri — 8 Kasım 2026
-Kullanıcı aşağıdaki fikirleri mantıklı buldu ve not alınmasını istedi. Bunlar uygulanacak kesin kapsam veya uygulama onayı değildir:
-- Oda ve işlev modeli: fiziksel cihaz kimliğini odanın işlevinden ayırmak; cihaz değişiminde otomasyon bağlarını korumak.
-- Gözlemleri anlamlandırma: hareket, yakınlık ve varlık ayrımı; tek sensör sessizliğinden oda boşluğu çıkarmamak.
-- Ev çalışma modları: evde, dışarıda, uyku ve misafir durumları için tutarlı kural kapsamı.
-- Karar öncelikleri: fiziksel düğme, kullanıcı komutu ve otomasyon çakışmalarında açık öncelik ve manuel müdahale süresi.
-- Otomasyonları önce izleme: fiziksel çıkış üretmeden kuralın yapacağı eylemi kaydetmek ve yanlış tetiklemeleri değerlendirmek.
-- Karar açıklaması: eylemin/eylemsizliğin sensör, kural ve kullanıcı müdahalesi nedenlerini göstermek.
-Önerilen sıra henüz kesinleşmedi: canlı durum bağlantısı, oda/işlev modeli, ardından tek senaryoda izleme modu. Kullanıcı biraz daha düşünmek istiyor; tümünü gerçekleştirme onayını daha sonra verecek. Sıradaki hedef dahil yeni geliştirme, uygulama veya yayın başlatılmayacak; bu aşamada yalnız fikir değerlendirmesi ve not tutulması isteniyor.
-
-## Yapılacaklara eklenen: Otomasyonlar sayfası — 8 Kasım 2026
-Kullanıcı otomasyon sayfasının yapılacaklara eklenmesini istedi; bu kayıt uygulama veya yayın başlatma onayı değildir.
-- Donanım haritasından ayrı bir Otomasyonlar sayfası; aynı projede, şimdilik aynı sohbet ve tek uygulayıcıyla geliştirilecek.
-- Sade kural yapısı: Ne zaman → varsa koşul → yapılacak eylem. İlk kapsam: otomasyon listesi, ekleme/düzenleme, etkinleştirme/devre dışı bırakma ve son çalışma sonucu/hata.
-- Panel ve otomasyon aynı ortak cihaz/komut yolunu kullanacak. Basit aç/kapat ihtiyacı için gereksiz ayrı sistemler kurulmayacak; kalıcılık ve çalıştırma yeri uygulama öncesinde netleştirilecek. Sayfa oluşturmak çalışan otomasyon motoru veya gerçek cihaz kontrolü tamamlandı demek değildir.
-- Yapay zekâ/asistan bu aşamanın dışında; ileride mevcut işlevleri kontrol eden arayüz olarak düşünülecek. Ayrı kodlama ajanı veya paralel geliştirme şu an planlanmıyor.
-
-## Ana ürün yönü ve kamera kapsamı — 8 Kasım 2026
-Kullanıcı ARMUT'un ana hedefini netleştirdi: Home Assistant benzeri, sade ve responsive bir ev otomasyonu paneli. Ürün donanım envanterinden ibaret değildir; donanım haritası yardımcı bölümdür. Cihaz durumları, cihaz kontrolü, otomasyonlar ve gerçek kamera görüntüsüne erişim temel işlevlerdir. Home Assistant benzerliği ürün kullanım yönüdür; Home Assistant altyapısına geçiş kararı değildir.
-Kamera sayfası salt durum kartı olmayacak; seçilen kameranın gerçek JPEG/MJPEG görüntüsünü panel içinde gösterecek. Responsive web yeterli; mobil APK ve ev dışı erişim kurulumu şu an kapsam dışı. Servo yön kontrolü şimdilik etkinleştirilmeyecek; mevcut tarihsel donanım kayıtları bunun için değiştirilmez.
-Görüntü profilleri: Akıcı (en az 25 FPS hedefi; gerçek cihazda ölçülmeden garanti edilmez), Az ışık (pozlama/FPS dengesi), Ayrıntılı (çözünürlük önceliği). Seçili kameranın canlı yayını, yayın kesildiğinin açık gösterimi, profil değişiminde kontrollü yeniden başlatma ve sayfadan ayrılınca bağlantının bırakılması hedeflenir. Cihaz olmadan gerçek görüntü varmış gibi örnek yayın sunulmaz; bağlantı altyapısı ile fiziksel görüntü/FPS doğrulaması ayrı raporlanır.
-Kullanıcı fikir ve kapsamı netleştirme aşamasındadır; önceki toplu uygulama onayını daha sonra verme kararı devam eder. Bu mesaj ürün yönünü ve görüntü ihtiyacını vurgular; tek başına firmware yükleme veya canlı cihaz erişimi yetkisi değildir.
-
-## Görsel bütünlük — 8 Kasım 2026
-Kullanıcı mevcut Cihazlar/donanım sayfasının estetiğini açıkça beğendi ve tüm yeni sayfalarda aynı tasarım dilinin korunmasını kritik gereksinim olarak belirtti. Referans mevcut Cihazlar sayfasıdır; yeni bir tema veya görsel yeniden tasarım istenmiyor. Renk paleti, tipografi, kart yüzeyleri/kenarlıkları/köşeleri, boşluklar, ikon dili, başlıklar, gezinme, menü/modal ve responsive davranış ortak olmalı. Yeni sayfanın içeriğine uygun yerleşim değişebilir; görsel kimliği değişmez. Genel bakış, Kameralar, Otomasyonlar ve sonraki sayfalar mevcut ortak stil/bileşenleri kullanmalı; sayfa başına bağımsız tema ve yinelenen CSS sistemi kurulmaz. Kullanıcı bu aşamada ek sayfa fikirleri istiyor; uygulama başlatılmadı.
-
-## Ev paneli uygulaması — 8 Kasım 2026
-Kullanıcı bu akşam konuşulan kapsamı soru sormadan uygulama ve özel yayına alma yetkisi verdi; önceki bekleme/onay notları bu istekle aşılmıştır. Genel bakış, Odalar, Kameralar, Otomasyonlar, Sahneler, Geçmiş ve Ayarlar uygulandı; mevcut Cihazlar görünümü/kanıtları korundu. Ortak grafik/yeşil tasarım değişkenleri ve minimal kart/form dili kullanılır.
-Yeni home-model/runtime/panel modülleri: tarayıcıda kalıcı oda/işlev/kamera/kural/sahne ayarları ve yedekleme; device-runtime'a bağlı tek durum sağlayıcısı, ayrı test modu, boot/onay doğrulamalı ortak aç/kapat yolu; ev modları, manuel öncelik, izleme ve panel açıkken çalışan basit otomasyonlar. Kamera görüntüleyicisi gerçek JPEG/MJPEG adresine bağlanabilir; üç profil, ölçülen kare FPS'i, kesinti/retry, fotoğraf, tam ekran ve yön seçenekleri vardır. Servo/asistan/APK eklenmedi.
-68 Node testi, kaynak bütünlük kontrolü ve DOM etkileşim/rota kontrolleri geçti. Gerçek tarayıcı CUA runtime'ı kullanılamadı; sites-preview rölesi 4173 için zaman aşımına uğradı. Bu nedenle mobil çizim/taşma ve görsel eşdeğerlik bu oturumda gözlenmedi. DOM kontrolü gerçek tarayıcı testi değildir.
-Gerçek cihazlar ve firmware değiştirilmedi. Gerçek görüntü/25 FPS/fiziksel komut başarısı henüz ölçülmedi. HTTPS panelden HTTP LAN bağlantısı tarayıcı engeline takılabilir; adres/HTTP sözleşmesi docs/HOME-PANEL.md içinde. Zaman otomasyonları sürekli sunucu işi değildir, panel açıkken yürür. Ev ayarları bu tarayıcıdadır; cihazlar arası eşitleme yoktur. Yayın aynı özel Site kimliğini kullanacaktır; kaynak hosting kimliği .openai/hosting.json içine de kaydedildi.
-
-Yayın sonucu: aynı sahibi-özel Site üzerinde ev paneli başarıyla yayımlandı: https://armut-v2-panel.jadeelm.chatgpt.site . Kaynak Site commit: a358938db77add2f61017036472f2d6e43837447; deployment: appgdep_6af10044021c8191a51e935a33982ad4; saved version: appgprj_6aef44c1c4bc8191897d459edbbea5ff~appgver_98bf8dd9ffac8191be3dd5cf121bc4e4. Backend status succeeded. Yayın doğrulaması görsel tarayıcı veya fiziksel cihaz doğrulaması değildir. Çalışma deposu uygulama commit'i efd7c82.
-
-## Test alanı ve otomasyon denemesi — 9 Kasım 2026
-Kullanıcı geliştirmeye devam edilmesini istedi. Somut eksik: önceki test işlevleri otomasyon formunun home.entities listesinde olmadığı için uçtan uca kural denemesi yapılamıyordu. Test alanı geçici ev kopyasına alındı; test odası/işlevleri formda seçilebilir. Geçici düzenlemeler localStorage'a yazılmaz; çıkışta gerçek ev, manuel öncelikler ve zaman kuralı izleri geri yüklenir. Test yedeği gerçek evi döndürür; test modunda gerçek kamera bağlantısı başlatılmaz. Otomasyonlara Kuralı dene eklendi: komut göndermeden, ev modu koşulunu koruyarak eylem önizlemesi; lastPreview normal lastRun kaydından ayrıdır, geçmişte kural adı görünür. Testte yeniden bağlanma geçici kuralları korur.
-72 kaynak testi, source-check ve DOM uçtan uca akışları geçti. Kod incelemesinde veri sızıntısı veya gerçek komut için yeni engel bulunmadı. Tarayıcı kontrol aracı sandbox hatası verdi; görsel/mobil çizim bu oturumda doğrulanmadı. Gerçek cihaz/firmware değişikliği yapılmadı. Aynı özel Site üzerinde yayımlanacak.
-Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak commit bc8a59d5e5f3b1f46944674047fc345d5541059c; deployment appgdep_6af1c0fae37081918ba051e987f8f7ea; saved version appgprj_6aef44c1c4bc8191897d459edbbea5ff~appgver_0c63a18587f48191ba6430dc432313d1. Çalışma deposu uygulama commit 264d7d2. Özel erişim korunmuştur.
-
-## Haftalık kurallar ve geçmiş filtreleri — 9 Kasım 2026
-Kullanıcı daha fazla geliştirme istedi. Otomasyonlara saat dilimine duyarlı çalışma günleri ve 0–86400 saniyelik tekrar aralığı eklendi. Yeni kurallar 60 sn, eski alanı olmayan kurallar 0 sn/her gün davranışını korur. Çakışan aynı kural çalışması engellenir; atlanan tetikleme beklemeyi uzatmaz veya son gerçek sonucu silmez. Son çalışma üzerinden panel yeniden açılışında bekleme korunur; test alanı gerçek bekleme durumuna karışmaz. Düzenleme formu lastRun/lastPreview kaydını korur. Geçmişe Türkçe metin araması, sonuç/kaynak filtreleri ve kayıt sayısı eklendi.
-79 kaynak testi, source-check ve DOM akışları geçti; hafta günleri formu, eski kural varsayılanları, ad düzenlemesinde metadata korunumu ve birleşik geçmiş filtreleri doğrulandı. Gerçek tarayıcı/mobil çizim veya fiziksel cihaz testi yapılmadı. Mevcut özel yayına aynı kimlikle alınacak.
-Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak commit 1d63d7b64bc6bb3402d10b67fbea22aa89663daf; deployment appgdep_6af1d453973c8191afb55400fb5fbf65; saved version appgprj_6aef44c1c4bc8191897d459edbbea5ff~appgver_aebe001201fc8191b3e26435f2045a3c. Çalışma deposu commit c67fd3f; özel erişim korundu.
-
-## Sahne ve kayıt akışları — 9 Kasım 2026
-Kullanıcı ana fikir üzerinden eksikleri tamamlamayı istedi. Sahnelerde bekleyen çalışma/ilerleme, tamamlanan işlem sayısı, ayrı deneme/gerçek çalışma sonucu, çift çalıştırma engeli ve değişen/silinen sahnede kalan adımları durdurma eklendi. Sahneyi dene komut göndermez. Silme onayı gerçek bağımlılık listesini gösterir; oda ataması kaldırma ile kural/sahne silme ayrıdır. Geçmiş temizleme ve yedek yükleme aynı tasarımlı onay penceresine taşındı; hatalar ve sonuçlar sayfa içi bildirime alındı. Form açıkken tamamlanan işlerin metadata'sı kaydetmede korunur. Saatler seçili ev saat dilimindedir.
-84 Node testi, source-check ve genişletilmiş DOM akışları geçti. Sahne deneme/uygulama/düzenleme, kısmi sonuç, eşzamanlı çalışma engeli, silme iptali/bağımlılık onayı ve açık formda tamamlanan sonucun korunması doğrulandı. Gerçek tarayıcı çizimi ve fiziksel donanım doğrulaması yapılmadı. Mevcut özel Site üzerinde yayımlanacak.
-Yayın başarılı: https://armut-v2-panel.jadeelm.chatgpt.site . Site kaynak commit 169f90c37580d22278925c9ff2caf3d604953e07; deployment appgdep_6af1d8eb0f3081918f3358196e798fd5; saved version appgprj_6aef44c1c4bc8191897d459edbbea5ff~appgver_4238673d35848191b144202baa3bc58e. Çalışma deposu commit 5ebc3ac; özel erişim korundu.
-
-9 Kasım 2026 — yayın/kurtarma kaydı:
-- Yerel kaynak commit: ed2ea97. Çıkarılmış ZIP'te denetleyicinin gerçek HTTP sağlık ucu ayrıca geçti; paket /workspace/armut-local-panel.zip (99 dosya, sır/çalışma verisi içermez).
-- Aynı sahibi-özel Sites yayını başarılı: https://armut-v2-panel.jadeelm.chatgpt.site ; kaynak 8511f554b13436aa05b9886274f4c01532db4e41 ; sürüm appgprj_6aef44c1c4bc8191897d459edbbea5ff~appgver_388a2db5939481919cf0f1f40af557a3 ; deployment appgdep_6af20e44883c8191ac9f264dc0c1f889. Yayın statiktir; yerel Node denetleyici bu adreste çalışmaz.
-
-9 Kasım 2026 — camera-02 entegrasyon yönü:
-- Kullanıcı varlık sensörlü cihazın camera-02 olduğunu doğruladı ve bilgisayarındaki çalışan ARMUT_V1 projesinin sensör/kamera/OTA kodunun esas alınmasını istedi. Hedef USB'ye yeniden bağlamadan mevcut HTTP uçlarıyla veya gerekirse mevcut OTA yoluyla entegrasyondur; OTA'nın kullanılabilirliği henüz gözlenmedi.
-- Bu bulut çalışma alanında ARMUT_V1 kaynak klasörü ve ev bilgisayarına/ağına bağlı erişim yok. inventory.json yalnız eski kaynak parçalarını içerir; çalışan firmware veya güncel yerel kaynak yerine geçmez. Önce güncel yerel kaynak, çalışan cihaz kimliği ve mevcut durum/OTA sözleşmesi okunmalı; mevcut HTTP durum uçları yeterliyse firmware değiştirmeden adaptör tercih edilmeli.
-- Yeni yazılan bağımsız radar sürücüsü taslağı ürünle birleştirilmedi; /workspace/scratch/presence-draft altında bekletildi. Bu adımda cihaz erişimi, firmware yükleme, OTA veya yayın yapılmadı. Devam bağımlılığı: gerçek bilgisayardaki ARMUT_V1'e yerel çalışma alanı veya yetkili bağlantıyla erişim.
-
-10 Kasım 2026 — mevcut Kamera 2 API/OTA kaynak aktarımı:
-- Yerel kaynak incelemesi `/api/system` GET ve `/api/firmware` POST yollarının varlığını bildirdi. İlk yön firmware değiştirmeden salt okunur GET adaptörüdür; mevcut `camera-02/presence-radar` kaydı korunur. Ayrıntılı hazırlık ve kaynak satırları docs/ESP32-INTEGRATION.md içindedir.
-- Tam JSON zarfı, yetkilendirme, boot/sürüm ve radar ölçüm yaşı hesabı henüz aktarılmadı; tahminle adaptör üretilmedi. Sonraki bağımlılık, adres/sır içermeyen kaynak sözleşmesi aktarımıdır. Ölçüm yaşı yoksa HTTP başarısı veriyi taze yapmaz; otomasyon tetiklenmez.
-- Bu talimat yalnız kaynak incelemesi/hazırlıktır: ev ağına istek, OTA yükleme, servis değişikliği veya yayın yapılmadı. Kaynaktaki OTA desteği kurulu cihazın OTA hazırlığı değildir.
-
-10 Kasım 2026 — Kamera 2 salt okunur ayrıştırıcı:
-- Yerel ajan tam `/api/system` alan/tür ve radar tazelik sözleşmesini aktardı. `legacy-camera-status.mjs` ağsız state/normalleştirme API’si uygulandı; beklenen kimlik, tek doğru bileşen/cihaz, boot değişimi, yalnız geçerli boolean, ölçüm yaşı + istek süresi + monoton bekleme <2000 ms. Eksik/çelişen veri, istek hatası ve eski örnek bilinmiyor olur.
-- Yedi sentetik sözleşme testi geçti; tüm Node paketi ve kaynak bütünlüğü ayrıca doğrulandı. Gerçek adres/token kullanılmadı; envanter, firmware, servis veya özel yayın değiştirilmedi.
-- Bu sadece ayrıştırıcı/test hazırlığıdır. Yerel GET taşıyıcısı ve panele bağlama açık iştir; genel 30 saniye runtime tazeliği yerine radarın 2000 ms sınırı korunmadan otomasyona bağlanmaz. Canlı test/OTA için bu aşamada yetki yoktur.
-
-10 Kasım 2026 — salt okunur Kamera 2 → yerel sunucu → cloud panel hazırlığı uygulandı:
-- V1 `/api/system` GET sağlayıcısı mevcut runtime provider yoluna bağlandı. Mevcut Kamera 2 ve varsa varlık işlevi kullanılır; yoksa aynı `presence-radar` için tek mantıksal panel işlevi eşlenir. Yeni cihaz/provizyon anahtarı veya telemetri/komut protokolü yok. Ortak panelin işlev gösterimi `home.entities` gerektirdiği için bu eşleme yapılır; donanım envanteri değiştirilmez.
-- Kaynak yaşı + istek/bekleme süresi <2000 ms uçtan uca korunur; null/hata eski değerin yerine bilinmiyor verir. Yeni gözlem kaynağı salt okunurdur ve otomasyon/çıkış tetiklemez. Aynı cihaz için paralel push/GET kaynağı reddedilir.
-- Yerel sunucuda isteğe bağlı tam HTTPS panel origin’iyle sınırlı `/api/presence` GET/preflight ve PNA yanıtı; diğer API’ler dış origin’e kapalı. Strict cookie farklı origin’de kullanılamadığı için yalnız bu salt okunur uç mevcut yerel yönetici anahtarını Bearer olarak doğrular. Kamera tokenı yalnız Node sürecinde kalır. Statik/cloud panel Ayarlar formunda yerel IP ve yönetici anahtarı yalnız sekme belleğinde tutulur; kesmede bırakılır. Ağ taraması, wildcard veya erişim kontrolünü kaldırma yok.
-- 139 Node testi ve kaynak bütünlüğü geçti. Sentetik kamera yanıtı → gerçek ephemeral loopback denetleyici → cloud istemcisi → ortak runtime üzerinde var/yok/bilinmiyor, CORS/anahtar/PNA/yanlış origin, 2 saniye sınırı, kesinti/iptal/bozuk gövde ve salt okunur otomasyon sınırı doğrulandı. DOM sayfa/rota akışları geçti; bunlar gerçek tarayıcı LNA/mixed-content/CSP doğrulaması değildir.
-- Gerçek kabul AÇIK: kod yerel V2’ye aktarılmalı; yerel mevcut kamera değerleri ve tam panel origin’i docs/LOCAL-CONTROLLER.md uyarınca yerelde tanımlanmalı. Servis işlemi ve yeni cloud yayını bu talimatla yetkilendirilmedi; yapılmadı. Eski cloud yayını henüz yeni formu içermez. Gerçek tarayıcı yerel erişimi engellerse en küçük alternatif aynı yerel sunucunun kendi panelidir; cloud’da açık kalma kabulü ayrıca doğrulanacaktır. Kamera görüntüsü sonraki pakettir; USB/firmware/OTA ve gerçek cihaza erişim yapılmadı.
-
-10 Kasım 2026 — PC’den bağımsız cloud hedefi için yayın kapasitesi ve hazırlık:
-- Kullanıcı kod/panel/backend’in bulutta kalmasını, Windows PC kapalıyken Kamera 2 varlığının aynı özel panelde görünmesini istedi. PC’ye proje/Node/yardımcı uygulama kurma çözümü önerilmez. Güncel seçenekler ve resmî belge kanıtı mevcut docs/ARCHITECTURE.md başına işlendi; yeni plan/belge üretilmedi.
-- Mevcut hedef Sites, aktif manifest statik. Sites Worker ESM ve D1/R2 destekler; geliştirme VM’si VPN’i yayın backend’i bağlantısı değildir. Resmî Cloudflare VPC belgesi tek host/port özel servis binding’i + evde connector tarif ediyor. Sites’ın mevcut manifest/araçlarıyla VPC binding provision etme desteği doğrulanmadı. Bu yüzden VPN ayarı menüleri aranmadı veya uydurulmadı.
-- cloud-presence-worker.mjs mevcut V1 GET sağlayıcısını yalnız açıkça sağlanan özel servis binding’iyle kullanır; binding yokken bilinmiyor, public fetch/LAN denemesi yok. Browser aynı özel origin/oturumla radar özetini alır; kamera sırrı browser’a geçmez. Mevcut cloud origin’de otomatik okuma hazırlanmıştır; yerel IP/anahtar formu cloud varsayılan yolundan çıkarıldı.
-- build-cloud.mjs aktif manifesti/yayını değiştirmeden build/cloud-prepared içinde 36 statik varlık ve Worker backend paketi üretir. Mevcut panel varlıkları taşınır, sır/test/Node sunucu kodu taşınmaz. Bu paket hazırlanmış artefakttır; özel servis binding’i sağlanmış veya canlı yayımlanmış değildir. VPC desteklenmezse ayrı backend veya dışarı radar yayını kararı gerekecektir; bunlar uygulanmış sayılmaz.
-- 144 Node testi, hazırlanmış Worker paketinin sözdizimi, kaynak bütünlüğü ve DOM rota kontrolleri geçti. Testte V1 sentetik radar → hazırlanmış Worker → browser istemcisi → ortak runtime üzerinde var/yok/eski veri/hata bilinmiyor akışı, PC servisi olmadan doğrulandı. Fiziksel kabul değildir.
-- Eksik tek ilk bilgi ev modem/router’ının marka-modelidir: mevcut sürekli açık uygun özel ağ ucu olup olmadığı belirlenmeli. Uygun değilse mevcut Hub’dan dışarı HTTPS özeti (gerekirse OTA ve cloud alım/kalıcılık) veya ayrı backend/connector için somut etkili tek karar sunulmalı. Sır istenmedi; donanım satın alma, ücretli servis, router/VPN/ACL değişikliği, dışa açma, gerçek cihaz isteği, firmware/OTA veya yeni yayın yapılmadı. Gerçek kabul AÇIK.
-
-10 Kasım 2026 — router modeli ve mevcut donanımla bağlantı kararı:
-- Kullanıcı modem modelini TP-Link TD-W9980 olarak bildirdi. Resmî V1 kılavuzu/veri sayfasında LAN-to-LAN IPSec (10 tünel, tek adres kapsamı) var; Tailscale/cloudflared connector desteği belgelenmedi. Kurulu firmware/revizyon veya canlı VPN çalışırlığı okunmadı. Kaynaklar docs/ARCHITECTURE.md içine eklendi.
-- IPSec doğrudan Sites private bağlantısı demek değildir: uygun yayın karşı ucu/binding yok. Ayrı gateway/backend, olası ücret ve router/ACL kararı gerektiren yolu otomatik seçmedik. PC/yeni donanım/port açma olmadan aday, mevcut Kamera 2/Hub’dan yalnız radar özetiyle dışarı HTTPS yayınıdır; bu firmware eklemesi ve cloud alım/tazelik katmanı gerektirir. Hazırlama kararı kullanıcıya sunulacak, OTA ayrıca doğrulanacak; henüz uygulanmadı. Gerçek cihaz isteği, router erişimi/değişikliği, firmware/OTA veya yayın yapılmadı.
-
-10 Kasım 2026 — dışarı HTTPS mimarisi ve stabilite paketi uygulandı:
-- Kullanıcı bu yönü oluşturmayı onayladı. Tek güncel yol Kamera 2’nin mevcut radar snapshot’ı → armut_presence_push ayrı task → özel Sites Worker → D1 tek satır → aynı private panel. Cloud Worker’daki eski VPC/LAN okuma taslağı kaldırıldı; PC sunucusu, router değişikliği veya port yönlendirme yok.
-- Tek kullanımlık 5 sn yayın bileti, boot/ardışık sıra ve kalıcı CAS revision, 2000 ms gözlem üst sınırı, lease sonrası cihaz beklemesini ayıran monoton süre, atomik DB yazma/ACK ve restart/expired verinin bilinmiyor kalması uygulandı. DB kesintisinde ACK yok, browser 503 sonrasında yeniden dener; telemetry kuyruğu veya kör tekrar yok. Mevcut read callback arayüzü kullanıldı; sensör/kamera task’ı değiştirilmedi.
-- ESP-IDF bileşeni yalnız HTTPS+CA bundle, redirect reddi, keep-alive, bounded request/body ve 1–30 sn artan bekleme/jitter ile hazırlandı. Yanlış/eskimiş ölçüm null gider; fiziksel çıkış yok. Host testleri mevcut protokol/kamera testlerine eklendi. Mevcut V1 uygulamasındaki gerçek snapshot fonksiyonu henüz bağlanmadı; bu bileşen tek başına karta yüklenebilir tam firmware değildir.
-- 150 Node testi ve üç C host programı geçti. SQLite destekli D1 sözleşme/CAS testleri; hazırlanmış Worker artefaktında dışarı yayın → kalıcı SQL → aynı browser runtime’da var/yok/bilinmiyor, reboot, DB/ağ kesintisi, yetki/bozuk veri/tekrar ve tazelik testleri uygulandı. Worker build/sözdizimi, kaynak bütünlüğü ve DOM rota kontrolü geçti. IDF araç zinciri/gerçek cihaz/FPS/uzun süreli fiziksel test yok.
-- Prepared artefakt: build/cloud-prepared (36 browser varlığı + Worker + schema); aktif manifest ve yayın statik kaldı. D1 DB bağlaması/migration provisioning’i ve cihazın özel Sites servis erişimi/yayıncı anahtarının güvenli provisioning’i yapılmadı. Yeni key/token değeri istenmedi veya yayımlanmadı. Bir saniyelik yayın/açık panel temposunun kota/hesap kapasitesi devreye almadan kontrol edilmeli; ücretli servis/plan seçilmedi.
-- Canlı devreye alma hâlâ AÇIK: hosted kaynakları tanımlama biçimi doğrulanmalı, mevcut V1 kaynakta snapshot callback bağlanıp gerçek IDF derlenmeli. Sonra doğru cihaz/partition/geri dönüş ve kullanıcı yükleme yetkisiyle gerçek kabul yapılabilir. OTA, yeni cloud yayın, gerçek cihaz isteği veya router/VPN/ACL değişikliği bu adımda yapılmadı.
-- Bağımsız odaklı kaynak incelemesi presence-ingest/Worker/ESP yayıncı protokolünde kritik veya önemli hata bildirmedi; nonce/boot/sıra/CAS ve tazelik hesabı tutarlı bulundu. Bu inceleme hosted D1/ESP-IDF/fiziksel kabul yerine geçmez.
-
-10 Kasım 2026 — kullanıcı canlı yüklemeyi istedi; yetki ile erişim ayrımı:
-- Kullanıcı doğrudan yükleme talimatı verdi. Teknik hazırlık/erişim sağlandığında aynı yükleme için tekrar rutin onay sorulmaz. Bu talimat mevcut V1 hedefinin, derlemenin, OTA bölüm/geri dönüş ve kimliğin doğrulanması gerekliliğini kaldırmaz.
-- Kontrol: canlı Sites veritabanı overview sonucu bindings=[]; ortam status’unda yalnız remote_desktop var, VPN/ev ağı bağı yok ve secrets/runtime credential tanımı yok. idf.py yok. /workspace’te V1 çalışma kopyası veya hedef firmware binary yok. Bağlı GitHub aracı ylmzcqn/esp_armut_v1.1:firmware-idf/src/common/Radar.h için 404 verdi; güncel V1 buradan temin edilemedi (404 dosyanın/erişimin yokluğunu tek başına ayırmaz).
-- Bu nedenle gerçek firmware/OTA veya cloud kaynak provisioning’i yapılmadı. Önceki “yalnız yükleme kaldı” ifadesi eksikti: gerçek V1 callback/IDF derlemesi ve hosted DB/kimlik provisioning’i de tamamlanmalıdır. Yükleme yetkisi eksik diye değil, doğrulanmış kaynak/artefakt ve hedefe ağ erişimi olmadığı için bloke.
-- Devam için mevcut V1’i ve ev ağını gören yerel yürütücüden tek seferlik entegrasyon/derleme/OTA çalışması gerekir; bu, kullanıcı PC’sinde kalıcı V2 backend veya yardımcı servis kurma çözümü değildir. Kalıcı ürün hedefi cloud’da kalır. Fiziksel kabul hâlâ AÇIK.
-
-10 Kasım 2026 — erişilebilir kaynak/artefakt devri tamamlandı:
-- Mevcut özel GitHub deposuna yalnız yeni `camera02-cloud-publisher-20261110` dalı başarıyla push edildi; sabit kaynak commit `8050480730ceda4f148f30ca4a8dc319050dfb4b`. main ve Sites production değiştirilmedi. Yerel V1 ajan bu commit’i kullanabilir; callback/IDF/OTA korumaları docs/ESP32-INTEGRATION.md son bölümündedir.
-- Sırsız 29 dosyalı yedek devir paketi `/workspace/armut-camera02-handoff.zip`; SHA256 `d9ec5c1b302b828b31586f0ec334a23193005fd8cc43f6464e189096451a24a7`. MANIFEST.json kaynak commit’ini ve dosya bazlı SHA256’ları içerir. ZIP bütünlüğü doğrulandı; bu paket flash edilebilir firmware değildir.
-- Cloud üretim hedefi aynı özel Site Worker + D1’dir. Mevcut kaynak build/protokol testleri hazır; hosted DB/migration ve güvenli iki katmanlı publisher/service provisioning’i açık. Yeni servis/ücretli hesap veya sır talep edilmedi. Gerçek V1 entegrasyonu yerel tarafta yapılacak; PC’de kalıcı backend yok. Yayın ve OTA yapılmadı.
-
-10 Kasım 2026 — Sites D1/provisioning tekrar doğrulaması:
-- Sites SKILL/storage/troubleshooting yeniden okundu: Worker ESM, mantıksal D1 DB ve yayın sırasında migration platform tarafından desteklenir. Önceki genel platform kapasitesi engeli ifadesi yerine doğru açık iş: bu buildless kaynak için tam manifest/migration declaration biçimini doğrulamak. Bu oturumda okunan storage metni alan şekli/örneği vermiyor; plugin yardımcı scriptleri filesystem/resource yolundan bulunamadı. Yerel 1.1.4 örneğiyle fark netleştirilmeli, alan uydurulmamalı.
-- Native get_site sahibi-özel durumu (tek owner, grup yok) doğruladı. Native read_database_overview sonucu bindings=[]/tables=[]; env revision0 boştu. Mevcut açık yetkiyle yalnız PRESENCE_PUBLISH_TOKEN yeni rastgele değer olarak is_secret=true tanımlandı; env revision1 başarıyla döndü. Değer mesaj/log/Git'e yazılmadı; yayın yapılmadığından henüz uygulanmış runtime yetkisi değildir. Önceden çalışan cihaz key'i döndürülmedi veya rotate edilmedi.
-- Prepared Worker ve migrations/presence/0001_presence.sql var; schema dosyası kaynakla byte-identical. Prepared manifest project_id'yi koruyor/static içermiyor fakat d1 henüz tanımlı değil. Bu yüzden paket yayıma hazır/D1 provision edilmiş sayılmıyor. Eksik somut işlem, güncel Sites 1.1.4'te desteklenen tam d1 DB + migration declaration örneğini elde edip source manifestine koymak, ardından onaylı save/deploy ve native DB/API kontrollerini tamamlamak. OTA hâlâ yapılmayacak; sırların yerel güvenli provisioning'i bundan sonra gelir.
-
-10 Kasım 2026 — Hub geçişi yazılım doğrulaması:
-- 154 Node testi geçti. Üç C host testi de geçti; bunlar doğrudan yayıncı yedek bileşenini kapsar, gerçek Hub firmware entegrasyonu değildir. Hazırlanan Worker ve build/sözdizimi doğrulandı. Hub normalleştirme, toplam yaş/eksik pay, yanlış yayıncı/kaynak, kaynak reboot ayrımı ve SQLite/D1’den aynı özel panel runtime’ına sentetik radar akışı kapsandı.
-- Yerel kaynak 2 sn sync ve 4/8 sn retry bilgisiyle <2 sn radar tazeliğinin çakışması kayda alındı. Öncelik mevcut tam systemJson/registry; ağ payı bilinmiyorsa unknown. Gerekirse sabit hedefli yetkili kısa GET alternatifinin gerçek etkisi yerelde değerlendirilecek; cloud’dan LAN denemesi yapılmadı.
-- SQL unchanged olarak drizzle/0001_presence.sql konumuna taşındı. Prepared artefakt yeni SQL yolunu içerir; uygulanmış migration/DB binding/journal iddiası yok. Aktif manifest ve production/audience değiştirilmedi, yeni sır üretilmedi, OTA yapılmadı.
-
-10 Kasım 2026 — Hub ↔ Kamera 2 radar tazelik (<2000ms) kararı (planlandı; uygulanmadı/ölçülmedi):
-- V1 2000 ms sync döngüsü ve tek yönlü ağ gecikmesi belirsizliğinin <2000 ms radar tazeliği ile çakışması netleştirildi: pasif registry sync'inde döngü sonlarında yaş aşımı veya eksik ağ payında veri güvenli şekilde `null` (bilinmiyor) kalır; 2000 ms güvenlik sınırı gevşetilmez.
-- Birincil yol: Hub'ın Kamera 2'nin mevcut Bearer korumalı `GET /api/system` ucuna 1000 ms aralıklı, 800 ms zaman aşımlı kısa GET yapması; böylece `sourceTransitMs` doğrudan Hub tarafından ölçülür, Hub önbellek yaşı normalde ~1000 ms altında kalır; toplam yaşın normal ağda <2000 ms kalması beklenir ama ölçülmedi (yüksek gecikmede yine null). Kamera 2 firmware'i değişmez; pasif sync yedektir.
-
-10 Kasım 2026 — proje incelemesi düzeltmeleri:
-- server.mjs içinde kaynakta sabit duran kişisel tailnet adları/IP kaldırıldı; aynı loopback-proxy izni artık yalnız yerel `ARMUT_TRUSTED_HOSTS` ortam değeriyle verilir (docs/LOCAL-CONTROLLER.md). Bu adlarla erişen yerel kurulum bu değeri tanımlamalıdır. Odaklı regresyon testi eklendi.
-- docs/ARCHITECTURE.md eski `migrations/presence` yolu `drizzle/` olarak düzeltildi; radar tazelik belgesindeki ölçülmemiş kesinlik ifadeleri geri alındı. Codex devir kuralındaki giderilmiş Windows fsync notu güncellendi.
-- 155 Node testi, source-check, Worker build/sözdizimi ve 3 C host testi geçti. Servis, yayın, cihaz veya OTA işlemi yapılmadı.
-
-10 Kasım 2026 — çoklu ESP32 cihaz bulut desteği ve doğrudan erişim:
-- `drizzle/0001_presence.sql` tablosu `hub`, `camera-01`, `camera-02` cihazlarının durumunu tutacak şekilde genişletildi.
-- `presence-ingest.mjs` ve `cloud-presence-worker.mjs`: Hub canlılık takibi (5 sn pencere), ek cihaz telemetrisi ve `/api/devices/status` uç noktası eklendi. Şifresiz/doğrudan link erişimi için `PUBLIC_ACCESS` seçeneği bağlandı.
-- `local-presence.mjs`: Buluttan gelen çoklu cihaz listesini filtreleyip `runtime.receiveState` üzerinden Genel Bakış ve Cihazlar görünümüne aktarır.
-- 155 Node testi, `source-check.mjs` ve `build-cloud.mjs` başarıyla geçti.
-
-10 Kasım 2026 — yerel ajan görev paketi devri:
-- Bilgisayarda yapılması gereken işler kullanıcıdan bağımsız olarak yerelde çalışan ajana devredildi (`docs/YEREL_AJAN_TALIMATLARI.md`).
-- Öncelikli işler: PC tüneli/köprüsünün (`pc-bridge`) yenilenmesi, yerel V1 referansındaki (`ESP_ARMUT_V1.1`) radar callback'inin V2 bileşeniyle ESP-IDF 5.5 derlemesi (`idf.py build`), ev ağındaki cihazların canlı HTTP doğrulaması.
-
-10 Kasım 2026 — cloud-yerel bağlantı ajanı (local-bridge-agent) uygulandı:
-- Buluttaki yapay zekâ ajanlarından gelen istekleri yerel ortamda çalıştırmak ve çıktıyı cloud'a aktarmak için `local-bridge-agent.mjs` ve `YEREL-AJAN-BASLAT.cmd` hazırlandı.
-- Otomatik localhost.run SSH tüneli, düşme durumunda 5 saniyelik watchdog ile yeniden bağlanma, `bridge.json` metaverisini otomatik olarak `origin/pc-bridge` dalına push etme ve PowerShell ile güvenli komut yürütme sağlandı.
-
-10 Kasım 2026 — Hub ST7789 ekranı, fiziksel doğrulama ve sürekli bulut telemetrisi:
-- `pc-run.mjs` köprüsü üzerinden evdeki Windows PC'de `cloud-hub-sync.mjs` arka plan servisi başlatıldı; Hub ve Kamera 2 telemetrisi Cloudflare Worker'a (`/api/presence`) kesintisiz ve taze (<2000 ms) aktarılmaya başlandı.
-- Ev ağındaki Hub (`192.168.1.118`) ve Kamera 2 (`192.168.1.116`) canlı olarak sorgulandı. Hub'ın gerçek boot kimliği (`1db768d6`), ST7789V3 ekran durumu (SPI, 240×280) ve Kamera 2'deki HLK-LD2410C radarının canlı varlık algılaması (54 cm) fiziksel olarak doğrulandı.
-- Hub'ın `/api/display` uç noktasına `smile`, `heart` ifadeleri ve sayfa geçişleri canlı gönderildi; fiziksel Hub tarafından onaylandı.
-- Panelde Hub cihazı ve ekranının görünürlüğü sağlandı: boş depolamada otomatik `defaultHome()` yükleme, Genel Bakış sayfasında Hub ST7789 ekran kartı ve hızlı ifade butonları (❤️, ⭐, 🙂, 🌸), Donanım Haritası üstünden doğrudan `#device/hub` geçişi eklendi.
-- 162 Node testi ve `source-check.mjs` eksiksiz geçti, `main` dalı senkronize edildi.
+### `home-panel.mjs` ↔ Hardware Presence Glow
+- CSS class `.presence-active` applied to closest `.hp-card` when `presence-radar` entity is active.
+- Styling: `border-color: #5ba374; box-shadow: 0 0 16px #41855b40; background: #233027;`.
