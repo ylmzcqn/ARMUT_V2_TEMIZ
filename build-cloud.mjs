@@ -18,4 +18,5 @@ writeFileSync(join(out,'dist/server/index.js'),bundle);
 const manifest=JSON.parse(readFileSync(join(root,'.openai/hosting.json'),'utf8'));delete manifest.static;
 mkdirSync(join(out,'drizzle'),{recursive:true});writeFileSync(join(out,'drizzle/0001_presence.sql'),readFileSync(join(root,'drizzle/0001_presence.sql')));
 writeFileSync(join(out,'.openai/hosting.json'),JSON.stringify(manifest,null,2)+'\n');
+writeFileSync(join(root,'cloudflare-worker.js'),bundle);
 console.log(JSON.stringify({artifact:out,assets:Object.keys(assets).length,bytes:Buffer.byteLength(bundle),published:false,publisherStorage:'D1-binding-and-migration-not-applied',publisherSecrets:'not-embedded-configure-via-Sites'}));
